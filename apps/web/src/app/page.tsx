@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { apiGet, apiPut } from '@/lib/api';
+import { apiGet, apiPost, apiPut } from '@/lib/api';
 import { GettingStartedCard } from '@/components/GettingStartedCard';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase-client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import type { UserProfile, BurnBuddy, BurnSquad, GroupWorkout } from '@burnbuddy/shared';
+import type { UserProfile, BurnBuddy, BurnSquad, GroupWorkout, BurnBuddyRequest } from '@burnbuddy/shared';
 
 interface Streaks {
   burnStreak: number;
@@ -21,6 +21,10 @@ interface CombinedItem {
   name: string;
   burnStreak: number;
   lastGroupWorkout: string | null;
+}
+
+interface EnrichedBurnBuddyRequest extends BurnBuddyRequest {
+  displayName?: string;
 }
 
 function timeAgo(isoString: string | null): string {
@@ -40,95 +44,113 @@ export default function Home() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [showCard, setShowCard] = useState(false);
   const [items, setItems] = useState<CombinedItem[]>([]);
+  const [incomingBuddyRequests, setIncomingBuddyRequests] = useState<EnrichedBurnBuddyRequest[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
 
-  useEffect(() => {
+  const loadData = useCallback(async () => {
     if (!user) return;
+    setDataLoading(true);
+    try {
+      const [userProfile, buddies, squads, groupWorkouts, buddyRequests] = await Promise.all([
+        apiGet<UserProfile>('/users/me').catch(() => null),
+        apiGet<BurnBuddy[]>('/burn-buddies').catch(() => [] as BurnBuddy[]),
+        apiGet<BurnSquad[]>('/burn-squads').catch(() => [] as BurnSquad[]),
+        apiGet<GroupWorkout[]>('/group-workouts').catch(() => [] as GroupWorkout[]),
+        apiGet<{ incoming: BurnBuddyRequest[]; outgoing: BurnBuddyRequest[] }>(
+          '/burn-buddies/requests',
+        ).catch(() => ({ incoming: [], outgoing: [] })),
+      ]);
 
-    async function load() {
-      try {
-        const [userProfile, buddies, squads, groupWorkouts] = await Promise.all([
-          apiGet<UserProfile>('/users/me').catch(() => null),
-          apiGet<BurnBuddy[]>('/burn-buddies').catch(() => [] as BurnBuddy[]),
-          apiGet<BurnSquad[]>('/burn-squads').catch(() => [] as BurnSquad[]),
-          apiGet<GroupWorkout[]>('/group-workouts').catch(() => [] as GroupWorkout[]),
-        ]);
+      if (userProfile) {
+        setProfile(userProfile);
+        setShowCard(!userProfile.gettingStartedDismissed);
+      } else {
+        setShowCard(true);
+      }
 
-        if (userProfile) {
-          setProfile(userProfile);
-          setShowCard(!userProfile.gettingStartedDismissed);
-        } else {
-          setShowCard(true);
-        }
-
-        // Build a map of referenceId -> most recent group workout startedAt
-        const lastWorkoutMap = new Map<string, string>();
-        for (const gw of groupWorkouts) {
-          const existing = lastWorkoutMap.get(gw.referenceId);
-          if (!existing || gw.startedAt > existing) {
-            lastWorkoutMap.set(gw.referenceId, gw.startedAt);
+      // Enrich incoming burn buddy requests with display names
+      const enrichedIncoming = await Promise.all(
+        buddyRequests.incoming.map(async (req): Promise<EnrichedBurnBuddyRequest> => {
+          try {
+            const p = await apiGet<{ uid: string; displayName: string; email: string }>(
+              `/users/${req.fromUid}`,
+            );
+            return { ...req, displayName: p.displayName };
+          } catch {
+            return { ...req };
           }
+        }),
+      );
+      setIncomingBuddyRequests(enrichedIncoming);
+
+      // Build a map of referenceId -> most recent group workout startedAt
+      const lastWorkoutMap = new Map<string, string>();
+      for (const gw of groupWorkouts) {
+        const existing = lastWorkoutMap.get(gw.referenceId);
+        if (!existing || gw.startedAt > existing) {
+          lastWorkoutMap.set(gw.referenceId, gw.startedAt);
         }
+      }
 
-        // Fetch partner profiles and streaks for each burn buddy in parallel
-        const buddyPromises = buddies.map(async (b): Promise<CombinedItem> => {
-          const partnerUid = b.uid1 === user!.uid ? b.uid2 : b.uid1;
-          const [partnerProfile, streaks] = await Promise.all([
-            apiGet<{ uid: string; displayName: string; email: string }>(
-              `/users/${partnerUid}`,
-            ).catch(() => null),
-            apiGet<Streaks>(`/burn-buddies/${b.id}/streaks`).catch(() => ({
-              burnStreak: 0,
-              supernovaStreak: 0,
-            })),
-          ]);
-          return {
-            type: 'buddy',
-            id: b.id,
-            name: partnerProfile?.displayName ?? partnerUid,
-            burnStreak: streaks.burnStreak,
-            lastGroupWorkout: lastWorkoutMap.get(b.id) ?? null,
-          };
-        });
-
-        // Fetch streaks for each burn squad in parallel
-        const squadPromises = squads.map(async (s): Promise<CombinedItem> => {
-          const streaks = await apiGet<Streaks>(`/burn-squads/${s.id}/streaks`).catch(() => ({
+      // Fetch partner profiles and streaks for each burn buddy in parallel
+      const buddyPromises = buddies.map(async (b): Promise<CombinedItem> => {
+        const partnerUid = b.uid1 === user.uid ? b.uid2 : b.uid1;
+        const [partnerProfile, streaks] = await Promise.all([
+          apiGet<{ uid: string; displayName: string; email: string }>(
+            `/users/${partnerUid}`,
+          ).catch(() => null),
+          apiGet<Streaks>(`/burn-buddies/${b.id}/streaks`).catch(() => ({
             burnStreak: 0,
             supernovaStreak: 0,
-          }));
-          return {
-            type: 'squad',
-            id: s.id,
-            name: s.name,
-            burnStreak: streaks.burnStreak,
-            lastGroupWorkout: lastWorkoutMap.get(s.id) ?? null,
-          };
-        });
+          })),
+        ]);
+        return {
+          type: 'buddy',
+          id: b.id,
+          name: partnerProfile?.displayName ?? partnerUid,
+          burnStreak: streaks.burnStreak,
+          lastGroupWorkout: lastWorkoutMap.get(b.id) ?? null,
+        };
+      });
 
-        const combined = await Promise.all([...buddyPromises, ...squadPromises]);
+      // Fetch streaks for each burn squad in parallel
+      const squadPromises = squads.map(async (s): Promise<CombinedItem> => {
+        const streaks = await apiGet<Streaks>(`/burn-squads/${s.id}/streaks`).catch(() => ({
+          burnStreak: 0,
+          supernovaStreak: 0,
+        }));
+        return {
+          type: 'squad',
+          id: s.id,
+          name: s.name,
+          burnStreak: streaks.burnStreak,
+          lastGroupWorkout: lastWorkoutMap.get(s.id) ?? null,
+        };
+      });
 
-        // Sort: items with lastGroupWorkout first (desc), then items without
-        combined.sort((a, b) => {
-          if (a.lastGroupWorkout && b.lastGroupWorkout) {
-            return b.lastGroupWorkout.localeCompare(a.lastGroupWorkout);
-          }
-          if (a.lastGroupWorkout) return -1;
-          if (b.lastGroupWorkout) return 1;
-          return 0;
-        });
+      const combined = await Promise.all([...buddyPromises, ...squadPromises]);
 
-        setItems(combined);
-      } catch {
-        // Keep empty state on error
-      } finally {
-        setDataLoading(false);
-      }
+      // Sort: items with lastGroupWorkout first (desc), then items without
+      combined.sort((a, b) => {
+        if (a.lastGroupWorkout && b.lastGroupWorkout) {
+          return b.lastGroupWorkout.localeCompare(a.lastGroupWorkout);
+        }
+        if (a.lastGroupWorkout) return -1;
+        if (b.lastGroupWorkout) return 1;
+        return 0;
+      });
+
+      setItems(combined);
+    } catch {
+      // Keep empty state on error
+    } finally {
+      setDataLoading(false);
     }
-
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleDismiss = async () => {
     setShowCard(false);
@@ -137,6 +159,15 @@ export default function Home() {
       if (profile) setProfile({ ...profile, gettingStartedDismissed: true });
     } catch {
       // Non-fatal — dismissed in UI even if API call fails
+    }
+  };
+
+  const handleAcceptBuddyRequest = async (requestId: string) => {
+    try {
+      await apiPost(`/burn-buddies/requests/${requestId}/accept`);
+      await loadData();
+    } catch {
+      // ignore
     }
   };
 
@@ -177,6 +208,60 @@ export default function Home() {
       </div>
 
       {showCard && <GettingStartedCard onDismiss={handleDismiss} />}
+
+      {/* Pending Burn Buddy Requests */}
+      {incomingBuddyRequests.length > 0 && (
+        <section style={{ marginBottom: 24 }}>
+          <h2 style={{ fontSize: 16, color: '#6b7280', marginBottom: 12 }}>
+            Pending Burn Buddy Requests
+          </h2>
+          {incomingBuddyRequests.map((req) => (
+            <div
+              key={req.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 14px',
+                marginBottom: 8,
+                borderRadius: 6,
+                border: '1px solid #fde68a',
+                backgroundColor: '#fffbeb',
+              }}
+            >
+              <div>
+                <strong>{req.displayName ?? req.fromUid}</strong>
+                <span
+                  style={{
+                    marginLeft: 8,
+                    fontSize: 12,
+                    color: '#92400e',
+                    backgroundColor: '#fef3c7',
+                    padding: '2px 8px',
+                    borderRadius: 12,
+                  }}
+                >
+                  wants to be your Burn Buddy
+                </span>
+              </div>
+              <button
+                onClick={() => handleAcceptBuddyRequest(req.id)}
+                style={{
+                  padding: '6px 14px',
+                  cursor: 'pointer',
+                  backgroundColor: '#f97316',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 4,
+                  fontSize: 13,
+                }}
+              >
+                Accept
+              </button>
+            </div>
+          ))}
+        </section>
+      )}
 
       {/* Header with create buttons */}
       <div
