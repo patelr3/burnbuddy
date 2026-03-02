@@ -424,8 +424,8 @@
         "Typecheck passes"
       ],
       "priority": 25,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "FriendsScreen added to apps/mobile/src/screens/FriendsScreen.tsx. Shows accepted friends list with Remove button (Alert confirmation). Add Friend button toggles email search panel with TextInput + Search button; search result tap opens confirmation Modal; confirmed request calls POST /friends/requests. Pending incoming requests shown with Accept + Ignore (no-op, v2) buttons. Outgoing requests shown with 'pending' badge. Tab navigation added to App.tsx: bottom TabBar with Home + Friends tabs renders the active screen. apiDelete() helper added to apps/mobile/src/lib/api.ts. All typechecks pass, 181 tests pass."
     },
     {
       "id": "US-026",

@@ -1,3 +1,15 @@
+## 2026-03-02 - US-025
+- What was implemented: FriendsScreen (apps/mobile/src/screens/FriendsScreen.tsx). Shows accepted friends list with Remove button (Alert.alert confirmation dialog). Add Friend / Cancel button toggles email search panel with TextInput + Search button; search result tap opens a confirmation Modal before sending POST /friends/requests. Pending incoming requests shown with Accept (POST /friends/requests/:id/accept + reload) + Ignore (no-op, v2) buttons. Outgoing requests shown with 'pending' badge. loadData() as useCallback for handler reuse. apiDelete() helper added to apps/mobile/src/lib/api.ts. Tab navigation added to App.tsx: bottom TabBar with 🏠 Home and 👥 Friends tabs, state-based switching between HomeScreen and FriendsScreen.
+- Files changed: apps/mobile/App.tsx (TabBar component + AppTab state + tab-wrapped layout), apps/mobile/src/lib/api.ts (apiDelete), apps/mobile/src/screens/FriendsScreen.tsx (new)
+- **Learnings for future iterations:**
+  - State-based tab nav in Expo: add AppTab state to AppNavigator, render TabBar at bottom with borderTopWidth, paddingBottom:24 for home indicator space; screenContainer takes flex:1 to fill remaining space
+  - For friend removal in RN: Alert.alert with destructive style button is cleaner than a separate confirmation modal; satisfies the "menu action" acceptance criteria
+  - Modal component with transparent + animationType="fade" works well for confirmation dialogs in RN; visible={confirmUser !== null} is the clean toggle pattern
+  - GET /friends returns enriched list: [{ uid, displayName, email, createdAt }] — otherUser's uid is returned, not composite Friend key
+  - GET /friends/requests returns { incoming: FriendRequest[], outgoing: FriendRequest[] } — enrich each with GET /users/:uid for display names
+  - loadData() as useCallback with [user, loadData] in useEffect deps avoids the react-hooks/exhaustive-deps lint warning
+---
+
 ## 2026-03-02 - US-023
 - What was implemented: Account page at apps/web/src/app/account/page.tsx. Page fetches GET /users/me to get profile state (gettingStartedDismissed). Shows display name and email from Firebase Auth user (user.displayName, user.email). Toggle button calls PUT /users/me with { gettingStartedDismissed: !current } to flip the card visibility state, with a success message shown afterwards. Log Out button calls Firebase signOut() and redirects to /login via useRouter.replace. Account link added to home page nav bar alongside existing Friends link.
 - Files changed: apps/web/src/app/account/page.tsx (new), apps/web/src/app/page.tsx (Account nav link added)
