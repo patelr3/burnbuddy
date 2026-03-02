@@ -13,8 +13,29 @@ yarn dev:api    # Express API at http://localhost:3001
 
 ```bash
 yarn typecheck          # Typecheck all packages
-yarn workspace api test # Run API tests
+yarn workspace api test # Run API tests (uses vi.mock — no emulators needed)
 ```
+
+## Local testing with Firebase emulators
+
+The API tests use `vi.mock` by default and require no external services. For full integration tests against local emulators:
+
+**Prerequisites:** [Firebase CLI](https://firebase.google.com/docs/cli) and Java 11+ installed.
+
+```bash
+# 1. Start emulators (Auth on :9099, Firestore on :8080, UI on :4000)
+firebase emulators:start --only auth,firestore
+
+# 2. Run tests against the emulators
+FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 \
+FIRESTORE_EMULATOR_HOST=localhost:8080 \
+FIREBASE_PROJECT_ID=burnbuddy-test \
+yarn workspace api test
+```
+
+See `.env.test` for all required environment variables. The emulator configuration lives in `firebase.json`.
+
+The test helper in `packages/shared/src/testing/emulators.ts` initializes firebase-admin against the running emulators when `FIREBASE_AUTH_EMULATOR_HOST` and `FIRESTORE_EMULATOR_HOST` are set; it is a no-op otherwise.
 
 ## CI/CD
 
