@@ -96,10 +96,12 @@ router.put('/me', requireAuth, async (req: Request, res: Response): Promise<void
   const existing = await docRef.get();
 
   if (existing.exists) {
+    const { gettingStartedDismissed } = req.body as Partial<UserProfile>;
     const updates: Partial<UserProfile> = {};
     if (email !== undefined) updates.email = email;
     if (displayName !== undefined) updates.displayName = displayName;
     if (fcmToken !== undefined) updates.fcmToken = fcmToken;
+    if (gettingStartedDismissed !== undefined) updates.gettingStartedDismissed = gettingStartedDismissed;
 
     await docRef.update(updates);
     const updated = await docRef.get();

@@ -206,4 +206,21 @@ describe('PUT /users/me', () => {
     expect(res.status).toBe(400);
     expect(res.body).toMatchObject({ error: expect.stringContaining('email') });
   });
+
+  it('updates gettingStartedDismissed when profile exists', async () => {
+    const updatedProfile = { ...TEST_PROFILE, gettingStartedDismissed: true };
+    mockGet
+      .mockResolvedValueOnce({ exists: true })
+      .mockResolvedValueOnce({ exists: true, data: () => updatedProfile });
+    mockUpdate.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .put('/users/me')
+      .set('Authorization', VALID_TOKEN)
+      .send({ gettingStartedDismissed: true });
+
+    expect(res.status).toBe(200);
+    expect(res.body.gettingStartedDismissed).toBe(true);
+    expect(mockUpdate).toHaveBeenCalledWith({ gettingStartedDismissed: true });
+  });
 });

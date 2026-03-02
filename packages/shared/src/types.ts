@@ -3,6 +3,7 @@ export interface UserProfile {
   email: string;
   displayName: string;
   fcmToken?: string;
+  gettingStartedDismissed?: boolean;
   createdAt: string;
 }
 
