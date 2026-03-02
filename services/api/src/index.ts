@@ -2,6 +2,11 @@ import './instrumentation'; // must be first — initializes OpenTelemetry SDK
 
 import express from 'express';
 import pino from 'pino';
+import { initFirebase } from './lib/firebase';
+import { requireAuth } from './middleware/auth';
+
+// Initialize Firebase Admin on startup
+initFirebase();
 
 const transportTargets: pino.TransportTargetOptions[] = [
   {
@@ -31,6 +36,11 @@ app.use(express.json());
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
+});
+
+// Protected route example — returns the authenticated user's uid
+app.get('/me', requireAuth, (req, res) => {
+  res.json({ uid: req.user?.uid });
 });
 
 app.listen(PORT, () => {
