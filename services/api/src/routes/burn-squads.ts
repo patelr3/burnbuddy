@@ -14,7 +14,11 @@ const router = Router();
  */
 router.post('/', requireAuth, async (req: Request, res: Response): Promise<void> => {
   const adminUid = req.user!.uid;
-  const { name, inviteUids } = req.body as { name?: string; inviteUids?: string[] };
+  const { name, inviteUids, workoutSchedule } = req.body as {
+    name?: string;
+    inviteUids?: string[];
+    workoutSchedule?: import('@burnbuddy/shared').WorkoutSchedule;
+  };
 
   if (!name) {
     res.status(400).json({ error: 'name is required' });
@@ -32,6 +36,7 @@ router.post('/', requireAuth, async (req: Request, res: Response): Promise<void>
     memberUids: [adminUid],
     settings: {
       onlyAdminsCanAddMembers: false,
+      ...(workoutSchedule && { workoutSchedule }),
     },
     createdAt: now,
   };
@@ -78,6 +83,60 @@ router.get('/', requireAuth, async (req: Request, res: Response): Promise<void> 
   const squads = snap.docs.map((doc) => doc.data() as BurnSquad);
 
   res.json(squads);
+});
+
+/**
+ * GET /burn-squads/join-requests
+ * Returns pending incoming and outgoing Burn Squad join requests for the authenticated user,
+ * enriched with the squad name.
+ * NOTE: must be registered before /:id routes to avoid Express capturing 'join-requests' as :id.
+ */
+router.get('/join-requests', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const uid = req.user!.uid;
+  const db = getDb();
+
+  const [incomingSnap, outgoingSnap] = await Promise.all([
+    db
+      .collection('burnSquadJoinRequests')
+      .where('toUid', '==', uid)
+      .where('status', '==', 'pending')
+      .get(),
+    db
+      .collection('burnSquadJoinRequests')
+      .where('fromUid', '==', uid)
+      .where('status', '==', 'pending')
+      .get(),
+  ]);
+
+  const incomingRequests = incomingSnap.docs.map((doc) => doc.data() as BurnSquadJoinRequest);
+  const outgoingRequests = outgoingSnap.docs.map((doc) => doc.data() as BurnSquadJoinRequest);
+
+  const [enrichedIncoming, enrichedOutgoing] = await Promise.all([
+    Promise.all(
+      incomingRequests.map(async (joinReq) => {
+        try {
+          const squadDoc = await db.collection('burnSquads').doc(joinReq.squadId).get();
+          const squadName = squadDoc.exists ? (squadDoc.data() as BurnSquad).name : 'Unknown Squad';
+          return { ...joinReq, squadName };
+        } catch {
+          return { ...joinReq, squadName: 'Unknown Squad' };
+        }
+      }),
+    ),
+    Promise.all(
+      outgoingRequests.map(async (joinReq) => {
+        try {
+          const squadDoc = await db.collection('burnSquads').doc(joinReq.squadId).get();
+          const squadName = squadDoc.exists ? (squadDoc.data() as BurnSquad).name : 'Unknown Squad';
+          return { ...joinReq, squadName };
+        } catch {
+          return { ...joinReq, squadName: 'Unknown Squad' };
+        }
+      }),
+    ),
+  ]);
+
+  res.json({ incoming: enrichedIncoming, outgoing: enrichedOutgoing });
 });
 
 /**

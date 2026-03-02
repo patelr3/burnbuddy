@@ -8,7 +8,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase-client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import type { UserProfile, BurnBuddy, BurnSquad, GroupWorkout, BurnBuddyRequest } from '@burnbuddy/shared';
+import type { UserProfile, BurnBuddy, BurnSquad, GroupWorkout, BurnBuddyRequest, BurnSquadJoinRequest } from '@burnbuddy/shared';
 
 interface Streaks {
   burnStreak: number;
@@ -25,6 +25,10 @@ interface CombinedItem {
 
 interface EnrichedBurnBuddyRequest extends BurnBuddyRequest {
   displayName?: string;
+}
+
+interface EnrichedSquadJoinRequest extends BurnSquadJoinRequest {
+  squadName: string;
 }
 
 function timeAgo(isoString: string | null): string {
@@ -45,19 +49,23 @@ export default function Home() {
   const [showCard, setShowCard] = useState(false);
   const [items, setItems] = useState<CombinedItem[]>([]);
   const [incomingBuddyRequests, setIncomingBuddyRequests] = useState<EnrichedBurnBuddyRequest[]>([]);
+  const [incomingSquadRequests, setIncomingSquadRequests] = useState<EnrichedSquadJoinRequest[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     if (!user) return;
     setDataLoading(true);
     try {
-      const [userProfile, buddies, squads, groupWorkouts, buddyRequests] = await Promise.all([
+      const [userProfile, buddies, squads, groupWorkouts, buddyRequests, squadRequests] = await Promise.all([
         apiGet<UserProfile>('/users/me').catch(() => null),
         apiGet<BurnBuddy[]>('/burn-buddies').catch(() => [] as BurnBuddy[]),
         apiGet<BurnSquad[]>('/burn-squads').catch(() => [] as BurnSquad[]),
         apiGet<GroupWorkout[]>('/group-workouts').catch(() => [] as GroupWorkout[]),
         apiGet<{ incoming: BurnBuddyRequest[]; outgoing: BurnBuddyRequest[] }>(
           '/burn-buddies/requests',
+        ).catch(() => ({ incoming: [], outgoing: [] })),
+        apiGet<{ incoming: EnrichedSquadJoinRequest[]; outgoing: EnrichedSquadJoinRequest[] }>(
+          '/burn-squads/join-requests',
         ).catch(() => ({ incoming: [], outgoing: [] })),
       ]);
 
@@ -82,6 +90,7 @@ export default function Home() {
         }),
       );
       setIncomingBuddyRequests(enrichedIncoming);
+      setIncomingSquadRequests(squadRequests.incoming);
 
       // Build a map of referenceId -> most recent group workout startedAt
       const lastWorkoutMap = new Map<string, string>();
@@ -171,6 +180,15 @@ export default function Home() {
     }
   };
 
+  const handleAcceptSquadRequest = async (squadId: string, requestId: string) => {
+    try {
+      await apiPost(`/burn-squads/${squadId}/join-requests/${requestId}/accept`);
+      await loadData();
+    } catch {
+      // ignore
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut(auth);
     router.replace('/login');
@@ -250,6 +268,60 @@ export default function Home() {
                   padding: '6px 14px',
                   cursor: 'pointer',
                   backgroundColor: '#f97316',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 4,
+                  fontSize: 13,
+                }}
+              >
+                Accept
+              </button>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {/* Pending Burn Squad Join Requests */}
+      {incomingSquadRequests.length > 0 && (
+        <section style={{ marginBottom: 24 }}>
+          <h2 style={{ fontSize: 16, color: '#6b7280', marginBottom: 12 }}>
+            Pending Squad Invitations
+          </h2>
+          {incomingSquadRequests.map((req) => (
+            <div
+              key={req.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 14px',
+                marginBottom: 8,
+                borderRadius: 6,
+                border: '1px solid #bfdbfe',
+                backgroundColor: '#eff6ff',
+              }}
+            >
+              <div>
+                <strong>{req.squadName}</strong>
+                <span
+                  style={{
+                    marginLeft: 8,
+                    fontSize: 12,
+                    color: '#1e40af',
+                    backgroundColor: '#dbeafe',
+                    padding: '2px 8px',
+                    borderRadius: 12,
+                  }}
+                >
+                  squad invitation
+                </span>
+              </div>
+              <button
+                onClick={() => handleAcceptSquadRequest(req.squadId, req.id)}
+                style={{
+                  padding: '6px 14px',
+                  cursor: 'pointer',
+                  backgroundColor: '#3b82f6',
                   color: 'white',
                   border: 'none',
                   borderRadius: 4,

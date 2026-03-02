@@ -25,6 +25,9 @@ const {
   // workouts — query (for streaks)
   mockWorkoutsQueryGet,
   mockWorkoutsQueryChain,
+  // burnSquadJoinRequests — query (for GET /join-requests)
+  mockJoinRequestQueryGet,
+  mockJoinRequestQueryChain,
 } = vi.hoisted(() => {
   const mockVerifyIdToken = vi.fn();
 
@@ -57,6 +60,13 @@ const {
     update: mockJoinRequestDocUpdate,
   }));
 
+  // burnSquadJoinRequests — query chain (for GET /join-requests)
+  const mockJoinRequestQueryGet = vi.fn();
+  const mockJoinRequestQueryChain = {
+    where: vi.fn(),
+    get: mockJoinRequestQueryGet,
+  };
+
   // friends — doc (friendship check only)
   const mockFriendsDocGet = vi.fn();
   const mockFriendsDocRef = vi.fn(() => ({ get: mockFriendsDocGet }));
@@ -85,6 +95,8 @@ const {
     mockFriendsDocRef,
     mockWorkoutsQueryGet,
     mockWorkoutsQueryChain,
+    mockJoinRequestQueryGet,
+    mockJoinRequestQueryChain,
   };
 });
 
@@ -107,6 +119,7 @@ vi.mock('../lib/firestore', () => ({
       if (name === 'burnSquadJoinRequests') {
         return {
           doc: mockJoinRequestDocRef,
+          where: () => mockJoinRequestQueryChain,
         };
       }
       if (name === 'friends') {
@@ -153,6 +166,7 @@ beforeEach(() => {
   // Re-setup query chains (mockReturnThis must be re-applied after resetAllMocks)
   mockSquadQueryChain.where.mockReturnThis();
   mockWorkoutsQueryChain.where.mockReturnThis();
+  mockJoinRequestQueryChain.where.mockReturnThis();
 
   // Re-setup doc refs
   mockSquadDocRef.mockImplementation(() => ({
@@ -167,6 +181,89 @@ beforeEach(() => {
     update: mockJoinRequestDocUpdate,
   }));
   mockFriendsDocRef.mockImplementation(() => ({ get: mockFriendsDocGet }));
+});
+
+// ── GET /burn-squads/join-requests ────────────────────────────────────────────
+
+describe('GET /burn-squads/join-requests', () => {
+  it('returns 401 when unauthenticated', async () => {
+    const res = await request(buildApp()).get('/burn-squads/join-requests');
+    expect(res.status).toBe(401);
+  });
+
+  it('returns empty incoming and outgoing when no pending join requests exist', async () => {
+    mockJoinRequestQueryGet
+      .mockResolvedValueOnce({ docs: [] }) // incoming
+      .mockResolvedValueOnce({ docs: [] }); // outgoing
+
+    const res = await request(buildApp())
+      .get('/burn-squads/join-requests')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ incoming: [], outgoing: [] });
+  });
+
+  it('returns enriched incoming join requests with squad name', async () => {
+    const joinReq = {
+      id: REQUEST_ID,
+      squadId: SQUAD_ID,
+      fromUid: OTHER_UID,
+      toUid: TEST_UID,
+      status: 'pending',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+    mockJoinRequestQueryGet
+      .mockResolvedValueOnce({ docs: [{ data: () => joinReq }] }) // incoming
+      .mockResolvedValueOnce({ docs: [] }); // outgoing
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => SAMPLE_SQUAD,
+    });
+
+    const res = await request(buildApp())
+      .get('/burn-squads/join-requests')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.incoming).toHaveLength(1);
+    expect(res.body.incoming[0]).toMatchObject({
+      id: REQUEST_ID,
+      squadId: SQUAD_ID,
+      squadName: 'Test Squad',
+    });
+    expect(res.body.outgoing).toHaveLength(0);
+  });
+
+  it('returns enriched outgoing join requests with squad name', async () => {
+    const joinReq = {
+      id: REQUEST_ID,
+      squadId: SQUAD_ID,
+      fromUid: TEST_UID,
+      toUid: OTHER_UID,
+      status: 'pending',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+    mockJoinRequestQueryGet
+      .mockResolvedValueOnce({ docs: [] }) // incoming
+      .mockResolvedValueOnce({ docs: [{ data: () => joinReq }] }); // outgoing
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => SAMPLE_SQUAD,
+    });
+
+    const res = await request(buildApp())
+      .get('/burn-squads/join-requests')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.incoming).toHaveLength(0);
+    expect(res.body.outgoing).toHaveLength(1);
+    expect(res.body.outgoing[0]).toMatchObject({
+      id: REQUEST_ID,
+      squadName: 'Test Squad',
+    });
+  });
 });
 
 // ── POST /burn-squads ──────────────────────────────────────────────────────────
