@@ -453,8 +453,8 @@
         "Typecheck passes"
       ],
       "priority": 27,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "NewBurnSquadScreen.tsx: squad name TextInput (required), multi-select friends list (blue highlight + checkmark, Set<string> for selectedUids), day-of-week schedule toggles (Mon-Sun), optional time TextInput (shown when days selected), submit calls POST /burn-squads with { name, inviteUids, workoutSchedule? }, Cancel/Back buttons in footer. BurnSquadDetailScreen.tsx: fetches squad, member profiles (GET /users/:uid for each), streaks (GET /burn-squads/:id/streaks), and group workouts (GET /group-workouts, filtered by referenceId+type) in parallel. Shows Squad badge, optional schedule display, 6-stat grid (Burn Streak, Supernova Streak, This Week, This Month, Squad Age, Since), member list with initial avatar (indigo circle) + Admin badge for adminUid, group workout log in reverse chrono order. Admin Edit button (top-right) toggles settings panel: squad name TextInput, onlyAdminsCanAddMembers Switch, day toggles (purple theme), optional time input. Delete Squad uses Alert.alert with destructive button, calls apiDelete + onBack on success. HomeScreen.tsx updated: HomeView union extended with squad-detail and new-squad types; squad list items now tappable (TouchableOpacity) navigating to squad-detail; '+ Burn Squad' button navigates to new-squad instead of showing coming-soon alert. All typechecks pass, 181 tests pass."
     },
     {
       "id": "US-028",
