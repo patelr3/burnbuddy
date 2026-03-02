@@ -357,8 +357,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 21,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "GET /burn-squads/:id endpoint added (member-only, returns single squad). PUT /burn-squads/:id endpoint added (admin-only, updates name and/or settings, returns updated squad). apps/web/src/app/burn-squads/[id]/page.tsx created: fetches squad, member profiles (GET /users/:uid for each), streaks, and group workouts in parallel; displays squad name + Squad badge, 6-stat grid (Burn Streak, Supernova Streak, this week/month group workouts, squad age, created date), member list with avatar initials + admin badge, full group workout log in reverse chrono order. Admin-only Edit Settings panel: squad name input, onlyAdminsCanAddMembers checkbox, day-of-week schedule toggles, optional time input. Admin-only Delete Squad button with confirmation dialog (routes to / on success). 9 new API tests (4 GET + 5 PUT), 181 total tests pass, all typechecks pass."
     },
     {
       "id": "US-022",
