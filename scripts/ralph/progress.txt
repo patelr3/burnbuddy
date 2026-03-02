@@ -1,4 +1,8 @@
 ## Codebase Patterns
+- @types/express v5: req.params values are typed as `string | string[]` — use `req.params['name'] as string` to avoid TS2345 errors
+- When modifying packages/shared/src/types.ts, run `yarn workspace @burnbuddy/shared build` before typechecking dependent workspaces (services/api imports dist/ declaration files)
+- Firestore friendship pattern: use composite doc id `[uid1, uid2].sort().join('_')` for bidirectional relationships — enables O(1) lookup given both uids
+- For Firestore query chains in vitest mocks, call `mockReturnThis()` on `where` and `limit` inside `beforeEach` (after `vi.resetAllMocks()`); use `mockResolvedValueOnce` on the terminal `get()` mock
 - pino-opentelemetry-transport runs in a worker thread (like all pino transports), so OTel SDK initialized in main thread doesn't share state; use OTEL_LOGS_ENABLED=true to enable in environments with a collector
 - OpenTelemetry SDK initialization must be the first import in the entry point (`import './instrumentation'` before all other imports) to ensure auto-instrumentation patches modules before they load
 - apps/web logger: use `pino` with `browser: { asObject: true }` in Next.js — safe for both SSR (Node) and client-side (browser) without crashes
@@ -20,6 +24,17 @@
 - Firestore singleton: `getDb()` in services/api/src/lib/firestore.ts; mock via `vi.mock('../lib/firestore', () => ({ getDb: () => ({ collection: () => ({ doc: mockDocRef }) }) }))`
 - vitest: use `vi.resetAllMocks()` (not `vi.clearAllMocks()`) in beforeEach to clear queued `mockResolvedValueOnce` values; then re-setup mock implementations in beforeEach
 - New API routes go in services/api/src/routes/<resource>.ts and are registered in index.ts via `app.use('/<resource>', router)`
+---
+
+## 2026-03-02 - US-007
+- What was implemented: Friend type in packages/shared. GET /users/search?email=... on users router. New friends router (services/api/src/routes/friends.ts) with POST /friends/requests, GET /friends/requests, POST /friends/requests/:id/accept, DELETE /friends/:uid. Bidirectional friendship stored in `friends/{uid1}_{uid2}` (sorted composite key). Friends router registered in index.ts.
+- Files changed: packages/shared/src/types.ts (Friend type), services/api/src/routes/users.ts (GET /users/search), services/api/src/routes/friends.ts (new), services/api/src/routes/friends.test.ts (new, 20 tests), services/api/src/index.ts (register friendsRouter)
+- **Learnings for future iterations:**
+  - @types/express v5 types req.params as `string | string[]` — always cast with `req.params['name'] as string`
+  - packages/shared dist/ must be rebuilt (`yarn workspace @burnbuddy/shared build`) after changing types.ts before downstream typechecks pass
+  - For Firestore query chain mocks: re-call `mockReturnThis()` on `where`/`limit` inside `beforeEach` after `vi.resetAllMocks()` — resetAllMocks clears all implementations including returnThis
+  - Two parallel Firestore queries in `Promise.all()` hit the same `get` mock in call order — `mockResolvedValueOnce` works correctly for ordering results
+  - Friendship composite key: `[uid1, uid2].sort().join('_')` gives a stable, deterministic doc ID from any two uids in any order
 ---
 
 # Ralph Progress Log

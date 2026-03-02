@@ -115,8 +115,8 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Friend type added to packages/shared. FriendRequest type was already present. GET /users/search added to users router (Firestore where query by email). New friends router (friends.ts) implements POST /friends/requests, GET /friends/requests, POST /friends/requests/:id/accept, DELETE /friends/:uid. Friendship stored as friends/{uid1}_{uid2} (sorted). 20 vitest tests using vi.mock with per-collection mock chains. All 37 tests and typechecks pass. Note: @types/express v5 types req.params values as string|string[], fixed with 'as string' casts."
     },
     {
       "id": "US-008",
