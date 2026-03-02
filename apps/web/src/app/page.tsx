@@ -272,6 +272,9 @@ export default function Home() {
           <Link href="/friends" style={{ fontSize: 14, color: '#6b7280', textDecoration: 'none' }}>
             Friends
           </Link>
+          <Link href="/account" style={{ fontSize: 14, color: '#6b7280', textDecoration: 'none' }}>
+            Account
+          </Link>
           {user && (
             <button
               onClick={handleSignOut}
