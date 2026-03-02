@@ -204,8 +204,8 @@
         "Typecheck passes"
       ],
       "priority": 12,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "New calculateStreaks() pure function in services/api/src/services/streak-calculator.ts. Groups completed workouts by UTC calendar date, walks backwards from today counting consecutive qualifying days. BurnStreak counts any-member days; SupernovaStreak counts all-member days. GET /burn-buddies/:id/streaks and GET /burn-squads/:id/streaks added to respective routers, both protected by requireAuth + membership check. 11 unit tests for the calculator + 5 route tests each (401, 404, 403, zero workouts, with workouts). All 139 tests and typechecks pass."
     },
     {
       "id": "US-013",
