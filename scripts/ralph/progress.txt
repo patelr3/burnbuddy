@@ -17,6 +17,9 @@
 - vitest is the test runner for services/api; use `vi.hoisted()` to create mock variables before `vi.mock()` factory executes (avoids temporal dead zone issues)
 - Express Request type augmentation lives in src/types/express.d.ts (global namespace Extension); tsconfig "include": ["src"] covers it automatically
 - firebase-admin emulator mode: set FIREBASE_AUTH_EMULATOR_HOST env var and initialize with just { projectId } — no credentials needed
+- Firestore singleton: `getDb()` in services/api/src/lib/firestore.ts; mock via `vi.mock('../lib/firestore', () => ({ getDb: () => ({ collection: () => ({ doc: mockDocRef }) }) }))`
+- vitest: use `vi.resetAllMocks()` (not `vi.clearAllMocks()`) in beforeEach to clear queued `mockResolvedValueOnce` values; then re-setup mock implementations in beforeEach
+- New API routes go in services/api/src/routes/<resource>.ts and are registered in index.ts via `app.use('/<resource>', router)`
 ---
 
 # Ralph Progress Log
@@ -78,4 +81,14 @@ Started: Mon Mar  2 07:24:31 AM UTC 2026
   - firebase-admin emulator mode: when FIREBASE_AUTH_EMULATOR_HOST is set, initialize with just { projectId } — SDK routes calls to the local emulator without credentials
   - Express Request interface augmented in src/types/express.d.ts using global namespace declaration (covered by tsconfig include: src)
   - supertest + vitest work seamlessly together for Express integration-style tests without spinning up a server
+---
+
+## 2026-03-02 - US-006
+- What was implemented: Firestore user profile API — POST /users (create), GET /users/me (fetch), PUT /users/me (upsert). Firestore singleton in services/api/src/lib/firestore.ts. Users router registered in index.ts under /users prefix. 13 vitest unit tests using vi.mock for Firestore.
+- Files changed: services/api/src/lib/firestore.ts (new), services/api/src/routes/users.ts (new), services/api/src/routes/users.test.ts (new), services/api/src/index.ts (import usersRouter + app.use)
+- **Learnings for future iterations:**
+  - Use `vi.resetAllMocks()` (not `vi.clearAllMocks()`) in beforeEach when tests use `mockResolvedValueOnce` — clearAllMocks does NOT clear queued values, causing cross-test contamination
+  - After `vi.resetAllMocks()`, re-setup mock implementations in beforeEach (e.g., `mockDocRef.mockReturnValue(...)`) since resetAllMocks also clears implementations
+  - Firestore singleton pattern: lazy-init `let _db: Firestore | null = null` in lib/firestore.ts, exported as `getDb()`; mock `../lib/firestore` in tests by returning a plain JS object with `collection → doc → get/set/update` chain
+  - Firestore emulator NOT available in devcontainer (no Firebase CLI / Java) — mock all Firestore calls in unit tests
 ---
