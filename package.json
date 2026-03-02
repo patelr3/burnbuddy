@@ -1,0 +1,16 @@
+{
+  "name": "burnbuddy",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "services/*"
+  ],
+  "scripts": {
+    "build": "yarn workspaces run build",
+    "typecheck": "yarn workspaces run typecheck",
+    "dev:web": "yarn workspace web dev",
+    "dev:api": "yarn workspace api dev"
+  }
+}
