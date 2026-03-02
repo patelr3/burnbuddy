@@ -187,8 +187,8 @@
         "Typecheck passes"
       ],
       "priority": 11,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "New detectGroupWorkouts() service in services/api/src/services/group-workout-detection.ts. Checks all BurnBuddies (two parallel queries: uid1==uid + uid2==uid) — if partner has an active workout started within 20 min, creates GroupWorkout (type: buddy). Checks all BurnSquads (array-contains query) — if ALL other members have active workouts within 20 min, creates GroupWorkout (type: squad). Deduplication: before creating, queries groupWorkouts collection for existing doc with same referenceId and startedAt >= cutoff. Called fire-and-forget from POST /workouts handler after saving workout. 14 vitest tests. All 118 tests and typechecks pass."
     },
     {
       "id": "US-012",

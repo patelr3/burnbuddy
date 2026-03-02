@@ -1,3 +1,14 @@
+## 2026-03-02 - US-011
+- What was implemented: New group workout detection service (services/api/src/services/group-workout-detection.ts) with detectGroupWorkouts(uid, workout) function. Checks BurnBuddies (two parallel Firestore queries: uid1==uid + uid2==uid) — if partner has active workout started within 20 min, creates GroupWorkout (type: 'buddy'). Checks BurnSquads (array-contains query) — if ALL other members have active workouts within 20 min, creates GroupWorkout (type: 'squad'). Deduplication: queries groupWorkouts for existing doc with same type+referenceId+startedAt>=cutoff before creating. Called fire-and-forget (with .catch for non-fatal error handling) from POST /workouts after saving workout.
+- Files changed: services/api/src/services/group-workout-detection.ts (new), services/api/src/services/group-workout-detection.test.ts (new, 14 tests), services/api/src/routes/workouts.ts (added detectGroupWorkouts call), services/api/src/routes/workouts.test.ts (mocked detectGroupWorkouts to prevent test interference)
+- **Learnings for future iterations:**
+  - When a new service module is called fire-and-forget from a route, mock it in the route's test file with `vi.mock('../services/...', () => ({ myFn: vi.fn().mockResolvedValue(...) }))` AND re-apply `.mockResolvedValue()` in `beforeEach` after `vi.resetAllMocks()` — otherwise the mock returns undefined causing TypeError on `.catch()`
+  - `vi.mocked(fn)` is the typed accessor for a mocked function — use it to call `.mockResolvedValue()` on imports inside `beforeEach` without casting
+  - Tests within the same `it` block that call `vi.resetAllMocks()` internally (e.g., in a for loop) must also re-setup all function mocks after each reset
+  - For fire-and-forget patterns that call `.catch()`, the mock must return a real Promise — `vi.fn().mockResolvedValue(x)` works; a bare `vi.fn()` (returning undefined) does not
+  - Deduplication strategy for GroupWorkouts: query by (type, referenceId, startedAt>=cutoff) before creating — prevents duplicate GroupWorkouts when both buddies start workouts within the same 20-min window
+---
+
 ## 2026-03-02 - US-010
 - What was implemented: New workouts router (services/api/src/routes/workouts.ts) with POST /workouts (creates workout with status: active), PATCH /workouts/:id/end (sets endedAt + status: completed, validates ownership), GET /workouts (returns history for uid). Exported autoEndStaleWorkouts() finds workouts where status==active AND startedAt <= ISO cutoff (1.5h ago), marks them completed. setInterval in index.ts calls it every 10 min for local dev.
 - Files changed: services/api/src/routes/workouts.ts (new), services/api/src/routes/workouts.test.ts (new, 16 tests), services/api/src/index.ts (import workoutsRouter + autoEndStaleWorkouts, register route, add setInterval scheduler)
@@ -31,6 +42,7 @@
 ---
 
 ## Codebase Patterns
+- When mocking fire-and-forget service calls in vitest, re-apply `.mockResolvedValue()` in `beforeEach` after `vi.resetAllMocks()` — otherwise mock returns undefined and `.catch()` throws TypeError
 - @types/express v5: req.params values are typed as `string | string[]` — use `req.params['name'] as string` to avoid TS2345 errors
 - When modifying packages/shared/src/types.ts, run `yarn workspace @burnbuddy/shared build` before typechecking dependent workspaces (services/api imports dist/ declaration files)
 - Firestore friendship pattern: use composite doc id `[uid1, uid2].sort().join('_')` for bidirectional relationships — enables O(1) lookup given both uids
