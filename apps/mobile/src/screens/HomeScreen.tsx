@@ -7,11 +7,13 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { signOut } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { useAuth } from '../lib/auth-context';
-import { apiGet, apiPost, apiPut } from '../lib/api';
+import { apiGet, apiPost, apiPut, apiPatch } from '../lib/api';
 import GettingStartedCard from '../components/GettingStartedCard';
 import BurnBuddyDetailScreen from './BurnBuddyDetailScreen';
 import NewBurnBuddyScreen from './NewBurnBuddyScreen';
@@ -24,6 +26,8 @@ import type {
   GroupWorkout,
   BurnBuddyRequest,
   BurnSquadJoinRequest,
+  Workout,
+  WorkoutType,
 } from '@burnbuddy/shared';
 
 // ----- Types -----
@@ -54,7 +58,29 @@ type HomeView =
   | { type: 'squad-detail'; squadId: string }
   | { type: 'new-squad' };
 
+// ----- Constants -----
+
+const WORKOUT_TYPES: WorkoutType[] = [
+  'Weightlifting',
+  'Running',
+  'Cycling',
+  'Yoga',
+  'Barre',
+  'Swimming',
+  'HIIT',
+  'Custom',
+];
+
 // ----- Helpers -----
+
+function formatElapsed(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -88,12 +114,17 @@ function HomeListView({
   const [loading, setLoading] = useState(true);
   const [showGettingStarted, setShowGettingStarted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeWorkout, setActiveWorkout] = useState<Workout | null>(null);
+  const [showWorkoutSelector, setShowWorkoutSelector] = useState(false);
+  const [selectedType, setSelectedType] = useState<WorkoutType | ''>('');
+  const [customType, setCustomType] = useState('');
+  const [elapsed, setElapsed] = useState(0);
 
   const loadData = useCallback(async () => {
     if (!user) return;
     setError(null);
     try {
-      const [rawBuddies, rawSquads, groupWorkouts, profile, buddyRequests, squadJoinRequests] =
+      const [rawBuddies, rawSquads, groupWorkouts, profile, buddyRequests, squadJoinRequests, workouts] =
         await Promise.all([
           apiGet<BurnBuddy[]>('/burn-buddies'),
           apiGet<BurnSquad[]>('/burn-squads'),
@@ -105,7 +136,11 @@ function HomeListView({
           apiGet<{ incoming: EnrichedSquadJoinRequest[]; outgoing: EnrichedSquadJoinRequest[] }>(
             '/burn-squads/join-requests',
           ).catch(() => ({ incoming: [], outgoing: [] })),
+          apiGet<Workout[]>('/workouts').catch(() => [] as Workout[]),
         ]);
+
+      const active = workouts.find((w) => w.status === 'active') ?? null;
+      setActiveWorkout(active);
 
       setShowGettingStarted(!profile?.gettingStartedDismissed);
 
@@ -190,9 +225,46 @@ function HomeListView({
     }
   };
 
+  // Elapsed timer for active workout
+  useEffect(() => {
+    if (!activeWorkout) {
+      setElapsed(0);
+      return;
+    }
+    const startTime = new Date(activeWorkout.startedAt).getTime();
+    const tick = () => setElapsed(Math.floor((Date.now() - startTime) / 1000));
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [activeWorkout]);
+
   const handleDismissCard = () => {
     setShowGettingStarted(false);
     apiPut('/users/me', { gettingStartedDismissed: true }).catch(() => {});
+  };
+
+  const handleStartWorkout = async () => {
+    const type = selectedType === 'Custom' ? customType.trim() : selectedType;
+    if (!type) return;
+    try {
+      const workout = await apiPost<Workout>('/workouts', { type });
+      setActiveWorkout(workout);
+      setShowWorkoutSelector(false);
+      setSelectedType('');
+      setCustomType('');
+    } catch {
+      Alert.alert('Error', 'Failed to start workout');
+    }
+  };
+
+  const handleEndWorkout = async () => {
+    if (!activeWorkout) return;
+    try {
+      await apiPatch(`/workouts/${activeWorkout.id}/end`);
+      setActiveWorkout(null);
+    } catch {
+      Alert.alert('Error', 'Failed to end workout');
+    }
   };
 
   const handleAcceptBuddyRequest = async (requestId: string) => {
@@ -243,6 +315,29 @@ function HomeListView({
         {error && <Text style={styles.errorText}>{error}</Text>}
 
         {showGettingStarted && <GettingStartedCard onDismiss={handleDismissCard} />}
+
+        {/* Active Workout Banner */}
+        {activeWorkout && (
+          <View style={styles.workoutBanner}>
+            <View style={styles.workoutBannerLeft}>
+              <Text style={styles.workoutBannerTitle}>🔥 Active: {activeWorkout.type}</Text>
+              <Text style={styles.workoutBannerElapsed}>{formatElapsed(elapsed)}</Text>
+            </View>
+            <TouchableOpacity style={styles.endWorkoutButton} onPress={handleEndWorkout}>
+              <Text style={styles.endWorkoutButtonText}>End Workout</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Start Workout Button */}
+        {!activeWorkout && (
+          <TouchableOpacity
+            style={styles.startWorkoutButton}
+            onPress={() => setShowWorkoutSelector(true)}
+          >
+            <Text style={styles.startWorkoutButtonText}>🏃 Start Workout</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Action Buttons */}
         <View style={styles.actionRow}>
@@ -370,6 +465,67 @@ function HomeListView({
           </>
         )}
       </ScrollView>
+
+      {/* Workout Type Selector Modal */}
+      <Modal visible={showWorkoutSelector} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Choose Workout Type</Text>
+            <View style={styles.workoutTypeGrid}>
+              {WORKOUT_TYPES.map((wt) => (
+                <TouchableOpacity
+                  key={wt}
+                  style={[
+                    styles.workoutTypeItem,
+                    selectedType === wt && styles.workoutTypeItemSelected,
+                  ]}
+                  onPress={() => setSelectedType(wt)}
+                >
+                  <Text
+                    style={[
+                      styles.workoutTypeText,
+                      selectedType === wt && styles.workoutTypeTextSelected,
+                    ]}
+                  >
+                    {wt}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {selectedType === 'Custom' && (
+              <TextInput
+                style={styles.customTypeInput}
+                placeholder="Enter custom workout type"
+                value={customType}
+                onChangeText={setCustomType}
+              />
+            )}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => {
+                  setShowWorkoutSelector(false);
+                  setSelectedType('');
+                  setCustomType('');
+                }}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalConfirmButton,
+                  (!selectedType || (selectedType === 'Custom' && !customType.trim())) &&
+                    styles.modalConfirmButtonDisabled,
+                ]}
+                onPress={handleStartWorkout}
+                disabled={!selectedType || (selectedType === 'Custom' && !customType.trim())}
+              >
+                <Text style={styles.modalConfirmText}>Start</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -518,4 +674,98 @@ const styles = StyleSheet.create({
   streakText: { fontSize: 16, fontWeight: '700', color: '#E05A00' },
   timeAgoText: { fontSize: 12, color: '#9ca3af', marginTop: 2 },
   emptyText: { color: '#9ca3af', fontSize: 14 },
+  // Workout styles
+  workoutBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fef3c7',
+    borderWidth: 1,
+    borderColor: '#fbbf24',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 14,
+  },
+  workoutBannerLeft: { flex: 1 },
+  workoutBannerTitle: { fontSize: 15, fontWeight: '700', color: '#713f12' },
+  workoutBannerElapsed: { fontSize: 13, color: '#854d0e', marginTop: 2 },
+  endWorkoutButton: {
+    backgroundColor: '#ef4444',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  endWorkoutButtonText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  startWorkoutButton: {
+    backgroundColor: '#E05A00',
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  startWorkoutButtonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#111', marginBottom: 16 },
+  workoutTypeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 16,
+  },
+  workoutTypeItem: {
+    width: '47%',
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    alignItems: 'center',
+    backgroundColor: '#f9fafb',
+  },
+  workoutTypeItemSelected: {
+    borderColor: '#E05A00',
+    backgroundColor: '#fff3e0',
+  },
+  workoutTypeText: { fontSize: 14, color: '#374151', fontWeight: '500' },
+  workoutTypeTextSelected: { color: '#E05A00', fontWeight: '700' },
+  customTypeInput: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    marginBottom: 16,
+    color: '#111',
+  },
+  modalActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  modalCancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    alignItems: 'center',
+  },
+  modalCancelText: { color: '#374151', fontSize: 15, fontWeight: '600' },
+  modalConfirmButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#E05A00',
+    alignItems: 'center',
+  },
+  modalConfirmButtonDisabled: { backgroundColor: '#fcd9bf' },
+  modalConfirmText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });
