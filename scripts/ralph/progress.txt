@@ -1,3 +1,14 @@
+## 2026-03-02 - US-008
+- What was implemented: New burn-buddies router (services/api/src/routes/burn-buddies.ts) with POST /burn-buddies/requests (requires existing friendship), GET /burn-buddies/requests, POST /burn-buddies/requests/:id/accept (creates BurnBuddy doc with random UUID), GET /burn-buddies (two parallel Firestore queries: uid1==uid + uid2==uid merged), DELETE /burn-buddies/:id (member-only). BurnBuddy and BurnBuddyRequest types were already in packages/shared.
+- Files changed: services/api/src/routes/burn-buddies.ts (new), services/api/src/routes/burn-buddies.test.ts (new, 21 tests), services/api/src/index.ts (register burnBuddiesRouter)
+- **Learnings for future iterations:**
+  - BurnBuddy uses its own random UUID as doc ID (not a composite key) since DELETE uses /:id — use `burnBuddies/{randomUUID}` pattern
+  - GET /burn-buddies requires two parallel Firestore queries (where uid1==uid AND where uid2==uid) merged — standard Firestore OR workaround
+  - DELETE /burn-buddies/:id needs a membership check (uid1 or uid2 == current user) before deleting
+  - burnBuddyRequests collection mirrors friendRequests pattern exactly (pending check, 409 on duplicate, accept creates relationship doc)
+  - For multi-collection mocks in vitest: create separate query chains and doc refs per collection; mock the `getDb().collection(name)` switch
+---
+
 ## Codebase Patterns
 - @types/express v5: req.params values are typed as `string | string[]` — use `req.params['name'] as string` to avoid TS2345 errors
 - When modifying packages/shared/src/types.ts, run `yarn workspace @burnbuddy/shared build` before typechecking dependent workspaces (services/api imports dist/ declaration files)

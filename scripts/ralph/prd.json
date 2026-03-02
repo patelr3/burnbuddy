@@ -134,8 +134,8 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "BurnBuddy and BurnBuddyRequest types were already in packages/shared. New burn-buddies router (services/api/src/routes/burn-buddies.ts) implements POST /burn-buddies/requests (friendship check required), GET /burn-buddies/requests, POST /burn-buddies/requests/:id/accept (creates BurnBuddy doc with random UUID), GET /burn-buddies (two parallel queries: uid1==uid + uid2==uid), DELETE /burn-buddies/:id (member-only auth check). 21 vitest tests using vi.mock with separate mock chains per collection. All 58 tests and typechecks pass."
     },
     {
       "id": "US-009",
