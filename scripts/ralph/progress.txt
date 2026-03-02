@@ -1,4 +1,5 @@
 ## Codebase Patterns
+- Docker multi-stage builds for services/api: copy only packages/shared and services/api package.json into builder (skip apps/); yarn installs subset of workspaces; copy node_modules + packages/shared to runtime stage to preserve workspace symlinks
 - Use yarn workspaces for the monorepo (yarn 1.22.x available)
 - All packages use TypeScript strict mode
 - Always add node_modules/, dist/, .next/, *.tsbuildinfo to .gitignore before first commit
@@ -35,4 +36,16 @@ Started: Mon Mar  2 07:24:31 AM UTC 2026
   - Use `npx expo export --platform web` to verify web works without blocking dev server
   - expo/tsconfig.base already includes strict:true when you extend it and add "strict": true in compilerOptions
   - create-expo-app uses React 19.2.0 and React Native 0.83.2 with Expo SDK 55
+---
+
+## 2026-03-02 - US-003
+- What was implemented: Multi-stage Dockerfile for services/api, docker-compose.yml at project root, .dockerignore
+- Files changed: services/api/Dockerfile, docker-compose.yml, .dockerignore, scripts/ralph/prd.json, scripts/ralph/progress.txt
+- **Learnings for future iterations:**
+  - Docker is not available in the devcontainer — cannot run `docker compose up` to verify live; files are correct and can be verified in an environment with Docker
+  - Multi-stage Dockerfile pattern: builder stage copies only packages/shared and services/api manifests (skips apps/); yarn installs subset of workspaces; copies node_modules + packages/shared to runtime stage to preserve workspace symlinks
+  - Use `COPY --from=builder /app/node_modules` to carry workspace symlinks to runtime stage; also copy packages/shared so symlink resolves at runtime
+  - .dockerignore excludes node_modules/, dist/, .next/, .git/, .env files, and Expo artifacts
+  - Healthcheck uses `node -e "require('http').get(...)"` — safer than wget/curl on alpine (node is guaranteed to exist)
+  - The API service starts without any Firebase secrets; graceful dev mode is the default
 ---

@@ -46,8 +46,8 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Multi-stage Dockerfile in services/api/ builds from monorepo root context (skips mobile/web deps). docker-compose.yml at project root starts the API on port 3001. .dockerignore excludes node_modules, dist, and env files. No secrets required — service starts gracefully without Firebase. Typecheck passes."
     },
     {
       "id": "US-004",
