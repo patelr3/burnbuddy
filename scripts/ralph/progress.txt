@@ -1,3 +1,13 @@
+## 2026-03-02 - US-010
+- What was implemented: New workouts router (services/api/src/routes/workouts.ts) with POST /workouts (creates workout with status: active), PATCH /workouts/:id/end (sets endedAt + status: completed, validates ownership), GET /workouts (returns history for uid). Exported autoEndStaleWorkouts() finds workouts where status==active AND startedAt <= ISO cutoff (1.5h ago), marks them completed. setInterval in index.ts calls it every 10 min for local dev.
+- Files changed: services/api/src/routes/workouts.ts (new), services/api/src/routes/workouts.test.ts (new, 16 tests), services/api/src/index.ts (import workoutsRouter + autoEndStaleWorkouts, register route, add setInterval scheduler)
+- **Learnings for future iterations:**
+  - Firestore ISO string comparison works for range queries (`where('startedAt', '<=', cutoff)`) because ISO 8601 strings are lexicographically sortable — useful for time-based filtering
+  - Compound Firestore where queries: in vitest mock, the collection's `where` returns `mockQueryChain`, then chained `where` calls hit `mockQueryChain.where` (not the collection's where) — so `mockQueryChain.where` is called N-1 times for N total where clauses
+  - Auto-end scheduled jobs: export the logic as a standalone async function (testable in isolation) and wire up the setInterval in index.ts; can also be triggered by Cloud Scheduler / Cloud Functions in production
+  - PATCH routes for sub-actions (e.g., end a workout) use path pattern `/:id/end` — avoids conflicts with standard CRUD routes
+---
+
 ## 2026-03-02 - US-009
 - What was implemented: BurnSquadJoinRequest type added to packages/shared/src/types.ts. New burn-squads router (services/api/src/routes/burn-squads.ts) with POST /burn-squads (creates squad doc, sends join requests to valid friends via burnSquadJoinRequests collection), GET /burn-squads (Firestore array-contains query on memberUids), POST /burn-squads/:id/join-requests/:requestId/accept (validates request ownership + squad match, read-then-write memberUids), POST /burn-squads/:id/members (membership + admin gate + friendship check, sends join request), PUT /burn-squads/:id/settings (admin only, merges settings), DELETE /burn-squads/:id (admin only). burnSquadsRouter registered in index.ts.
 - Files changed: packages/shared/src/types.ts (BurnSquadJoinRequest), services/api/src/routes/burn-squads.ts (new), services/api/src/routes/burn-squads.test.ts (new, 30 tests), services/api/src/index.ts (register burnSquadsRouter)

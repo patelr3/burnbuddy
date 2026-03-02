@@ -171,8 +171,8 @@
         "Typecheck passes"
       ],
       "priority": 10,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Workout and WorkoutType types were already in packages/shared. New workouts router (services/api/src/routes/workouts.ts) implements POST /workouts (status: active), PATCH /workouts/:id/end (sets endedAt + status: completed), GET /workouts (history by uid). Exported autoEndStaleWorkouts() function queries workouts where status==active AND startedAt<=cutoff (ISO string comparison). setInterval in index.ts calls it every 10 minutes for local dev; can also be called by a Cloud Function in production. 16 vitest tests using vi.mock. All 104 tests and typechecks pass."
     },
     {
       "id": "US-011",
