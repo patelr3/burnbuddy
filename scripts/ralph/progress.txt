@@ -1,3 +1,14 @@
+## 2026-03-02 - US-009
+- What was implemented: BurnSquadJoinRequest type added to packages/shared/src/types.ts. New burn-squads router (services/api/src/routes/burn-squads.ts) with POST /burn-squads (creates squad doc, sends join requests to valid friends via burnSquadJoinRequests collection), GET /burn-squads (Firestore array-contains query on memberUids), POST /burn-squads/:id/join-requests/:requestId/accept (validates request ownership + squad match, read-then-write memberUids), POST /burn-squads/:id/members (membership + admin gate + friendship check, sends join request), PUT /burn-squads/:id/settings (admin only, merges settings), DELETE /burn-squads/:id (admin only). burnSquadsRouter registered in index.ts.
+- Files changed: packages/shared/src/types.ts (BurnSquadJoinRequest), services/api/src/routes/burn-squads.ts (new), services/api/src/routes/burn-squads.test.ts (new, 30 tests), services/api/src/index.ts (register burnSquadsRouter)
+- **Learnings for future iterations:**
+  - GET /burn-squads uses Firestore `array-contains` operator on memberUids — single query (unlike BurnBuddy which needs two parallel queries for uid1/uid2)
+  - For memberUids updates (join-request accept), use read-then-write (`[...squad.memberUids, uid]`) rather than FieldValue.arrayUnion — simpler and avoids firebase-admin import in tests
+  - BurnSquadJoinRequest includes squadId field to validate path param (:id) matches the request's squad — prevents cross-squad request manipulation
+  - POST /burn-squads creates the squad first, then loops through inviteUids checking friendship before creating each join request — skip silently on non-friends
+  - PUT settings uses spread merge: `{ ...squad.settings, ...newSettings }` to allow partial updates
+---
+
 ## 2026-03-02 - US-008
 - What was implemented: New burn-buddies router (services/api/src/routes/burn-buddies.ts) with POST /burn-buddies/requests (requires existing friendship), GET /burn-buddies/requests, POST /burn-buddies/requests/:id/accept (creates BurnBuddy doc with random UUID), GET /burn-buddies (two parallel Firestore queries: uid1==uid + uid2==uid merged), DELETE /burn-buddies/:id (member-only). BurnBuddy and BurnBuddyRequest types were already in packages/shared.
 - Files changed: services/api/src/routes/burn-buddies.ts (new), services/api/src/routes/burn-buddies.test.ts (new, 21 tests), services/api/src/index.ts (register burnBuddiesRouter)

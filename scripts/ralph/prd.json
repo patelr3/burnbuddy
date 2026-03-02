@@ -153,8 +153,8 @@
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "BurnSquadJoinRequest type added to packages/shared. New burn-squads router (services/api/src/routes/burn-squads.ts) implements POST /burn-squads (creates squad, sends join requests to friends), GET /burn-squads (array-contains query on memberUids), POST /burn-squads/:id/join-requests/:requestId/accept (read-then-write memberUids update), POST /burn-squads/:id/members (friendship check + onlyAdminsCanAddMembers gate, sends join request), PUT /burn-squads/:id/settings (admin only), DELETE /burn-squads/:id (admin only). 30 vitest tests using vi.mock with separate mock chains per collection. All 88 tests and typechecks pass."
     },
     {
       "id": "US-010",
