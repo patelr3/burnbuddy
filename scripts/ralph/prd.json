@@ -499,8 +499,8 @@
         "Typecheck passes"
       ],
       "priority": 30,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "AccountScreen created with profile info (displayName/email from Firebase Auth), Getting Started card toggle (PUT /users/me), and Log Out button (Firebase signOut). Account tab added to App.tsx TabBar."
     },
     {
       "id": "US-031",
