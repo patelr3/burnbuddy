@@ -221,8 +221,8 @@
         "Typecheck passes"
       ],
       "priority": 13,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "New sendWorkoutStartedNotifications(uid, senderDisplayName) service in services/api/src/services/push-notifications.ts. Queries burnBuddies (two parallel uid1/uid2 queries) and burnSquads (array-contains) to collect recipient UIDs (deduplicated via Set). Fetches UserProfile for each recipient, skips those with no fcmToken. Calls admin.messaging().sendEachForMulticast() with title '{name} started a workout!', body 'Jump in within 20 min to log a group workout', data { type: WORKOUT_STARTED, uid }. Called fire-and-forget from POST /workouts after fetching sender's displayName from Firestore. 9 unit tests, 148 total tests pass. All typechecks pass."
     },
     {
       "id": "US-014",
