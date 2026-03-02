@@ -1,8 +1,9 @@
 import { randomUUID } from 'crypto';
 import { Router, type Request, type Response } from 'express';
-import type { BurnSquad, BurnSquadJoinRequest } from '@burnbuddy/shared';
+import type { BurnSquad, BurnSquadJoinRequest, Workout } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
 import { getDb } from '../lib/firestore';
+import { calculateStreaks } from '../services/streak-calculator';
 
 const router = Router();
 
@@ -193,6 +194,48 @@ router.post(
 
     await db.collection('burnSquadJoinRequests').doc(requestId).set(joinRequest);
     res.status(201).json(joinRequest);
+  },
+);
+
+/**
+ * GET /burn-squads/:id/streaks
+ * Returns burnStreak and supernovaStreak for the given Burn Squad.
+ */
+router.get(
+  '/:id/streaks',
+  requireAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    const uid = req.user!.uid;
+    const squadId = req.params['id'] as string;
+    const db = getDb();
+
+    const squadDoc = await db.collection('burnSquads').doc(squadId).get();
+
+    if (!squadDoc.exists) {
+      res.status(404).json({ error: 'Burn Squad not found' });
+      return;
+    }
+
+    const squad = squadDoc.data() as BurnSquad;
+
+    if (!squad.memberUids.includes(uid)) {
+      res.status(403).json({ error: 'You are not a member of this Burn Squad' });
+      return;
+    }
+
+    const memberUids = squad.memberUids;
+
+    // Fetch all completed workouts for each member in parallel
+    const workoutSnaps = await Promise.all(
+      memberUids.map((memberUid) =>
+        db.collection('workouts').where('uid', '==', memberUid).where('status', '==', 'completed').get(),
+      ),
+    );
+
+    const allWorkouts = workoutSnaps.flatMap((snap) => snap.docs.map((doc) => doc.data() as Workout));
+    const streaks = calculateStreaks(memberUids, allWorkouts);
+
+    res.json(streaks);
   },
 );
 

@@ -22,6 +22,9 @@ const {
   // friends — doc (friendship check)
   mockFriendsDocGet,
   mockFriendsDocRef,
+  // workouts — query (for streaks)
+  mockWorkoutsQueryGet,
+  mockWorkoutsQueryChain,
 } = vi.hoisted(() => {
   const mockVerifyIdToken = vi.fn();
 
@@ -58,6 +61,13 @@ const {
   const mockFriendsDocGet = vi.fn();
   const mockFriendsDocRef = vi.fn(() => ({ get: mockFriendsDocGet }));
 
+  // workouts — query chain (for streaks endpoint)
+  const mockWorkoutsQueryGet = vi.fn();
+  const mockWorkoutsQueryChain = {
+    where: vi.fn(),
+    get: mockWorkoutsQueryGet,
+  };
+
   return {
     mockVerifyIdToken,
     mockSquadDocGet,
@@ -73,6 +83,8 @@ const {
     mockJoinRequestDocRef,
     mockFriendsDocGet,
     mockFriendsDocRef,
+    mockWorkoutsQueryGet,
+    mockWorkoutsQueryChain,
   };
 });
 
@@ -99,6 +111,9 @@ vi.mock('../lib/firestore', () => ({
       }
       if (name === 'friends') {
         return { doc: mockFriendsDocRef };
+      }
+      if (name === 'workouts') {
+        return { where: () => mockWorkoutsQueryChain };
       }
       return {};
     },
@@ -135,8 +150,9 @@ beforeEach(() => {
   // Re-setup auth mock
   mockVerifyIdToken.mockResolvedValue({ uid: TEST_UID });
 
-  // Re-setup query chain (mockReturnThis must be re-applied after resetAllMocks)
+  // Re-setup query chains (mockReturnThis must be re-applied after resetAllMocks)
   mockSquadQueryChain.where.mockReturnThis();
+  mockWorkoutsQueryChain.where.mockReturnThis();
 
   // Re-setup doc refs
   mockSquadDocRef.mockImplementation(() => ({
@@ -509,6 +525,75 @@ describe('PUT /burn-squads/:id/settings', () => {
     expect(mockSquadDocUpdate).toHaveBeenCalledWith({
       settings: { onlyAdminsCanAddMembers: true },
     });
+  });
+});
+
+// ── GET /burn-squads/:id/streaks ───────────────────────────────────────────────
+
+describe('GET /burn-squads/:id/streaks', () => {
+  it('returns 401 when unauthenticated', async () => {
+    const res = await request(buildApp()).get(`/burn-squads/${SQUAD_ID}/streaks`);
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 when the squad does not exist', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}/streaks`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 403 when user is not a member', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ ...SAMPLE_SQUAD, memberUids: [OTHER_UID] }),
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}/streaks`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('returns burnStreak and supernovaStreak when no workouts exist', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ ...SAMPLE_SQUAD, memberUids: [TEST_UID, OTHER_UID] }),
+    });
+    mockWorkoutsQueryGet
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [] });
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}/streaks`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ burnStreak: 0, supernovaStreak: 0 });
+  });
+
+  it('returns streak counts based on completed workouts', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ ...SAMPLE_SQUAD, memberUids: [TEST_UID, OTHER_UID] }),
+    });
+    const today = new Date().toISOString().substring(0, 10);
+    const workout1 = { id: 'w1', uid: TEST_UID, type: 'Yoga', startedAt: `${today}T08:00:00.000Z`, endedAt: `${today}T09:00:00.000Z`, status: 'completed' };
+    const workout2 = { id: 'w2', uid: OTHER_UID, type: 'Yoga', startedAt: `${today}T08:00:00.000Z`, endedAt: `${today}T09:00:00.000Z`, status: 'completed' };
+    mockWorkoutsQueryGet
+      .mockResolvedValueOnce({ docs: [{ data: () => workout1 }] })
+      .mockResolvedValueOnce({ docs: [{ data: () => workout2 }] });
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}/streaks`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ burnStreak: 1, supernovaStreak: 1 });
   });
 });
 

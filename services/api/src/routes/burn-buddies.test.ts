@@ -24,6 +24,9 @@ const {
   // friends — doc (friendship check)
   mockFriendsDocGet,
   mockFriendsDocRef,
+  // workouts — query (for streaks)
+  mockWorkoutsQueryGet,
+  mockWorkoutsQueryChain,
 } = vi.hoisted(() => {
   const mockVerifyIdToken = vi.fn();
 
@@ -66,6 +69,13 @@ const {
   const mockFriendsDocGet = vi.fn();
   const mockFriendsDocRef = vi.fn(() => ({ get: mockFriendsDocGet }));
 
+  // workouts — query chain (for streaks endpoint)
+  const mockWorkoutsQueryGet = vi.fn();
+  const mockWorkoutsQueryChain = {
+    where: vi.fn(),
+    get: mockWorkoutsQueryGet,
+  };
+
   return {
     mockVerifyIdToken,
     mockBBRequestDocGet,
@@ -82,6 +92,8 @@ const {
     mockBBQueryChain,
     mockFriendsDocGet,
     mockFriendsDocRef,
+    mockWorkoutsQueryGet,
+    mockWorkoutsQueryChain,
   };
 });
 
@@ -109,6 +121,9 @@ vi.mock('../lib/firestore', () => ({
       }
       if (name === 'friends') {
         return { doc: mockFriendsDocRef };
+      }
+      if (name === 'workouts') {
+        return { where: () => mockWorkoutsQueryChain };
       }
       return {};
     },
@@ -140,6 +155,7 @@ beforeEach(() => {
   mockBBRequestQueryChain.where.mockReturnThis();
   mockBBRequestQueryChain.limit.mockReturnThis();
   mockBBQueryChain.where.mockReturnThis();
+  mockWorkoutsQueryChain.where.mockReturnThis();
 
   // Re-setup doc refs
   mockBBRequestDocRef.mockImplementation(() => ({
@@ -370,6 +386,76 @@ describe('GET /burn-buddies', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual([]);
+  });
+});
+
+// ── GET /burn-buddies/:id/streaks ──────────────────────────────────────────────
+
+describe('GET /burn-buddies/:id/streaks', () => {
+  it('returns 401 when unauthenticated', async () => {
+    const res = await request(buildApp()).get(`/burn-buddies/${BURN_BUDDY_ID}/streaks`);
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 when the burn buddy does not exist', async () => {
+    mockBBDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .get(`/burn-buddies/${BURN_BUDDY_ID}/streaks`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 403 when user is not a member of the Burn Buddy', async () => {
+    mockBBDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ id: BURN_BUDDY_ID, uid1: 'other-1', uid2: 'other-2', createdAt: '' }),
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-buddies/${BURN_BUDDY_ID}/streaks`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('returns burnStreak and supernovaStreak when no workouts exist', async () => {
+    mockBBDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ id: BURN_BUDDY_ID, uid1: TEST_UID, uid2: OTHER_UID, createdAt: '' }),
+    });
+    // Both member queries return empty
+    mockWorkoutsQueryGet
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [] });
+
+    const res = await request(buildApp())
+      .get(`/burn-buddies/${BURN_BUDDY_ID}/streaks`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ burnStreak: 0, supernovaStreak: 0 });
+  });
+
+  it('returns streak counts based on completed workouts', async () => {
+    mockBBDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ id: BURN_BUDDY_ID, uid1: TEST_UID, uid2: OTHER_UID, createdAt: '' }),
+    });
+    const today = new Date().toISOString().substring(0, 10);
+    const workout1 = { id: 'w1', uid: TEST_UID, type: 'Running', startedAt: `${today}T10:00:00.000Z`, endedAt: `${today}T11:00:00.000Z`, status: 'completed' };
+    const workout2 = { id: 'w2', uid: OTHER_UID, type: 'Running', startedAt: `${today}T10:00:00.000Z`, endedAt: `${today}T11:00:00.000Z`, status: 'completed' };
+    mockWorkoutsQueryGet
+      .mockResolvedValueOnce({ docs: [{ data: () => workout1 }] })
+      .mockResolvedValueOnce({ docs: [{ data: () => workout2 }] });
+
+    const res = await request(buildApp())
+      .get(`/burn-buddies/${BURN_BUDDY_ID}/streaks`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ burnStreak: 1, supernovaStreak: 1 });
   });
 });
 
