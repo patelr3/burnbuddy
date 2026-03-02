@@ -1,3 +1,23 @@
+## Codebase Patterns
+- Use yarn workspaces for the monorepo (yarn 1.22.x available)
+- All packages use TypeScript strict mode
+- Always add node_modules/, dist/, .next/, *.tsbuildinfo to .gitignore before first commit
+- `@burnbuddy/shared` is the shared types package — reference it as `"@burnbuddy/shared": "*"` in workspace deps
+- services/api uses pino for structured JSON logging; log must include level, time, msg fields
+- Run `git rm -r --cached <dir>` to unstage accidentally staged node_modules/dist before committing
+---
+
 # Ralph Progress Log
 Started: Mon Mar  2 07:24:31 AM UTC 2026
+---
+
+## 2026-03-02 - US-001
+- What was implemented: Yarn workspaces monorepo scaffold with apps/web (Next.js 14), services/api (Express + pino), packages/shared (TypeScript types)
+- Files changed: package.json, yarn.lock, .gitignore, apps/web/*, services/api/src/index.ts, services/api/package.json, services/api/tsconfig.json, packages/shared/src/*, packages/shared/package.json, packages/shared/tsconfig.json
+- **Learnings for future iterations:**
+  - Node.js 24, npm 11.6.2, yarn 1.22.22 are all available in the devcontainer
+  - Must update .gitignore BEFORE `yarn install` / first commit or node_modules gets staged accidentally
+  - `yarn workspace <name> typecheck` works per-workspace; `yarn workspaces run typecheck` runs all
+  - The pino startup log emits valid JSON: `{"level":30,"time":...,"pid":...,"hostname":...,"port":3001,"msg":"..."}` — confirms level+time+msg fields
+  - apps/web uses `transpilePackages: ['@burnbuddy/shared']` in next.config.ts for the local workspace package
 ---
