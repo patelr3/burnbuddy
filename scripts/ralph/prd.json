@@ -340,8 +340,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 20,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "/burn-squads/new page (apps/web/src/app/burn-squads/new/page.tsx): squad name input (required), multi-select friend list with toggle highlight+checkmark, day-of-week schedule toggle buttons, optional time input (shown when days selected), submit calls POST /burn-squads with { name, inviteUids, workoutSchedule? }. POST /burn-squads API updated to accept optional workoutSchedule in body and store it in settings.workoutSchedule. GET /burn-squads/join-requests endpoint added (returns pending incoming + outgoing enriched with squad names). Home page updated: fetches squad join requests, shows pending incoming invitations at top with blue Accept button (POST /burn-squads/:id/join-requests/:requestId/accept + reload). 4 new tests for GET /join-requests. 172 total tests pass, all typechecks pass."
     },
     {
       "id": "US-021",
