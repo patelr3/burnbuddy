@@ -79,8 +79,8 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "firebase-admin installed in services/api. src/lib/firebase.ts initializes Admin SDK (emulator-aware via FIREBASE_AUTH_EMULATOR_HOST). src/middleware/auth.ts validates Bearer token, returns 401 on missing/invalid, attaches { uid } to req.user. Express Request type augmented in src/types/express.d.ts. vitest + supertest added; 4 unit tests all pass. All workspace typechecks pass."
     },
     {
       "id": "US-006",

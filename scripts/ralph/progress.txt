@@ -13,6 +13,10 @@
 - Expo + yarn workspaces: convert root workspaces array to object with `nohoist` for react-native/expo packages
 - apps/mobile/metro.config.js must set watchFolders and resolver.nodeModulesPaths for monorepo resolution
 - Web support in Expo: install react-dom, react-native-web, @expo/metro-runtime via `npx expo install`
+- Firebase CLI and Java are NOT available in the devcontainer — use vi.mock + vi.hoisted for firebase-admin unit tests instead of the emulator
+- vitest is the test runner for services/api; use `vi.hoisted()` to create mock variables before `vi.mock()` factory executes (avoids temporal dead zone issues)
+- Express Request type augmentation lives in src/types/express.d.ts (global namespace Extension); tsconfig "include": ["src"] covers it automatically
+- firebase-admin emulator mode: set FIREBASE_AUTH_EMULATOR_HOST env var and initialize with just { projectId } — no credentials needed
 ---
 
 # Ralph Progress Log
@@ -63,4 +67,15 @@ Started: Mon Mar  2 07:24:31 AM UTC 2026
   - ConsoleSpanExporter outputs traces to stdout as JSON for dev visibility — no external collector needed
   - Next.js App Router route handlers (route.ts) work fine with server-side pino logging
   - @burnbuddy/shared now exports Logger interface and createMobileLogger() for mobile pino-compat stub
+---
+
+## 2026-03-02 - US-005
+- What was implemented: Firebase Auth backend middleware for services/api; verifies Bearer JWT using firebase-admin, returns 401 on missing/invalid, attaches uid to req.user on success
+- Files changed: services/api/src/lib/firebase.ts (new), services/api/src/middleware/auth.ts (new), services/api/src/middleware/auth.test.ts (new), services/api/src/types/express.d.ts (new), services/api/src/index.ts (initFirebase + /me route), services/api/package.json (added firebase-admin, vitest, supertest), yarn.lock
+- **Learnings for future iterations:**
+  - Firebase CLI and Java are NOT available in devcontainer — cannot run Firebase emulator; use vi.mock with vi.hoisted() to mock firebase-admin in vitest unit tests
+  - vi.hoisted() must be used when you need a mock variable inside vi.mock() factory (avoids temporal dead zone since vi.mock is hoisted by vitest)
+  - firebase-admin emulator mode: when FIREBASE_AUTH_EMULATOR_HOST is set, initialize with just { projectId } — SDK routes calls to the local emulator without credentials
+  - Express Request interface augmented in src/types/express.d.ts using global namespace declaration (covered by tsconfig include: src)
+  - supertest + vitest work seamlessly together for Express integration-style tests without spinning up a server
 ---
