@@ -469,8 +469,8 @@
         "Typecheck passes"
       ],
       "priority": 28,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "apiPatch helper added to apps/mobile/src/lib/api.ts. HomeScreen.tsx updated: WORKOUT_TYPES constant (8 types), formatElapsed helper. HomeListView gains workout state (activeWorkout, showWorkoutSelector, selectedType, customType, elapsed), fetches GET /workouts in loadData (parallel with other calls), sets activeWorkout to first status==='active' workout. Elapsed timer via useEffect+setInterval updates every second while workout is active. handleStartWorkout calls POST /workouts with { type } (uses customType when 'Custom' selected). handleEndWorkout calls PATCH /workouts/:id/end. Active workout banner (amber theme) shown when workout is active with elapsed time and red 'End Workout' button. 'Start Workout' button (orange, prominent) shown only when no active workout. Workout type selector is a bottom-sheet Modal with 2-column grid of 8 types, custom TextInput shown when 'Custom' selected, Cancel/Start buttons. All typechecks pass, 181 tests pass."
     },
     {
       "id": "US-029",
