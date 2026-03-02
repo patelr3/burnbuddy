@@ -1,0 +1,24 @@
+# Dependencies (rebuilt inside container)
+node_modules/
+**/node_modules/
+
+# Build artifacts
+dist/
+**/.next/
+*.tsbuildinfo
+
+# Git metadata
+.git/
+
+# Environment files (never commit secrets)
+.env
+.env.local
+.env.*.local
+
+# Expo artifacts
+.expo/
+*.expo.*
+
+# IDE and OS files
+.vscode/
+.DS_Store
