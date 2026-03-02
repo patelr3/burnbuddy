@@ -1,4 +1,8 @@
 ## Codebase Patterns
+- pino-opentelemetry-transport runs in a worker thread (like all pino transports), so OTel SDK initialized in main thread doesn't share state; use OTEL_LOGS_ENABLED=true to enable in environments with a collector
+- OpenTelemetry SDK initialization must be the first import in the entry point (`import './instrumentation'` before all other imports) to ensure auto-instrumentation patches modules before they load
+- apps/web logger: use `pino` with `browser: { asObject: true }` in Next.js — safe for both SSR (Node) and client-side (browser) without crashes
+- `@opentelemetry/sdk-node` bundles sdk-trace-node, sdk-metrics, sdk-logs — only need to add it as a direct dep; `@opentelemetry/sdk-trace-node` still needed explicitly for `ConsoleSpanExporter` import
 - Docker multi-stage builds for services/api: copy only packages/shared and services/api package.json into builder (skip apps/); yarn installs subset of workspaces; copy node_modules + packages/shared to runtime stage to preserve workspace symlinks
 - Use yarn workspaces for the monorepo (yarn 1.22.x available)
 - All packages use TypeScript strict mode
@@ -48,4 +52,15 @@ Started: Mon Mar  2 07:24:31 AM UTC 2026
   - .dockerignore excludes node_modules/, dist/, .next/, .git/, .env files, and Expo artifacts
   - Healthcheck uses `node -e "require('http').get(...)"` — safer than wget/curl on alpine (node is guaranteed to exist)
   - The API service starts without any Firebase secrets; graceful dev mode is the default
+---
+
+## 2026-03-02 - US-004
+- What was implemented: OpenTelemetry tracing SDK (ConsoleSpanExporter to stdout in dev) in services/api; pino-opentelemetry-transport installed and conditionally enabled; pino logger for apps/web; Logger interface + createMobileLogger() console stub in packages/shared
+- Files changed: services/api/src/instrumentation.ts (new), services/api/src/index.ts (multi-transport), services/api/package.json, apps/web/src/lib/logger.ts (new), apps/web/src/app/api/health/route.ts (new), apps/web/package.json, packages/shared/src/logger.ts (new), packages/shared/src/index.ts, yarn.lock
+- **Learnings for future iterations:**
+  - pino-opentelemetry-transport is a worker-thread transport; activate via OTEL_LOGS_ENABLED=true when an OTLP collector is available
+  - OTel SDK instrumentation.ts must be the very first import in the entry file
+  - ConsoleSpanExporter outputs traces to stdout as JSON for dev visibility — no external collector needed
+  - Next.js App Router route handlers (route.ts) work fine with server-side pino logging
+  - @burnbuddy/shared now exports Logger interface and createMobileLogger() for mobile pino-compat stub
 ---

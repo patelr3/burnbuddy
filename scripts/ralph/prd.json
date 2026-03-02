@@ -62,8 +62,8 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "OTel SDK (ConsoleSpanExporter, traces to stdout in dev) initialized in services/api/src/instrumentation.ts. pino-opentelemetry-transport installed and wired as an optional transport target (enabled via OTEL_LOGS_ENABLED=true env var for production). apps/web has pino logger at src/lib/logger.ts and uses it in the health API route. packages/shared exports Logger interface and createMobileLogger() console stub. All typechecks pass."
     },
     {
       "id": "US-005",
