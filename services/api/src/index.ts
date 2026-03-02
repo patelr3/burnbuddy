@@ -9,6 +9,7 @@ import friendsRouter from './routes/friends';
 import burnBuddiesRouter from './routes/burn-buddies';
 import burnSquadsRouter from './routes/burn-squads';
 import workoutsRouter, { autoEndStaleWorkouts } from './routes/workouts';
+import groupWorkoutsRouter from './routes/group-workouts';
 
 // Initialize Firebase Admin on startup
 initFirebase();
@@ -44,6 +45,7 @@ app.use('/friends', friendsRouter);
 app.use('/burn-buddies', burnBuddiesRouter);
 app.use('/burn-squads', burnSquadsRouter);
 app.use('/workouts', workoutsRouter);
+app.use('/group-workouts', groupWorkoutsRouter);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
