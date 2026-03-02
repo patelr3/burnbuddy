@@ -72,6 +72,15 @@ export interface BurnSquad {
   createdAt: string;
 }
 
+export interface BurnSquadJoinRequest {
+  id: string;
+  squadId: string;
+  fromUid: string;
+  toUid: string;
+  status: 'pending' | 'accepted' | 'declined';
+  createdAt: string;
+}
+
 export interface GroupWorkout {
   id: string;
   type: 'buddy' | 'squad';
