@@ -4,6 +4,7 @@ import express from 'express';
 import pino from 'pino';
 import { initFirebase } from './lib/firebase';
 import { requireAuth } from './middleware/auth';
+import usersRouter from './routes/users';
 
 // Initialize Firebase Admin on startup
 initFirebase();
@@ -33,6 +34,8 @@ const app = express();
 const PORT = process.env.PORT ?? 3001;
 
 app.use(express.json());
+
+app.use('/users', usersRouter);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
