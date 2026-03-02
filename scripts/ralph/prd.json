@@ -289,8 +289,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 17,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "New GET /group-workouts API endpoint (services/api/src/routes/group-workouts.ts) queries groupWorkouts collection by memberUids array-contains. Home page (apps/web/src/app/page.tsx) overhauled: fetches burn buddies, burn squads, group workouts in parallel; enriches each buddy with partner display name (GET /users/:uid) and streak (GET /burn-buddies/:id/streaks); enriches each squad with streak (GET /burn-squads/:id/streaks); sorts combined list by most recent group workout desc (items without group workouts at bottom); links to /burn-buddies/:id and /burn-squads/:id detail pages. '+ Burn Buddy' and '+ Burn Squad' create buttons added. Nav bar with Friends link and Sign out. GettingStartedCard preserved. 160 tests pass, all typechecks pass."
     },
     {
       "id": "US-018",
