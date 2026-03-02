@@ -322,8 +322,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 19,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "GET /burn-buddies/:id and PUT /burn-buddies/:id endpoints added to API. apps/web/src/app/burn-buddies/[id]/page.tsx created: fetches burn buddy, partner profile, streaks, and group workouts in parallel; displays partner name, Burn Streak, Supernova Streak, group workouts this week/month, buddy age, and formatted creation date; shows full group workout log in reverse chrono order; Edit Schedule button opens an inline form with day toggles and optional time input; saves via PUT /burn-buddies/:id. 168 tests pass, all typechecks pass."
     },
     {
       "id": "US-020",

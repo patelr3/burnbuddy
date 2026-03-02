@@ -1,3 +1,14 @@
+## 2026-03-02 - US-019
+- What was implemented: GET /burn-buddies/:id endpoint (returns single burn buddy, membership check). PUT /burn-buddies/:id endpoint (updates workoutSchedule, membership check). apps/web/src/app/burn-buddies/[id]/page.tsx detail page: fetches burn buddy, partner profile (GET /users/:uid), streaks (GET /burn-buddies/:id/streaks), and all group workouts (GET /group-workouts, filtered by referenceId === id && type === 'buddy') in parallel. Displays 6-stat grid: Burn Streak, Supernova Streak, group workouts this week/month, buddy age, buddy start date. Shows group workout log in reverse chrono order. Edit Schedule button toggles an inline form with day checkboxes (Mon–Sun) and optional time input; saves via PUT /burn-buddies/:id. 8 new tests (4 GET + 4 PUT). 168 total tests, all typechecks pass.
+- Files changed: services/api/src/routes/burn-buddies.ts (GET /:id + PUT /:id), services/api/src/routes/burn-buddies.test.ts (mockBBDocUpdate + 8 new tests), apps/web/src/app/burn-buddies/[id]/page.tsx (new)
+- **Learnings for future iterations:**
+  - When adding GET /:id, it is placed AFTER GET /requests and GET /:id/streaks in the router — Express matches exact paths first, so /requests is not captured by /:id
+  - To add a new doc method (e.g., update) to an existing test mock, add it in vi.hoisted body, the destructuring at the top, the return object, and the mockBBDocRef.mockImplementation in beforeEach
+  - For detail page that needs both filtered group workouts and full streaks, fetch GET /group-workouts (already returns only user's workouts) then filter client-side by referenceId — avoids a new API endpoint
+  - startOfWeekUTC() and startOfMonthUTC() helpers give reproducible this-week/this-month counts without timezone drift — use Date.UTC constructors
+  - buddyAge() converts a createdAt ISO string to a human-readable "X days/months/years" string — useful for squad detail page too
+---
+
 ## 2026-03-02 - US-018
 - What was implemented: /burn-buddies/new page (apps/web/src/app/burn-buddies/new/page.tsx) fetches the user's friends list and renders a selectable card list. Clicking a card toggles selection (highlighted border + checkmark). A confirmation panel appears below the list when a friend is selected; clicking "Send Request" calls POST /burn-buddies/requests with { toUid } and redirects to /. Home page (apps/web/src/app/page.tsx) refactored: loadData() extracted to a component-level useCallback (matching the friends page pattern) so that the new handleAcceptBuddyRequest handler can call it after POST /burn-buddies/requests/:id/accept. Pending incoming burn buddy requests are fetched via GET /burn-buddies/requests, enriched with GET /users/:uid display names, and shown above the Burn Buddies & Squads list with an orange "Accept" button.
 - Files changed: apps/web/src/app/burn-buddies/new/page.tsx (new), apps/web/src/app/page.tsx (refactored loadData to useCallback + incoming requests section)
