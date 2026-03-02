@@ -384,3 +384,14 @@ Started: Mon Mar  2 07:24:31 AM UTC 2026
   - Container App ingress: targetPort 3001 for API, 3000 for Next.js web; external: true makes both publicly accessible
   - For cross-cloud Bicep templates, use environment().suffixes.* instead of hardcoded Azure URLs (keyvaultDns, acrLoginServerEndpoint, etc.)
 ---
+
+## 2026-03-02 - US-032
+- What was implemented: .github/workflows/deploy.yml — triggers on push to main, runs typecheck (all packages) + API tests in a quality job, then builds Docker images for services/api and apps/web, pushes to burnbuddyacr.azurecr.io, and deploys via `az containerapp update` (buddyburn-prod-api and buddyburn-prod-web). apps/web/Dockerfile added using Next.js standalone output mode. next.config.mjs updated with `output: 'standalone'`. scripts/deploy-prod.sh for local production deploys (wraps same az/docker commands). README.md updated with full deployment docs, GitHub secrets table, and infrastructure commands.
+- Files changed: .github/workflows/deploy.yml (new), apps/web/Dockerfile (new), apps/web/next.config.mjs (output: standalone added), scripts/deploy-prod.sh (new), README.md (deployment section)
+- **Learnings for future iterations:**
+  - Next.js standalone output (`output: 'standalone'` in next.config.mjs) is required for Docker — it produces a self-contained `server.js` with bundled node_modules; copy `.next/standalone`, `.next/static`, and `public` to the runtime stage
+  - `azure/login@v2` supports individual params (client-id, client-secret, tenant-id, subscription-id) — cleaner than the legacy JSON `creds` blob
+  - GitHub Actions image tag pattern: `run: echo "TAG=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"` with `id: vars` and `${{ steps.vars.outputs.TAG }}`
+  - ACR login in CI: `az acr login --name $ACR_NAME` after `azure/login` step — no separate docker/login-action needed
+  - apps/web Dockerfile build context is root (same as services/api) — must COPY packages/shared and apps/web manifests, then `yarn workspace @burnbuddy/shared build && yarn workspace web build`
+---
