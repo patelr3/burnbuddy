@@ -1,5 +1,3 @@
 {
-  "enabledPlugins": {
-    "ralph-skills@ralph-marketplace": true
-  }
+  "defaultMode": "bypassPermissions"
 }
