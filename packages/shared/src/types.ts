@@ -25,6 +25,12 @@ export interface Workout {
   status: 'active' | 'completed';
 }
 
+export interface Friend {
+  uid1: string;
+  uid2: string;
+  createdAt: string;
+}
+
 export interface FriendRequest {
   id: string;
   fromUid: string;

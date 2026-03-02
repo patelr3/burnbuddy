@@ -3,7 +3,32 @@ import type { UserProfile } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
 import { getDb } from '../lib/firestore';
 
+/**
+ * GET /users/search?email=<email>
+ * Returns basic info (uid, displayName, email) for a user matching the given email, or 404.
+ */
+
 const router = Router();
+
+router.get('/search', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const email = req.query['email'] as string | undefined;
+
+  if (!email) {
+    res.status(400).json({ error: 'email query parameter is required' });
+    return;
+  }
+
+  const db = getDb();
+  const snapshot = await db.collection('users').where('email', '==', email).limit(1).get();
+
+  if (snapshot.empty) {
+    res.status(404).json({ error: 'User not found' });
+    return;
+  }
+
+  const user = snapshot.docs[0].data() as UserProfile;
+  res.json({ uid: user.uid, displayName: user.displayName, email: user.email });
+});
 
 /**
  * POST /users
