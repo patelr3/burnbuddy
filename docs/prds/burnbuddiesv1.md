@@ -1,6 +1,6 @@
 # Product Requirements Document: buddyburn
 
-> **Status**: Draft — sections marked `[TODO]` are awaiting agentic fill-in.
+> **Status**: Draft
 
 ---
 
@@ -21,7 +21,7 @@ People struggle to maintain discipline with working out. Having a workout partne
 ## 3. Goals & Non-Goals
 
 ### Goals
-This app will allow users to start a workout together through the app. Additionally, the app allows users to create groups, and the group collectively can maintain a workout streak as long as one member works out that day. Users can add each other as friends, and friends can see each other's workout log in groups feed.
+This app will allow users to start a workout together through the app. Additionally, the app allows users to create groups, and a Burn Streak is maintained as long as any member works out on back-to-back days. Users can add each other as friends, and friends can see each other's workout log in groups feed.
 
 ### Non-Goals
 This app will not support commenting on workout logs. There is no communication built-in for v1.
@@ -30,32 +30,42 @@ This app will not support commenting on workout logs. There is no communication 
 
 ## 4. Target Users
 
-[TODO] Describe the primary user persona(s): demographics, fitness level, motivation style, and relationship to their "buddy".
+**The Consistent Athlete**: Active adult (25–40) who works out 4–5x/week. Already has established fitness habits and wants accountability and friendly competition with existing workout partners. Uses buddyburn to stay connected with training partners who don't live nearby.
 
-Users are of any demographic interested in fitness. Targets both very active users and those who want to start being active.
+**The Habit Builder**: Young adult (18–30) who is trying to build a workout routine. Has low intrinsic motivation and needs external accountability to stay consistent. Uses buddyburn to stay committed alongside a friend who is also just starting out.
 
 ---
 
 ## 5. Key Features
 
+### Feature: Authentication
+
+- What it does: Users can create an account and log in to buddyburn
+- Why it matters: All app functionality requires an authenticated user identity
+- Acceptance criteria:
+    - Users can create an account and log in via email/password OR Google OAuth via Firebase Authentication
+    - The Firebase Auth token is attached to all API calls for authentication and authorization
+
 ### Feature: Adding Friends
 
 - What it does: Users can add each other as friends
-- why it matters to the user: This allows users to add each other and create groups
+- Why it matters: This allows users to connect with others and form Burn Buddies and Burn Squads
 - Acceptance criteria:
-    - Users can login via basic auth OR google OAuth using Firebase Authentication
-    - Users can search for other users using email ID
+    - Users can search for other users by email address
     - Users can request to add another user as a "friend"
     - Users can accept "friend requests"
     - Users can delete a friend without approval
 
 ### Feature: Creating a Burn Buddy
 
-- What it does: Users can create their workout partners
-- Why it matters to the user: This allows the user to create workout partners and motivate each other
+- What it does: Users can designate a single friend as their one-on-one workout partner (a Burn Buddy)
+- Why it matters: A Burn Buddy is the core bilateral relationship in the app — it is distinct from a Burn Squad, has no admin role, and has no group settings. It is a direct, mutual commitment between two users.
 - Acceptance Criteria:
-    - Users can select an existing friend and make them a "burn buddy"
-    - Burn Buddies can start their workout at approximately the same time to being a workout together.
+    - Users can send a Burn Buddy request to an existing friend
+    - The recipient sees the pending Burn Buddy request at the top of the Burn Buddies page
+    - The recipient can accept or decline the request
+    - Once accepted, both users see each other as Burn Buddies
+    - A user can have multiple Burn Buddies and can also have a separate Burn Squad with the same person
 
 ### Feature: Creating Burn Squads
 
@@ -67,7 +77,7 @@ Users are of any demographic interested in fitness. Targets both very active use
     - Group has settings
         - Friends: Either only admins can add friends to the group, or all members can add friends to the group
         - Workout Schedule: This is the times the group will workout at the same time. For example, Monday, Wednesday, and Friday mornings at 7AM. This is purely for notification/is mostly informational in v1
-    - A Group is called a "Burn Squad" (for branding) unless it is a group of two. If it is only two members, it's a "Burn Buddy".
+    - Groups are always called "Burn Squads" regardless of member count
     - Admins can delete groups
 
 ### Feature: Start Workout
@@ -77,8 +87,17 @@ Users are of any demographic interested in fitness. Targets both very active use
 - Acceptance Criteria
     - User can start a workout
     - User can specify what type of workout it is
-    - All of user's groups where ALL members have started working out together within +- 30min starts a "Group Workout". This should be recorded.
-    - 
+    - All of user's groups where ALL members have started working out within 20 min of each other starts a "Group Workout". This should be recorded.
+    - User can manually end a workout; if not ended, the workout automatically ends after 1.5 hours
+
+### Feature: Push Notifications
+
+- What it does: Users are notified when a connected partner starts a workout
+- Why it matters: Timely notifications are what allow the 20-min group workout window to work — a user needs to know their buddy has started so they can join in
+- Acceptance Criteria:
+    - Users receive a push notification when a Burn Buddy starts a workout
+    - Users receive a push notification when any member of one of their Burn Squads starts a workout
+    - Notifications are delivered via the mobile app (iOS and Android) and as browser notifications on web
 
 ---
 
@@ -127,7 +146,7 @@ Users are of any demographic interested in fitness. Targets both very active use
 
 1. User can start a workout
 2. All matching Burn Buddies and Burn Squads will get notified of that friend starting the workout
-3. If a burn buddy or if all members of a burn squad also begin their workout within 20min of the initial workout, a "group workout" begins
+3. If a Burn Buddy or if all members of a Burn Squad also begin their workout within 20 min of the initial workout, a "group workout" begins
 4. The group workout is logged/recorded every time this criteria is satisfied
 5. User can end a workout, or otherwise the workout auto-ends after 1.5 hrs.
 6. User can specify what type of workout they are doing... i.e. "Weightlifting", "Running", "Barre", etc. This should be a pre-defined list. Allow the user to create a custom workout type and type in the appropriate text
@@ -173,7 +192,7 @@ Users are of any demographic interested in fitness. Targets both very active use
 - Use Expo (React Native) + Next.js.
 - Use Firebase Storage​
 - Use Firebase Authentication (useful secrets in .env)
-- Use the arayosun.com custom domain. www.arayosun.com is already taken by patelr3/patelr3-site. We can use a different route or a different subdomain.
+- Use the custom domain `buddyburn.arayosun.com`
 - Must support both web and mobile app (iOS and Android). Reduce code redundancy as much as possible
 - Must support a generic API using the Firebase Auth tokens
 - Make sure to use microservices for frontend + any other services necessary. Use docker.
@@ -185,8 +204,16 @@ Users are of any demographic interested in fitness. Targets both very active use
 
 ---
 
-## 9. Open Questions
+## 9. Decisions & Notes
 
-- Which structured logging library to use
-- How to test against azure and firebase... Review .env and .notes in this repo to understand ways to try to start authenticating to these services properly
+### Structured logging library
+Use **pino** with `pino-opentelemetry-transport`. Justification: best-in-class performance for Node.js, native JSON output, and first-class OpenTelemetry integration. Works in Next.js API routes and the backend service. For the React Native/Expo client, use a lightweight wrapper that maps to pino on the server and `console` on device.
 
+### Firebase and Azure testing
+- **Firebase**: Use the Firebase Local Emulator Suite for unit and integration tests (Auth emulator, Firestore emulator). No live Firebase project is required for tests.
+- **Azure**: Use a dedicated `buddyburn-dev` resource group separate from production. Secrets are stored in the existing Azure Key Vault (referenced in `.notes`); CI/CD reads them via a service principal. Local dev reads from `.env`.
+
+### Edge Cases / Out of Scope for v1
+The following are known gaps intentionally deferred to keep v1 scope contained:
+- Account deletion flow
+- Declining a Burn Buddy or Burn Squad request (UI treatment and cleanup)

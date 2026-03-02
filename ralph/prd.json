@@ -1,0 +1,557 @@
+{
+  "project": "buddyburn",
+  "branchName": "ralph/buddyburn-v1",
+  "description": "buddyburn v1 — an app that motivates buddies to burn calories by letting users remotely check in together when they start a workout, tracking group workouts and streaks with Burn Buddies and Burn Squads.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Initialize monorepo with Next.js web app and API service",
+      "description": "As a developer, I need the project scaffold so that all subsequent work has a consistent foundation. Set up a TypeScript monorepo with a Next.js web app (apps/web), an API service (services/api), and a shared types/utilities package (packages/shared). Configure TypeScript strict mode and pino for structured logging in the API service.",
+      "acceptanceCriteria": [
+        "Monorepo workspace is configured (yarn workspaces or npm workspaces)",
+        "apps/web is a working Next.js 14+ app with TypeScript strict mode",
+        "services/api is a Node.js 24 service with TypeScript strict mode",
+        "packages/shared exports shared TypeScript types and is referenced by both apps",
+        "pino is installed in services/api with JSON log output on startup",
+        "yarn build (or equivalent) succeeds in all packages",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Initialize Expo React Native mobile app",
+      "description": "As a developer, I need the Expo mobile app scaffold so that mobile screens can be built later. Create apps/mobile as an Expo (React Native) app with TypeScript strict mode, referencing packages/shared for shared types. Target iOS and Android.",
+      "acceptanceCriteria": [
+        "apps/mobile is a valid Expo SDK 51+ project with TypeScript",
+        "packages/shared types are importable from apps/mobile",
+        "expo start --web runs without errors (basic sanity check)",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Docker and docker-compose for local development",
+      "description": "As a developer, I want to run all services locally with a single command so that onboarding is fast. Create a Dockerfile for services/api and a docker-compose.yml that starts the API service and (optionally) Firebase Local Emulator Suite.",
+      "acceptanceCriteria": [
+        "services/api has a Dockerfile that builds and starts the Node.js service",
+        "docker-compose.yml in project root starts services/api",
+        "docker compose up starts the API service and it logs a startup message via pino",
+        "docker compose up does not require any secrets to be present (gracefully starts in dev mode without Firebase)",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "OpenTelemetry and pino-opentelemetry-transport setup",
+      "description": "As a developer, I need structured logging and tracing wired up so that observability works from the start. Configure pino with pino-opentelemetry-transport in services/api and the Next.js API routes in apps/web. In apps/mobile, add a lightweight console wrapper that matches the pino interface.",
+      "acceptanceCriteria": [
+        "pino and pino-opentelemetry-transport are installed in services/api",
+        "OpenTelemetry SDK is initialized in services/api on startup (traces exported to stdout in dev)",
+        "apps/web API routes use pino for structured logging",
+        "packages/shared exports a logger interface with a mobile stub that wraps console",
+        "A sample log line in services/api emits valid JSON with level, msg, and time fields",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Firebase Auth backend middleware",
+      "description": "As a developer, I need all API endpoints protected by Firebase Auth tokens so that only authenticated users can call the API. Add an Express/Next.js middleware that validates the Firebase Auth JWT from the Authorization header. Use Firebase Local Emulator Suite in tests so no live Firebase project is needed.",
+      "acceptanceCriteria": [
+        "firebase-admin is installed in services/api",
+        "A middleware function verifies the Firebase Auth token from the Authorization: Bearer <token> header",
+        "Requests with a missing or invalid token receive a 401 response",
+        "Requests with a valid token have the decoded user uid attached to the request context",
+        "Integration tests use the Firebase Auth Local Emulator (FIREBASE_AUTH_EMULATOR_HOST set in test env)",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Firestore user profile schema and API",
+      "description": "As a developer, I need a user profile document in Firestore so that user data (display name, email, FCM token) can be stored and retrieved. Define the UserProfile TypeScript type in packages/shared, create the Firestore collection, and add GET/PUT /users/me API endpoints.",
+      "acceptanceCriteria": [
+        "UserProfile type is defined in packages/shared: { uid, email, displayName, fcmToken?, createdAt }",
+        "Firestore collection users/<uid> stores UserProfile documents",
+        "GET /users/me returns the authenticated user's profile (or 404 if not yet created)",
+        "PUT /users/me upserts the authenticated user's profile",
+        "POST /users (called after signup) creates the user profile document",
+        "Unit tests use the Firestore Local Emulator",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Firestore friends schema and API",
+      "description": "As a user, I want to add friends so that I can later create Burn Buddies and Burn Squads with them. Define Friend and FriendRequest Firestore types and implement the friends API: search by email, send request, accept request, delete friend.",
+      "acceptanceCriteria": [
+        "FriendRequest type defined in packages/shared: { id, fromUid, toUid, status: 'pending'|'accepted'|'declined', createdAt }",
+        "GET /users/search?email=... returns matching user (uid, displayName, email) or 404",
+        "POST /friends/requests sends a friend request to another user by uid",
+        "GET /friends/requests returns pending incoming and outgoing friend requests for the authenticated user",
+        "POST /friends/requests/:id/accept accepts a friend request; creates a bidirectional friendship document",
+        "DELETE /friends/:uid removes a friendship without requiring the other user's approval",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Firestore Burn Buddy schema and API",
+      "description": "As a user, I want to send and accept Burn Buddy requests so that I have a bilateral one-on-one workout partner. A Burn Buddy relationship is distinct from a Burn Squad — no admin role, no group settings.",
+      "acceptanceCriteria": [
+        "BurnBuddy type defined in packages/shared: { id, uid1, uid2, workoutSchedule?, createdAt }",
+        "BurnBuddyRequest type: { id, fromUid, toUid, status: 'pending'|'accepted'|'declined', createdAt }",
+        "POST /burn-buddies/requests sends a Burn Buddy request to a friend (must already be friends)",
+        "GET /burn-buddies/requests returns pending incoming and outgoing Burn Buddy requests",
+        "POST /burn-buddies/requests/:id/accept accepts a request; creates the BurnBuddy document for both users",
+        "GET /burn-buddies returns all accepted Burn Buddies for the authenticated user",
+        "DELETE /burn-buddies/:id removes a Burn Buddy relationship",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Firestore Burn Squad schema and API",
+      "description": "As a user, I want to create and manage Burn Squads (groups) with my friends so that we can work out together. The creator is the admin. Groups are always called Burn Squads regardless of member count.",
+      "acceptanceCriteria": [
+        "BurnSquad type defined in packages/shared: { id, name, adminUid, memberUids, settings: { onlyAdminsCanAddMembers: boolean, workoutSchedule?: WorkoutSchedule }, createdAt }",
+        "POST /burn-squads creates a new Burn Squad; creator becomes admin; sends join requests to specified friend uids",
+        "GET /burn-squads returns all Burn Squads the authenticated user is a member of",
+        "POST /burn-squads/:id/join-requests/:requestId/accept accepts a squad join request",
+        "POST /burn-squads/:id/members adds a friend to the squad (respects onlyAdminsCanAddMembers setting)",
+        "PUT /burn-squads/:id/settings updates squad settings (admin only)",
+        "DELETE /burn-squads/:id deletes the squad (admin only)",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Firestore workout schema and workout API",
+      "description": "As a user, I want to start, specify the type of, and end a workout so that my activity is recorded. Workout types come from a predefined list but can also be custom.",
+      "acceptanceCriteria": [
+        "Workout type defined in packages/shared: { id, uid, type: WorkoutType | string, startedAt, endedAt?, status: 'active'|'completed' }",
+        "WorkoutType enum in packages/shared: 'Weightlifting' | 'Running' | 'Cycling' | 'Yoga' | 'Barre' | 'Swimming' | 'HIIT' | 'Custom'",
+        "POST /workouts starts a new workout for the authenticated user (status: active)",
+        "PATCH /workouts/:id/end ends the active workout (sets endedAt, status: completed)",
+        "A scheduled job or Cloud Function auto-ends workouts still active after 1.5 hours",
+        "GET /workouts returns the authenticated user's workout history",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Group workout detection service",
+      "description": "As a user, I want a Group Workout to be automatically recorded when my Burn Buddy or all members of a Burn Squad start working out within 20 minutes of each other so that our shared effort is tracked.",
+      "acceptanceCriteria": [
+        "GroupWorkout type defined in packages/shared: { id, type: 'buddy'|'squad', referenceId (burnBuddyId or burnSquadId), memberUids, startedAt, workoutIds }",
+        "When a workout is started, the service checks all of the user's Burn Buddies — if the buddy also has an active workout started within 20 min, a GroupWorkout is recorded",
+        "When a workout is started, the service checks all of the user's Burn Squads — if ALL other members also have active workouts started within 20 min, a GroupWorkout is recorded",
+        "Each qualifying group triggers exactly one GroupWorkout document (not duplicate on the buddy's end)",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Burn Streak and Supernova Streak calculation",
+      "description": "As a user, I want to see my Burn Streak and Supernova Streak for each Burn Buddy and Burn Squad so that I can track sustained commitment.",
+      "acceptanceCriteria": [
+        "BurnStreak calculation: count the number of consecutive calendar days on which ANY member of the buddy/squad completed a workout",
+        "SupernovaStreak calculation: count the number of consecutive calendar days on which ALL members of the buddy/squad completed a workout",
+        "GET /burn-buddies/:id/streaks returns { burnStreak: number, supernovaStreak: number } for the given Burn Buddy",
+        "GET /burn-squads/:id/streaks returns { burnStreak: number, supernovaStreak: number } for the given Burn Squad",
+        "Streak resets to 0 if the qualifying condition is not met for any calendar day",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Push notification service",
+      "description": "As a user, I want to receive a push notification when my Burn Buddy or a Burn Squad member starts a workout so that I can join within the 20-minute window.",
+      "acceptanceCriteria": [
+        "firebase-admin FCM integration is set up in services/api",
+        "When a workout is started, notifications are sent to all of the user's Burn Buddies (via their stored fcmToken)",
+        "When a workout is started, notifications are sent to all other members of each of the user's Burn Squads (via their stored fcmTokens)",
+        "Notification payload includes: title (e.g. 'Rahul started a workout!'), body ('Jump in within 20 min to log a group workout'), and a data payload with { type: 'WORKOUT_STARTED', uid }",
+        "Users with no fcmToken stored are skipped silently",
+        "Tests pass (use FCM emulator or mock the FCM send call)",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Web authentication UI — login and signup",
+      "description": "As a user, I want to create an account and log in via the web app so that I can access buddyburn. Support email/password and Google OAuth via Firebase Authentication.",
+      "acceptanceCriteria": [
+        "Login page at /login with email/password fields and a 'Sign in with Google' button",
+        "Sign-up page at /signup with email/password fields and a 'Sign up with Google' button",
+        "Firebase Auth SDK (client-side) handles email/password and Google OAuth sign-in",
+        "On successful login, the Firebase Auth token is stored and attached to subsequent API calls",
+        "Unauthenticated users are redirected to /login when accessing protected routes",
+        "Authenticated users visiting /login are redirected to /",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Web onboarding — Getting Started card",
+      "description": "As a new user, I want to see a Getting Started card that explains how to add my first friend so that I know where to begin.",
+      "acceptanceCriteria": [
+        "New users see a 'Getting Started' card on the Burn Buddies home page describing how to add a friend",
+        "The card has an 'x' button that dismisses it and saves the dismissed state (so it does not reappear on refresh or revisit)",
+        "Dismissed state is persisted in the user's Firestore profile document",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Web friends page UI",
+      "description": "As a user, I want to search for other users by email and manage my friends list on the web so that I can connect with people to burn calories with.",
+      "acceptanceCriteria": [
+        "Friends page at /friends shows the accepted friends list",
+        "'Add Friend' button opens a search input for email lookup",
+        "Typing an email and selecting a result shows a confirmation dialog before sending the friend request",
+        "Pending outgoing and incoming requests are shown at the top of the page",
+        "Incoming requests have 'Accept' and 'Ignore' actions (Ignore deferred to v2 — button is present but no-ops for now)",
+        "Accepted friends can be removed via a 'Remove' action",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "Web Burn Buddies home page UI",
+      "description": "As a user, I want to see all my Burn Buddies and Burn Squads on a single home page, ordered by most recent group workout, so that I have an at-a-glance view of my workout relationships.",
+      "acceptanceCriteria": [
+        "Home page at / (or /burn-buddies) lists all Burn Buddies and Burn Squads in a combined list",
+        "Each list item shows: partner/squad name, Burn Streak count, time since last group workout",
+        "List is ordered by most recent group workout (most recent at top); items with no group workouts appear at the bottom",
+        "Tapping a list item navigates to the Burn Buddy or Burn Squad detail page",
+        "Buttons to create a new Burn Buddy and a new Burn Squad are present",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "Web create Burn Buddy flow UI",
+      "description": "As a user, I want to send a Burn Buddy request to a friend from the web app so that we become workout partners.",
+      "acceptanceCriteria": [
+        "Create Burn Buddy sub-page at /burn-buddies/new (or a modal)",
+        "User can select a friend from their friends list",
+        "Submitting sends the Burn Buddy request via the API",
+        "Pending incoming Burn Buddy requests are shown at the top of the Burn Buddies home page with 'Accept' action",
+        "Accepting a request updates the home page list",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "Web Burn Buddy detail page UI",
+      "description": "As a user, I want to view detailed stats for a specific Burn Buddy so that I can see our shared progress.",
+      "acceptanceCriteria": [
+        "Burn Buddy detail page at /burn-buddies/:id",
+        "Shows: partner's name, number of group workouts this week and this month, Burn Streak, Supernova Streak, how long the Burn Buddy has existed",
+        "Full workout log for workouts associated with this Burn Buddy is shown in reverse chronological order",
+        "Edit button allows updating the workout schedule",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "Web create Burn Squad flow UI",
+      "description": "As a user, I want to create a Burn Squad with multiple friends on the web app so that we can work out as a group.",
+      "acceptanceCriteria": [
+        "Create Burn Squad sub-page at /burn-squads/new",
+        "User enters a squad name",
+        "User selects one or more friends from their friends list to invite",
+        "User sets an optional workout schedule (days of week + time)",
+        "Submitting calls the POST /burn-squads API; invitees receive join requests",
+        "Pending incoming squad join requests are shown at the top of the Burn Buddies home page with 'Accept' action",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-021",
+      "title": "Web Burn Squad detail page UI",
+      "description": "As a user, I want to view detailed stats and manage my Burn Squad on the web so that I can track group progress.",
+      "acceptanceCriteria": [
+        "Burn Squad detail page at /burn-squads/:id",
+        "Shows: squad name, member list (with avatars/names), group workouts this week and this month, Burn Streak, Supernova Streak, how long the squad has existed",
+        "Full group workout log for this squad in reverse chronological order",
+        "Admin can edit squad settings (name, member permissions, workout schedule)",
+        "Admin can delete the squad with a confirmation dialog",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-022",
+      "title": "Web start workout UI",
+      "description": "As a user, I want to start a workout from the web app, specify what type of workout I'm doing, and end it when I'm done so that my activity is recorded and my buddies are notified.",
+      "acceptanceCriteria": [
+        "A prominent 'Start Workout' button is accessible from the home page",
+        "Tapping opens a workout type selector with the predefined list (Weightlifting, Running, Cycling, Yoga, Barre, Swimming, HIIT, Custom) and a text input for Custom type",
+        "Confirming calls POST /workouts and triggers push notifications to buddies/squad members",
+        "While a workout is active, the UI shows an active workout banner with an 'End Workout' button and elapsed time",
+        "Tapping 'End Workout' calls PATCH /workouts/:id/end",
+        "If the workout auto-ends after 1.5h, the active banner disappears on next page load",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-023",
+      "title": "Web account management UI",
+      "description": "As a user, I want an account management page on the web where I can update my profile and toggle the Getting Started card.",
+      "acceptanceCriteria": [
+        "Account page at /account",
+        "Shows current display name and email",
+        "Toggle to re-enable the Getting Started card (sets the dismissed flag back to false in Firestore)",
+        "Log out button signs out the user via Firebase Auth and redirects to /login",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-024",
+      "title": "Mobile auth and onboarding screens (Expo)",
+      "description": "As a mobile user, I want to create an account and log in via the Expo app so that I can use buddyburn on iOS or Android.",
+      "acceptanceCriteria": [
+        "Login screen with email/password fields and 'Sign in with Google' button (using expo-auth-session or @react-native-google-signin)",
+        "Sign-up screen with email/password fields",
+        "Firebase Auth SDK (react-native-firebase or firebase/app) handles auth",
+        "On successful login, Firebase Auth token is attached to all API calls",
+        "Unauthenticated users are shown the login screen",
+        "Getting Started card on home screen for new users, dismissible with preference persisted to Firestore",
+        "Typecheck passes"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-025",
+      "title": "Mobile friends screen (Expo)",
+      "description": "As a mobile user, I want to search for friends and manage friend requests on my phone.",
+      "acceptanceCriteria": [
+        "Friends tab/screen shows accepted friends list",
+        "Add Friend button opens email search",
+        "Selecting a search result shows a confirmation before sending the friend request",
+        "Pending incoming and outgoing friend requests shown at top with Accept action for incoming",
+        "Friends can be removed via swipe or menu action",
+        "Typecheck passes"
+      ],
+      "priority": 25,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-026",
+      "title": "Mobile Burn Buddies home and create flow (Expo)",
+      "description": "As a mobile user, I want to see my Burn Buddies home page and create new Burn Buddies from my phone.",
+      "acceptanceCriteria": [
+        "Home screen lists Burn Buddies and Burn Squads with streak counts and time since last group workout, ordered by most recent group workout",
+        "Pending Burn Buddy and squad join requests shown at top with Accept action",
+        "Create Burn Buddy flow: select a friend, send request",
+        "Tapping a Burn Buddy navigates to the detail screen showing group workout count (week/month), Burn Streak, Supernova Streak, how long it has existed, and workout log",
+        "Typecheck passes"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-027",
+      "title": "Mobile Burn Squads screens (Expo)",
+      "description": "As a mobile user, I want to create and view Burn Squads from my phone.",
+      "acceptanceCriteria": [
+        "Create Burn Squad flow: enter name, select friends, set optional schedule, submit",
+        "Burn Squad detail screen: member list, group workout count (week/month), Burn Streak, Supernova Streak, workout log",
+        "Admin can access squad settings (member permissions, schedule, delete squad) from detail screen",
+        "Typecheck passes"
+      ],
+      "priority": 27,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-028",
+      "title": "Mobile start workout screen (Expo)",
+      "description": "As a mobile user, I want to start and end a workout from my phone so that my activity is recorded and my buddies are notified.",
+      "acceptanceCriteria": [
+        "Prominent 'Start Workout' button on the home screen",
+        "Workout type selector with predefined list and custom text input",
+        "Confirming calls POST /workouts via the API",
+        "Active workout banner with elapsed time and 'End Workout' button while workout is in progress",
+        "Ending the workout calls PATCH /workouts/:id/end",
+        "Typecheck passes"
+      ],
+      "priority": 28,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-029",
+      "title": "Mobile push notification registration and handling (Expo)",
+      "description": "As a mobile user, I want to receive push notifications when my Burn Buddy or a Burn Squad member starts a workout so that I know to join in.",
+      "acceptanceCriteria": [
+        "App requests push notification permission on first launch using expo-notifications",
+        "On permission granted, the Expo push token (or FCM token) is saved to the user's Firestore profile via PUT /users/me",
+        "App handles foreground notifications by showing an in-app alert/banner",
+        "App handles background/quit notifications via the system notification tray",
+        "Tapping the notification opens the app to the relevant Burn Buddy or Burn Squad",
+        "Typecheck passes"
+      ],
+      "priority": 29,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-030",
+      "title": "Mobile account management screen (Expo)",
+      "description": "As a mobile user, I want to manage my account and toggle the Getting Started card from my phone.",
+      "acceptanceCriteria": [
+        "Account tab/screen shows display name and email",
+        "Toggle to re-enable the Getting Started card",
+        "Log out button signs out via Firebase Auth and returns to login screen",
+        "Typecheck passes"
+      ],
+      "priority": 30,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-031",
+      "title": "Azure Container Apps Bicep templates",
+      "description": "As a developer, I need Bicep IaC templates to provision the buddyburn infrastructure in Azure so that deployments are repeatable and auditable.",
+      "acceptanceCriteria": [
+        "Bicep templates in infra/ provision a new resource group buddyburn-prod with an Azure Container Apps environment",
+        "Container App for services/api is defined with environment variable references to Azure Key Vault secrets",
+        "Container App for apps/web (Next.js) is defined",
+        "Azure Key Vault reference is declared (Key Vault must already exist; templates reference it, not create it)",
+        "A buddyburn-dev resource group variant is defined for the dev environment",
+        "az deployment group create --template-file infra/main.bicep dry run (--what-if) completes without errors",
+        "Typecheck passes"
+      ],
+      "priority": 31,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-032",
+      "title": "GitHub Actions CI/CD pipeline",
+      "description": "As a developer, I want GitHub Actions to build, test, and deploy the app to Azure Container Apps on push to main so that production deployments are automated.",
+      "acceptanceCriteria": [
+        ".github/workflows/deploy.yml triggers on push to main",
+        "Pipeline runs typecheck and tests for all packages",
+        "Pipeline builds Docker images for services/api and apps/web and pushes to Azure Container Registry",
+        "Pipeline deploys to Azure Container Apps using az containerapp update",
+        "Secrets are read from Azure Key Vault via a service principal (AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID stored as GitHub Actions secrets — documented in README, not committed)",
+        "A separate workflow or make target supports local production deploy (az commands wrapped in a script)",
+        "Typecheck passes"
+      ],
+      "priority": 32,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-033",
+      "title": "Firebase and Azure test emulator setup",
+      "description": "As a developer, I want a documented, reproducible test environment using local emulators so that no live cloud services are required to run the test suite.",
+      "acceptanceCriteria": [
+        "firebase.json configures Auth and Firestore emulators with fixed ports",
+        "A test helper in packages/shared initializes firebase-admin against the local emulators when FIREBASE_AUTH_EMULATOR_HOST and FIRESTORE_EMULATOR_HOST are set",
+        "All existing service tests (friends, burn buddy, burn squad, workout, streaks) run against the local emulators",
+        "A local .env.test documents all required env vars for running tests (no real secrets needed)",
+        "README section explains how to start the emulators and run tests",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 33,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
