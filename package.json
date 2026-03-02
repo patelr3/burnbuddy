@@ -2,11 +2,22 @@
   "name": "burnbuddy",
   "version": "1.0.0",
   "private": true,
-  "workspaces": [
-    "apps/*",
-    "packages/*",
-    "services/*"
-  ],
+  "workspaces": {
+    "packages": [
+      "apps/*",
+      "packages/*",
+      "services/*"
+    ],
+    "nohoist": [
+      "**/react-native",
+      "**/react-native/**",
+      "**/expo",
+      "**/expo/**",
+      "**/@expo/**",
+      "**/react-native-web",
+      "**/react-native-web/**"
+    ]
+  },
   "scripts": {
     "build": "yarn workspaces run build",
     "typecheck": "yarn workspaces run typecheck",

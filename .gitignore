@@ -6,3 +6,5 @@ node_modules/
 dist/
 .next/
 *.tsbuildinfo
+.expo/
+*.expo.*
