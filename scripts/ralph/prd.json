@@ -306,8 +306,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 18,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "/burn-buddies/new page (apps/web/src/app/burn-buddies/new/page.tsx) lists friends, select toggles highlight+checkmark, shows confirmation panel, POST /burn-buddies/requests on confirm, redirects to /. Home page (page.tsx) refactored: loadData() extracted to component-level useCallback so accept handler can call it. Pending incoming burn buddy requests shown above the list with Accept button (POST /burn-buddies/requests/:id/accept + reload). 160 tests pass, all typechecks pass."
     },
     {
       "id": "US-019",
