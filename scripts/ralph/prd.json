@@ -408,8 +408,8 @@
         "Typecheck passes"
       ],
       "priority": 24,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "firebase + expo-auth-session + expo-web-browser installed in apps/mobile. src/lib/firebase.ts initializes Firebase app (in-memory auth, no AsyncStorage — getReactNativePersistence is not in firebase/auth TypeScript types for v12). src/lib/auth-context.tsx provides AuthProvider with onAuthStateChanged. src/lib/api.ts provides fetch helpers with Bearer token injection. LoginScreen: email/password + Google OAuth button (expo-auth-session/providers/google + GoogleAuthProvider.credential). SignupScreen: displayName + email/password, calls POST /users to create profile. HomeScreen: shows greeting + GettingStartedCard for new users (fetches GET /users/me, dismisses via PUT /users/me). GettingStartedCard: dismissible with onDismiss prop. App.tsx: AuthProvider wrapper, state-based navigation (login/signup/home) using useAuth hook. Unauthenticated users see LoginScreen, authenticated users see HomeScreen. All typechecks pass, 181 tests pass."
     },
     {
       "id": "US-025",
