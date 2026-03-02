@@ -140,6 +140,70 @@ router.get('/join-requests', requireAuth, async (req: Request, res: Response): P
 });
 
 /**
+ * GET /burn-squads/:id
+ * Returns a single Burn Squad (member only).
+ */
+router.get('/:id', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const uid = req.user!.uid;
+  const squadId = req.params['id'] as string;
+  const db = getDb();
+
+  const squadDoc = await db.collection('burnSquads').doc(squadId).get();
+
+  if (!squadDoc.exists) {
+    res.status(404).json({ error: 'Burn Squad not found' });
+    return;
+  }
+
+  const squad = squadDoc.data() as BurnSquad;
+
+  if (!squad.memberUids.includes(uid)) {
+    res.status(403).json({ error: 'You are not a member of this Burn Squad' });
+    return;
+  }
+
+  res.json(squad);
+});
+
+/**
+ * PUT /burn-squads/:id
+ * Updates squad name and/or settings (admin only).
+ */
+router.put('/:id', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const uid = req.user!.uid;
+  const squadId = req.params['id'] as string;
+  const db = getDb();
+
+  const squadDoc = await db.collection('burnSquads').doc(squadId).get();
+
+  if (!squadDoc.exists) {
+    res.status(404).json({ error: 'Burn Squad not found' });
+    return;
+  }
+
+  const squad = squadDoc.data() as BurnSquad;
+
+  if (squad.adminUid !== uid) {
+    res.status(403).json({ error: 'Only the admin can update this squad' });
+    return;
+  }
+
+  const { name, settings } = req.body as {
+    name?: string;
+    settings?: Partial<BurnSquad['settings']>;
+  };
+
+  const updates: Partial<BurnSquad> = {};
+  if (name !== undefined) updates.name = name;
+  if (settings !== undefined) updates.settings = { ...squad.settings, ...settings };
+
+  await db.collection('burnSquads').doc(squadId).update(updates);
+
+  const updated = { ...squad, ...updates };
+  res.json(updated);
+});
+
+/**
  * POST /burn-squads/:id/join-requests/:requestId/accept
  * Accepts a squad join request; adds the user to the squad's memberUids.
  */

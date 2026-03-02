@@ -374,6 +374,121 @@ describe('GET /burn-squads', () => {
   });
 });
 
+// ── GET /burn-squads/:id ───────────────────────────────────────────────────────
+
+describe('GET /burn-squads/:id', () => {
+  it('returns 401 when unauthenticated', async () => {
+    const res = await request(buildApp()).get(`/burn-squads/${SQUAD_ID}`);
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 when the squad does not exist', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 403 when user is not a member', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ ...SAMPLE_SQUAD, memberUids: [OTHER_UID] }),
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('returns the squad when user is a member', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => SAMPLE_SQUAD,
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ id: SQUAD_ID, name: 'Test Squad', adminUid: TEST_UID });
+  });
+});
+
+// ── PUT /burn-squads/:id ───────────────────────────────────────────────────────
+
+describe('PUT /burn-squads/:id', () => {
+  it('returns 401 when unauthenticated', async () => {
+    const res = await request(buildApp()).put(`/burn-squads/${SQUAD_ID}`);
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 when the squad does not exist', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .put(`/burn-squads/${SQUAD_ID}`)
+      .set('Authorization', VALID_TOKEN)
+      .send({ name: 'New Name' });
+
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 403 when user is not the admin', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ ...SAMPLE_SQUAD, adminUid: OTHER_UID }),
+    });
+
+    const res = await request(buildApp())
+      .put(`/burn-squads/${SQUAD_ID}`)
+      .set('Authorization', VALID_TOKEN)
+      .send({ name: 'New Name' });
+
+    expect(res.status).toBe(403);
+  });
+
+  it('updates squad name and returns updated squad', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => SAMPLE_SQUAD,
+    });
+    mockSquadDocUpdate.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .put(`/burn-squads/${SQUAD_ID}`)
+      .set('Authorization', VALID_TOKEN)
+      .send({ name: 'New Squad Name' });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ id: SQUAD_ID, name: 'New Squad Name' });
+    expect(mockSquadDocUpdate).toHaveBeenCalledWith({ name: 'New Squad Name' });
+  });
+
+  it('updates settings and merges with existing settings', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => SAMPLE_SQUAD,
+    });
+    mockSquadDocUpdate.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .put(`/burn-squads/${SQUAD_ID}`)
+      .set('Authorization', VALID_TOKEN)
+      .send({ settings: { onlyAdminsCanAddMembers: true } });
+
+    expect(res.status).toBe(200);
+    expect(mockSquadDocUpdate).toHaveBeenCalledWith({
+      settings: { onlyAdminsCanAddMembers: true },
+    });
+  });
+});
+
 // ── POST /burn-squads/:id/join-requests/:requestId/accept ─────────────────────
 
 describe('POST /burn-squads/:id/join-requests/:requestId/accept', () => {
