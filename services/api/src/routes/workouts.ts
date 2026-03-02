@@ -1,9 +1,10 @@
 import { randomUUID } from 'crypto';
 import { Router, type Request, type Response } from 'express';
-import type { Workout, WorkoutType } from '@burnbuddy/shared';
+import type { UserProfile, Workout, WorkoutType } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
 import { getDb } from '../lib/firestore';
 import { detectGroupWorkouts } from '../services/group-workout-detection';
+import { sendWorkoutStartedNotifications } from '../services/push-notifications';
 
 const router = Router();
 
@@ -37,6 +38,15 @@ router.post('/', requireAuth, async (req: Request, res: Response): Promise<void>
   // Detect group workouts in background — errors must not fail workout creation
   detectGroupWorkouts(uid, workout).catch(() => {
     // detection errors are non-fatal
+  });
+
+  // Send push notifications to Burn Buddies and Burn Squad members in background
+  const userDoc = await db.collection('users').doc(uid).get();
+  const senderDisplayName = userDoc.exists
+    ? ((userDoc.data() as UserProfile).displayName ?? 'Someone')
+    : 'Someone';
+  sendWorkoutStartedNotifications(uid, senderDisplayName).catch(() => {
+    // notification errors are non-fatal
   });
 
   res.status(201).json(workout);

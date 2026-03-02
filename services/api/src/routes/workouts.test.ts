@@ -13,6 +13,9 @@ const {
   // workouts — query chain
   mockWorkoutsQueryGet,
   mockWorkoutsQueryChain,
+  // users — doc operations
+  mockUsersDocGet,
+  mockUsersDocRef,
 } = vi.hoisted(() => {
   const mockVerifyIdToken = vi.fn();
 
@@ -33,6 +36,10 @@ const {
     get: mockWorkoutsQueryGet,
   };
 
+  // users — doc
+  const mockUsersDocGet = vi.fn();
+  const mockUsersDocRef = vi.fn(() => ({ get: mockUsersDocGet }));
+
   return {
     mockVerifyIdToken,
     mockWorkoutsDocGet,
@@ -41,6 +48,8 @@ const {
     mockWorkoutsDocRef,
     mockWorkoutsQueryGet,
     mockWorkoutsQueryChain,
+    mockUsersDocGet,
+    mockUsersDocRef,
   };
 });
 
@@ -55,6 +64,10 @@ vi.mock('../services/group-workout-detection', () => ({
   detectGroupWorkouts: vi.fn().mockResolvedValue([]),
 }));
 
+vi.mock('../services/push-notifications', () => ({
+  sendWorkoutStartedNotifications: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('../lib/firestore', () => ({
   getDb: () => ({
     collection: (name: string) => {
@@ -64,6 +77,9 @@ vi.mock('../lib/firestore', () => ({
           where: () => mockWorkoutsQueryChain,
         };
       }
+      if (name === 'users') {
+        return { doc: mockUsersDocRef };
+      }
       return {};
     },
   }),
@@ -71,6 +87,7 @@ vi.mock('../lib/firestore', () => ({
 
 import workoutsRouter, { autoEndStaleWorkouts } from './workouts';
 import { detectGroupWorkouts } from '../services/group-workout-detection';
+import { sendWorkoutStartedNotifications } from '../services/push-notifications';
 
 function buildApp() {
   const app = express();
@@ -93,6 +110,9 @@ beforeEach(() => {
   // Re-setup detection mock (vi.resetAllMocks clears mockResolvedValue implementations)
   vi.mocked(detectGroupWorkouts).mockResolvedValue([]);
 
+  // Re-setup push notifications mock
+  vi.mocked(sendWorkoutStartedNotifications).mockResolvedValue(undefined);
+
   // Re-setup query chain (mockReturnThis must be re-applied after resetAllMocks)
   mockWorkoutsQueryChain.where.mockReturnThis();
 
@@ -102,6 +122,13 @@ beforeEach(() => {
     set: mockWorkoutsDocSet,
     update: mockWorkoutsDocUpdate,
   }));
+
+  // Re-setup users doc ref (for profile lookup in POST /workouts)
+  mockUsersDocRef.mockImplementation(() => ({ get: mockUsersDocGet }));
+  mockUsersDocGet.mockResolvedValue({
+    exists: true,
+    data: () => ({ uid: TEST_UID, email: 'test@test.com', displayName: 'Test User', createdAt: '' }),
+  });
 });
 
 // ── POST /workouts ─────────────────────────────────────────────────────────────
@@ -164,8 +191,14 @@ describe('POST /workouts', () => {
         set: mockWorkoutsDocSet,
         update: mockWorkoutsDocUpdate,
       }));
+      mockUsersDocRef.mockImplementation(() => ({ get: mockUsersDocGet }));
+      mockUsersDocGet.mockResolvedValue({
+        exists: true,
+        data: () => ({ uid: TEST_UID, displayName: 'Test User', createdAt: '' }),
+      });
       mockWorkoutsDocSet.mockResolvedValueOnce(undefined);
       vi.mocked(detectGroupWorkouts).mockResolvedValue([]);
+      vi.mocked(sendWorkoutStartedNotifications).mockResolvedValue(undefined);
 
       const res = await request(buildApp())
         .post('/workouts')
