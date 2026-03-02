@@ -6,6 +6,7 @@ import { initFirebase } from './lib/firebase';
 import { requireAuth } from './middleware/auth';
 import usersRouter from './routes/users';
 import friendsRouter from './routes/friends';
+import burnBuddiesRouter from './routes/burn-buddies';
 
 // Initialize Firebase Admin on startup
 initFirebase();
@@ -38,6 +39,7 @@ app.use(express.json());
 
 app.use('/users', usersRouter);
 app.use('/friends', friendsRouter);
+app.use('/burn-buddies', burnBuddiesRouter);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
