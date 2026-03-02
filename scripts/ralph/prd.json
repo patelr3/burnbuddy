@@ -439,8 +439,8 @@
         "Typecheck passes"
       ],
       "priority": 26,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "HomeScreen.tsx rewritten as a view router (HomeView state: list/buddy-detail/new-buddy). HomeListView fetches burn buddies, burn squads, group workouts, user profile, buddy requests, and squad join requests in parallel. Enriches buddies with partner display name (GET /users/:uid) and streaks (GET /burn-buddies/:id/streaks). Enriches squads with streaks (GET /burn-squads/:id/streaks). Builds lastGroupWorkout map from group workouts. Sorts combined buddy+squad list descending by lastGroupWorkout (items with no group workouts at bottom). Pending incoming burn buddy requests shown with Accept button (POST /burn-buddies/requests/:id/accept). Pending squad join requests shown with Accept button (POST /burn-squads/:id/join-requests/:requestId/accept). '+ Burn Buddy' navigates to NewBurnBuddyScreen; '+ Burn Squad' shows a coming-soon alert. NewBurnBuddyScreen.tsx: shows friends list with tap-to-select (orange highlight + checkmark), confirmation panel at bottom, sends POST /burn-buddies/requests. BurnBuddyDetailScreen.tsx: fetches buddy, partner profile, streaks, and group workouts in parallel; shows 6-stat grid (Burn Streak, Supernova Streak, this week/month, buddy age, since date); group workout log in reverse chrono order. All typechecks pass, 181 tests pass."
     },
     {
       "id": "US-027",
