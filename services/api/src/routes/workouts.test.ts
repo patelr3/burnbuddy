@@ -51,6 +51,10 @@ vi.mock('../lib/firebase', () => ({
   initFirebase: vi.fn(),
 }));
 
+vi.mock('../services/group-workout-detection', () => ({
+  detectGroupWorkouts: vi.fn().mockResolvedValue([]),
+}));
+
 vi.mock('../lib/firestore', () => ({
   getDb: () => ({
     collection: (name: string) => {
@@ -66,6 +70,7 @@ vi.mock('../lib/firestore', () => ({
 }));
 
 import workoutsRouter, { autoEndStaleWorkouts } from './workouts';
+import { detectGroupWorkouts } from '../services/group-workout-detection';
 
 function buildApp() {
   const app = express();
@@ -84,6 +89,9 @@ beforeEach(() => {
 
   // Re-setup auth mock
   mockVerifyIdToken.mockResolvedValue({ uid: TEST_UID });
+
+  // Re-setup detection mock (vi.resetAllMocks clears mockResolvedValue implementations)
+  vi.mocked(detectGroupWorkouts).mockResolvedValue([]);
 
   // Re-setup query chain (mockReturnThis must be re-applied after resetAllMocks)
   mockWorkoutsQueryChain.where.mockReturnThis();
@@ -157,6 +165,7 @@ describe('POST /workouts', () => {
         update: mockWorkoutsDocUpdate,
       }));
       mockWorkoutsDocSet.mockResolvedValueOnce(undefined);
+      vi.mocked(detectGroupWorkouts).mockResolvedValue([]);
 
       const res = await request(buildApp())
         .post('/workouts')

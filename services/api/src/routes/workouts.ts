@@ -3,6 +3,7 @@ import { Router, type Request, type Response } from 'express';
 import type { Workout, WorkoutType } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
 import { getDb } from '../lib/firestore';
+import { detectGroupWorkouts } from '../services/group-workout-detection';
 
 const router = Router();
 
@@ -32,6 +33,12 @@ router.post('/', requireAuth, async (req: Request, res: Response): Promise<void>
   };
 
   await db.collection('workouts').doc(id).set(workout);
+
+  // Detect group workouts in background — errors must not fail workout creation
+  detectGroupWorkouts(uid, workout).catch(() => {
+    // detection errors are non-fatal
+  });
+
   res.status(201).json(workout);
 });
 
