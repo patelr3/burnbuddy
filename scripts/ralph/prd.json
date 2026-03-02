@@ -239,8 +239,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 14,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "firebase v12 installed in apps/web. src/lib/firebase-client.ts initializes Firebase app (emulator-aware via NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST). src/lib/auth-context.tsx provides AuthProvider with onAuthStateChanged; sets auth_session cookie for middleware route guards. src/lib/api.ts provides typed fetch helpers that attach Firebase ID token as Bearer header. /login and /signup pages handle email/password + Google OAuth via signInWithEmailAndPassword/createUserWithEmailAndPassword/signInWithPopup. src/middleware.ts guards all routes using auth_session cookie; redirects / → /login when unauthenticated and /login → / when already authenticated. next.config.ts renamed to next.config.mjs (Next.js 14 does not support .ts config). Browser verified: redirect and all form fields confirmed."
     },
     {
       "id": "US-015",

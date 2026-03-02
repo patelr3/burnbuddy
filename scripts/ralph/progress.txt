@@ -1,3 +1,16 @@
+## 2026-03-02 - US-014
+- What was implemented: Firebase client-side auth UI for apps/web. Installed firebase v12. Created src/lib/firebase-client.ts (Firebase app init, emulator-aware). Created src/lib/auth-context.tsx (AuthProvider with onAuthStateChanged, sets auth_session cookie). Created src/lib/api.ts (fetch helpers with Bearer token injection). Created /login page (email/password + Google OAuth). Created /signup page (email/password + Google OAuth + displayName). Created src/middleware.ts (auth_session cookie guard, redirects unauthenticated→/login, authenticated /login→/). Updated layout.tsx to wrap in AuthProvider. Updated page.tsx with signed-in user info and sign-out. Renamed next.config.ts→next.config.mjs (Next.js 14 does not support .ts config).
+- Files changed: apps/web/package.json (firebase dep), apps/web/next.config.mjs (renamed from .ts), apps/web/src/lib/firebase-client.ts (new), apps/web/src/lib/auth-context.tsx (new), apps/web/src/lib/api.ts (new), apps/web/src/app/login/page.tsx (new), apps/web/src/app/signup/page.tsx (new), apps/web/src/middleware.ts (new), apps/web/src/app/layout.tsx, apps/web/src/app/page.tsx, yarn.lock
+- **Learnings for future iterations:**
+  - Next.js 14 (14.2.x) does NOT support next.config.ts — rename to next.config.mjs using ESM export default syntax
+  - Firebase client SDK (v9+ modular): import from 'firebase/auth' not 'firebase/app' for auth methods; always check getApps().length before initializeApp to avoid double-init
+  - Next.js middleware (src/middleware.ts) runs on the Edge Runtime and cannot use Firebase Admin or browser APIs — use a lightweight cookie check for auth guards
+  - The auth_session cookie approach: AuthProvider sets/clears the cookie via document.cookie after Firebase onAuthStateChanged fires; middleware reads it for server-side redirect decisions
+  - AuthProvider must be in a 'use client' component; wrapping the root layout works since Next.js allows client providers at the root
+  - connectAuthEmulator should only be called client-side (typeof window !== 'undefined') — calling it during SSR would fail
+  - The dev-browser skill requires Playwright system deps; run `npx playwright install-deps chromium` if Chromium fails with libnspr4.so errors
+---
+
 ## 2026-03-02 - US-013
 - What was implemented: New `sendWorkoutStartedNotifications(uid, senderDisplayName)` service in services/api/src/services/push-notifications.ts. Collects recipient UIDs from burnBuddies (two parallel uid1/uid2 Firestore queries) and burnSquads (array-contains query), deduplicating via a Set. Fetches UserProfile for each recipient, skips those with no fcmToken silently. Calls `admin.messaging().sendEachForMulticast()` with notification payload: title `'{name} started a workout!'`, body `'Jump in within 20 min to log a group workout'`, data `{ type: 'WORKOUT_STARTED', uid }`. Called fire-and-forget from POST /workouts (after fetching sender's displayName from Firestore) with `.catch(() => {})` so notification errors cannot fail workout creation.
 - Files changed: services/api/src/services/push-notifications.ts (new), services/api/src/services/push-notifications.test.ts (new, 9 tests), services/api/src/routes/workouts.ts (sendWorkoutStartedNotifications call + user profile lookup), services/api/src/routes/workouts.test.ts (mock push-notifications + users collection)
@@ -78,6 +91,9 @@
 - apps/web logger: use `pino` with `browser: { asObject: true }` in Next.js — safe for both SSR (Node) and client-side (browser) without crashes
 - `@opentelemetry/sdk-node` bundles sdk-trace-node, sdk-metrics, sdk-logs — only need to add it as a direct dep; `@opentelemetry/sdk-trace-node` still needed explicitly for `ConsoleSpanExporter` import
 - Docker multi-stage builds for services/api: copy only packages/shared and services/api package.json into builder (skip apps/); yarn installs subset of workspaces; copy node_modules + packages/shared to runtime stage to preserve workspace symlinks
+- Next.js 14 does NOT support next.config.ts — use next.config.mjs with ESM `export default`
+- Next.js middleware (src/middleware.ts) runs on Edge Runtime — cannot use firebase-admin or browser APIs; use cookie checks for auth guards
+- Firebase client SDK: always guard `connectAuthEmulator` with `typeof window !== 'undefined'` to avoid SSR crashes
 - Use yarn workspaces for the monorepo (yarn 1.22.x available)
 - All packages use TypeScript strict mode
 - Always add node_modules/, dist/, .next/, *.tsbuildinfo to .gitignore before first commit
