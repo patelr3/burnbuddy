@@ -15,6 +15,8 @@ import { apiGet, apiPost, apiPut } from '../lib/api';
 import GettingStartedCard from '../components/GettingStartedCard';
 import BurnBuddyDetailScreen from './BurnBuddyDetailScreen';
 import NewBurnBuddyScreen from './NewBurnBuddyScreen';
+import BurnSquadDetailScreen from './BurnSquadDetailScreen';
+import NewBurnSquadScreen from './NewBurnSquadScreen';
 import type {
   UserProfile,
   BurnBuddy,
@@ -48,7 +50,9 @@ interface EnrichedSquadJoinRequest extends BurnSquadJoinRequest {
 type HomeView =
   | { type: 'list' }
   | { type: 'buddy-detail'; buddyId: string }
-  | { type: 'new-buddy' };
+  | { type: 'new-buddy' }
+  | { type: 'squad-detail'; squadId: string }
+  | { type: 'new-squad' };
 
 // ----- Helpers -----
 
@@ -66,9 +70,16 @@ function timeAgo(iso: string): string {
 interface HomeListViewProps {
   onNavigateToBuddyDetail: (id: string) => void;
   onNavigateToNewBuddy: () => void;
+  onNavigateToSquadDetail: (id: string) => void;
+  onNavigateToNewSquad: () => void;
 }
 
-function HomeListView({ onNavigateToBuddyDetail, onNavigateToNewBuddy }: HomeListViewProps) {
+function HomeListView({
+  onNavigateToBuddyDetail,
+  onNavigateToNewBuddy,
+  onNavigateToSquadDetail,
+  onNavigateToNewSquad,
+}: HomeListViewProps) {
   const { user } = useAuth();
   const [buddies, setBuddies] = useState<EnrichedBurnBuddy[]>([]);
   const [squads, setSquads] = useState<EnrichedBurnSquad[]>([]);
@@ -240,9 +251,7 @@ function HomeListView({ onNavigateToBuddyDetail, onNavigateToNewBuddy }: HomeLis
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionButton, styles.actionButtonSecondary]}
-            onPress={() =>
-              Alert.alert('Coming Soon', 'Burn Squads are coming in the next update!')
-            }
+            onPress={onNavigateToNewSquad}
           >
             <Text style={styles.actionButtonTextSecondary}>+ Burn Squad</Text>
           </TouchableOpacity>
@@ -334,7 +343,11 @@ function HomeListView({ onNavigateToBuddyDetail, onNavigateToNewBuddy }: HomeLis
                   }
                   const squad = entry.item;
                   return (
-                    <View key={squad.id} style={styles.listCard}>
+                    <TouchableOpacity
+                      key={squad.id}
+                      style={styles.listCard}
+                      onPress={() => onNavigateToSquadDetail(squad.id)}
+                    >
                       <View style={styles.listCardLeft}>
                         <Text style={styles.listCardName}>{squad.name}</Text>
                         <View style={[styles.listCardBadge, styles.squadBadge]}>
@@ -349,7 +362,7 @@ function HomeListView({ onNavigateToBuddyDetail, onNavigateToNewBuddy }: HomeLis
                           <Text style={styles.timeAgoText}>{timeAgo(squad.lastGroupWorkout)}</Text>
                         )}
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   );
                 })
               )}
@@ -384,10 +397,30 @@ export default function HomeScreen() {
     );
   }
 
+  if (view.type === 'squad-detail') {
+    return (
+      <BurnSquadDetailScreen
+        squadId={view.squadId}
+        onBack={() => setView({ type: 'list' })}
+      />
+    );
+  }
+
+  if (view.type === 'new-squad') {
+    return (
+      <NewBurnSquadScreen
+        onBack={() => setView({ type: 'list' })}
+        onSuccess={() => setView({ type: 'list' })}
+      />
+    );
+  }
+
   return (
     <HomeListView
       onNavigateToBuddyDetail={(id) => setView({ type: 'buddy-detail', buddyId: id })}
       onNavigateToNewBuddy={() => setView({ type: 'new-buddy' })}
+      onNavigateToSquadDetail={(id) => setView({ type: 'squad-detail', squadId: id })}
+      onNavigateToNewSquad={() => setView({ type: 'new-squad' })}
     />
   );
 }
