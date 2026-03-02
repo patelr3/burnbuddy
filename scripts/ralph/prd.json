@@ -47,7 +47,7 @@
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Multi-stage Dockerfile in services/api/ builds from monorepo root context (skips mobile/web deps). docker-compose.yml at project root starts the API on port 3001. .dockerignore excludes node_modules, dist, and env files. No secrets required — service starts gracefully without Firebase. Typecheck passes."
+      "notes": "Multi-stage Dockerfile in services/api/ builds from monorepo root context (skips mobile/web deps). docker-compose.yml at project root starts the API on port 3001. .dockerignore excludes node_modules, dist, and env files. No secrets required \u2014 service starts gracefully without Firebase. Typecheck passes."
     },
     {
       "id": "US-004",
@@ -188,7 +188,7 @@
       ],
       "priority": 11,
       "passes": true,
-      "notes": "New detectGroupWorkouts() service in services/api/src/services/group-workout-detection.ts. Checks all BurnBuddies (two parallel queries: uid1==uid + uid2==uid) — if partner has an active workout started within 20 min, creates GroupWorkout (type: buddy). Checks all BurnSquads (array-contains query) — if ALL other members have active workouts within 20 min, creates GroupWorkout (type: squad). Deduplication: before creating, queries groupWorkouts collection for existing doc with same referenceId and startedAt >= cutoff. Called fire-and-forget from POST /workouts handler after saving workout. 14 vitest tests. All 118 tests and typechecks pass."
+      "notes": "New detectGroupWorkouts() service in services/api/src/services/group-workout-detection.ts. Checks all BurnBuddies (two parallel queries: uid1==uid + uid2==uid) \u2014 if partner has an active workout started within 20 min, creates GroupWorkout (type: buddy). Checks all BurnSquads (array-contains query) \u2014 if ALL other members have active workouts within 20 min, creates GroupWorkout (type: squad). Deduplication: before creating, queries groupWorkouts collection for existing doc with same referenceId and startedAt >= cutoff. Called fire-and-forget from POST /workouts handler after saving workout. 14 vitest tests. All 118 tests and typechecks pass."
     },
     {
       "id": "US-012",
@@ -240,7 +240,7 @@
       ],
       "priority": 14,
       "passes": true,
-      "notes": "firebase v12 installed in apps/web. src/lib/firebase-client.ts initializes Firebase app (emulator-aware via NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST). src/lib/auth-context.tsx provides AuthProvider with onAuthStateChanged; sets auth_session cookie for middleware route guards. src/lib/api.ts provides typed fetch helpers that attach Firebase ID token as Bearer header. /login and /signup pages handle email/password + Google OAuth via signInWithEmailAndPassword/createUserWithEmailAndPassword/signInWithPopup. src/middleware.ts guards all routes using auth_session cookie; redirects / → /login when unauthenticated and /login → / when already authenticated. next.config.ts renamed to next.config.mjs (Next.js 14 does not support .ts config). Browser verified: redirect and all form fields confirmed."
+      "notes": "firebase v12 installed in apps/web. src/lib/firebase-client.ts initializes Firebase app (emulator-aware via NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST). src/lib/auth-context.tsx provides AuthProvider with onAuthStateChanged; sets auth_session cookie for middleware route guards. src/lib/api.ts provides typed fetch helpers that attach Firebase ID token as Bearer header. /login and /signup pages handle email/password + Google OAuth via signInWithEmailAndPassword/createUserWithEmailAndPassword/signInWithPopup. src/middleware.ts guards all routes using auth_session cookie; redirects / \u2192 /login when unauthenticated and /login \u2192 / when already authenticated. next.config.ts renamed to next.config.mjs (Next.js 14 does not support .ts config). Browser verified: redirect and all form fields confirmed."
     },
     {
       "id": "US-015",
@@ -376,7 +376,7 @@
       ],
       "priority": 22,
       "passes": true,
-      "notes": "Start Workout button on home page opens a workout type selector modal with 8 types (Weightlifting, Running, Cycling, Yoga, Barre, Swimming, HIIT, Custom). Custom type shows a text input. Confirming calls POST /workouts; push notifications to buddies/squad members are triggered server-side. Active workout banner shows elapsed time (live timer via setInterval) and End Workout button (calls PATCH /workouts/:id/end). On next page load, GET /workouts is fetched to check for any active workout — if the workout auto-ended after 1.5h, no active banner appears. All typechecks pass, 181 tests pass."
+      "notes": "Start Workout button on home page opens a workout type selector modal with 8 types (Weightlifting, Running, Cycling, Yoga, Barre, Swimming, HIIT, Custom). Custom type shows a text input. Confirming calls POST /workouts; push notifications to buddies/squad members are triggered server-side. Active workout banner shows elapsed time (live timer via setInterval) and End Workout button (calls PATCH /workouts/:id/end). On next page load, GET /workouts is fetched to check for any active workout \u2014 if the workout auto-ended after 1.5h, no active banner appears. All typechecks pass, 181 tests pass."
     },
     {
       "id": "US-023",
@@ -409,7 +409,7 @@
       ],
       "priority": 24,
       "passes": true,
-      "notes": "firebase + expo-auth-session + expo-web-browser installed in apps/mobile. src/lib/firebase.ts initializes Firebase app (in-memory auth, no AsyncStorage — getReactNativePersistence is not in firebase/auth TypeScript types for v12). src/lib/auth-context.tsx provides AuthProvider with onAuthStateChanged. src/lib/api.ts provides fetch helpers with Bearer token injection. LoginScreen: email/password + Google OAuth button (expo-auth-session/providers/google + GoogleAuthProvider.credential). SignupScreen: displayName + email/password, calls POST /users to create profile. HomeScreen: shows greeting + GettingStartedCard for new users (fetches GET /users/me, dismisses via PUT /users/me). GettingStartedCard: dismissible with onDismiss prop. App.tsx: AuthProvider wrapper, state-based navigation (login/signup/home) using useAuth hook. Unauthenticated users see LoginScreen, authenticated users see HomeScreen. All typechecks pass, 181 tests pass."
+      "notes": "firebase + expo-auth-session + expo-web-browser installed in apps/mobile. src/lib/firebase.ts initializes Firebase app (in-memory auth, no AsyncStorage \u2014 getReactNativePersistence is not in firebase/auth TypeScript types for v12). src/lib/auth-context.tsx provides AuthProvider with onAuthStateChanged. src/lib/api.ts provides fetch helpers with Bearer token injection. LoginScreen: email/password + Google OAuth button (expo-auth-session/providers/google + GoogleAuthProvider.credential). SignupScreen: displayName + email/password, calls POST /users to create profile. HomeScreen: shows greeting + GettingStartedCard for new users (fetches GET /users/me, dismisses via PUT /users/me). GettingStartedCard: dismissible with onDismiss prop. App.tsx: AuthProvider wrapper, state-based navigation (login/signup/home) using useAuth hook. Unauthenticated users see LoginScreen, authenticated users see HomeScreen. All typechecks pass, 181 tests pass."
     },
     {
       "id": "US-025",
@@ -485,8 +485,8 @@
         "Typecheck passes"
       ],
       "priority": 29,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "expo-notifications installed. registerForPushNotificationsAsync() requests permission and gets Expo push token, then saves it to API via PUT /users/me (fcmToken field). setNotificationHandler configured for foreground banners. App.tsx uses useLastNotificationResponse hook for notification tap deep-linking: switches to Home tab and passes senderUid to HomeScreen, which finds the burn buddy/squad and navigates to the detail screen after data loads."
     },
     {
       "id": "US-030",
