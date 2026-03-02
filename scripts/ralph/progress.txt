@@ -395,3 +395,14 @@ Started: Mon Mar  2 07:24:31 AM UTC 2026
   - ACR login in CI: `az acr login --name $ACR_NAME` after `azure/login` step — no separate docker/login-action needed
   - apps/web Dockerfile build context is root (same as services/api) — must COPY packages/shared and apps/web manifests, then `yarn workspace @burnbuddy/shared build && yarn workspace web build`
 ---
+
+## 2026-03-02 - US-033
+- What was implemented: firebase.json at root — Auth emulator port 9099, Firestore emulator port 8080, UI port 4000. packages/shared/src/testing/emulators.ts exports EMULATOR_CONFIG constants and initTestAdmin() — checks for FIREBASE_AUTH_EMULATOR_HOST + FIRESTORE_EMULATOR_HOST env vars; if both are set, dynamically imports firebase-admin and calls initializeApp({ projectId }); otherwise no-op (tests use vi.mock). services/api/vitest.config.ts created with setupFiles: ['./vitest.setup.ts']. services/api/vitest.setup.ts imports initTestAdmin from relative path to packages/shared source and awaits it. .env.test at root documents FIREBASE_AUTH_EMULATOR_HOST, FIRESTORE_EMULATOR_HOST, FIREBASE_PROJECT_ID, PORT, LOG_LEVEL with usage instructions. README updated with emulator setup section.
+- Files changed: firebase.json (new), .env.test (new), packages/shared/src/testing/emulators.ts (new), services/api/vitest.config.ts (new), services/api/vitest.setup.ts (new), README.md (emulator section)
+- **Learnings for future iterations:**
+  - Vitest globalSetup runs in a separate process — use setupFiles (not globalSetup) to set env vars that test files can read
+  - initTestAdmin() uses dynamic import (`await import('firebase-admin')`) so firebase-admin is only loaded when emulators are actually needed — no hard dep needed in packages/shared
+  - Import packages/shared test helpers via relative path `../../packages/shared/src/testing/emulators` in vitest.setup.ts — vitest TypeScript-transforms files directly, no build step needed for this
+  - firebase.json with `singleProjectMode: true` means the emulator accepts any projectId — matches how initTestAdmin calls initializeApp({ projectId: 'burnbuddy-test' })
+  - ALL 33 stories now have passes: true — buddyburn v1 is complete
+---

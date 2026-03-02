@@ -550,8 +550,8 @@
         "Typecheck passes"
       ],
       "priority": 33,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "firebase.json configures Auth:9099 and Firestore:8080 emulators. packages/shared/src/testing/emulators.ts exports initTestAdmin() — no-op when env vars absent, initializes firebase-admin against emulators when FIREBASE_AUTH_EMULATOR_HOST + FIRESTORE_EMULATOR_HOST are set. services/api/vitest.config.ts + vitest.setup.ts wire up the helper as a setupFile. .env.test documents all env vars. README updated with emulator setup instructions. All 181 tests pass."
     }
   ]
 }
