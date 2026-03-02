@@ -8,6 +8,7 @@ import usersRouter from './routes/users';
 import friendsRouter from './routes/friends';
 import burnBuddiesRouter from './routes/burn-buddies';
 import burnSquadsRouter from './routes/burn-squads';
+import workoutsRouter, { autoEndStaleWorkouts } from './routes/workouts';
 
 // Initialize Firebase Admin on startup
 initFirebase();
@@ -42,6 +43,7 @@ app.use('/users', usersRouter);
 app.use('/friends', friendsRouter);
 app.use('/burn-buddies', burnBuddiesRouter);
 app.use('/burn-squads', burnSquadsRouter);
+app.use('/workouts', workoutsRouter);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
@@ -55,5 +57,16 @@ app.get('/me', requireAuth, (req, res) => {
 app.listen(PORT, () => {
   logger.info({ port: PORT }, 'BurnBuddy API service started');
 });
+
+// Auto-end workouts that have been active for more than 1.5 hours.
+// Runs every 10 minutes; in production this can also be triggered by a Cloud Function.
+const AUTO_END_INTERVAL_MS = 10 * 60 * 1000;
+setInterval(() => {
+  autoEndStaleWorkouts()
+    .then((count) => {
+      if (count > 0) logger.info({ count }, 'Auto-ended stale workouts');
+    })
+    .catch((err: unknown) => logger.error({ err }, 'Error auto-ending stale workouts'));
+}, AUTO_END_INTERVAL_MS);
 
 export { app, logger };
