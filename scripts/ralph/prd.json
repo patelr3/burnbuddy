@@ -272,8 +272,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 16,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "GET /friends added to API (enriched friend list with displayName/email via two parallel uid1/uid2 Firestore queries + user profile lookups). GET /users/:uid added for public profile lookup by uid. /friends page at apps/web/src/app/friends/page.tsx: Add Friend button opens email search panel, search result click opens confirmation dialog, POST /friends/requests on confirm. Pending incoming requests shown with Accept + Ignore (no-op) buttons. Outgoing requests shown with pending badge. Accepted friends listed with Remove button (DELETE /friends/:uid). 157 tests pass, all typechecks pass."
     },
     {
       "id": "US-017",

@@ -1,3 +1,14 @@
+## 2026-03-02 - US-016
+- What was implemented: GET /friends API endpoint (enriched list with displayName/email via two parallel uid1/uid2 Firestore queries + per-friend user profile doc lookups). GET /users/:uid endpoint for public profile lookup by UID. /friends page at apps/web/src/app/friends/page.tsx with: Add Friend button → email search panel → result click → confirmation dialog → POST /friends/requests. Pending incoming requests shown with Accept (POST /friends/requests/:id/accept) and Ignore (no-op, v2) buttons. Outgoing requests shown with 'pending' badge and displayName enrichment via GET /users/:uid. Accepted friends list with Remove button (DELETE /friends/:uid). 157 tests pass, all typechecks pass.
+- Files changed: services/api/src/routes/friends.ts (GET /friends added), services/api/src/routes/friends.test.ts (5 new GET /friends tests + mock updates for friends query chain and users doc ref), services/api/src/routes/users.ts (GET /users/:uid added), services/api/src/routes/users.test.ts (3 new GET /users/:uid tests), apps/web/src/app/friends/page.tsx (new)
+- **Learnings for future iterations:**
+  - GET /friends needs both query support (where uid1==uid, where uid2==uid) AND doc support (db.collection('users').doc(uid)) on different collections — update the test mock's collection switch for both
+  - When adding GET /friends, order in the router doesn't conflict with DELETE /:uid since they're different HTTP methods, but GET / and GET /requests don't conflict either (Express matches exact /requests before wildcard /)
+  - For request enrichment (showing display names), use GET /users/:uid which is now available — fetch in parallel via Promise.all for multiple requests
+  - Inline ESLint disable comment (`// eslint-disable-next-line react-hooks/exhaustive-deps`) needed when calling an in-component async function from useEffect without wrapping it in useCallback
+  - apiGet path string works for query params: apiGet(`/users/search?email=${encodeURIComponent(email)}`) — no need to extend the API helper
+---
+
 ## 2026-03-02 - US-015
 - What was implemented: GettingStartedCard component (apps/web/src/components/GettingStartedCard.tsx) with 'x' dismiss button. page.tsx fetches GET /users/me on mount and shows the card when gettingStartedDismissed is falsy (or on 404 for new users without a profile). Dismiss handler calls PUT /users/me with { gettingStartedDismissed: true }, updating Firestore via the API. gettingStartedDismissed optional field added to UserProfile type in packages/shared. PUT /users/me API updated to accept and persist gettingStartedDismissed. New unit test verifies the field is correctly written. 149 total tests pass.
 - Files changed: apps/web/src/components/GettingStartedCard.tsx (new), apps/web/src/app/page.tsx (GettingStartedCard integration + profile fetch), packages/shared/src/types.ts (gettingStartedDismissed field), services/api/src/routes/users.ts (gettingStartedDismissed in PUT /users/me), services/api/src/routes/users.test.ts (new test for gettingStartedDismissed)
@@ -86,6 +97,7 @@
 ---
 
 ## Codebase Patterns
+- GET /users/:uid is now available for public profile lookup by uid — use when enriching request lists (e.g., friend request sender/receiver display names)
 - For streak/date calculations: use UTC dates via `new Date(ms).toISOString().substring(0, 10)` — avoids timezone drift; use `endedAt` over `startedAt` for calendar-day attribution
 - Pure calculation functions go in `services/` (not `routes/`); test with `vi.useFakeTimers()` + `vi.setSystemTime()` for deterministic date-dependent logic
 - When mocking fire-and-forget service calls in vitest, re-apply `.mockResolvedValue()` in `beforeEach` after `vi.resetAllMocks()` — otherwise mock returns undefined and `.catch()` throws TypeError
