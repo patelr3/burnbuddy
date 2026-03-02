@@ -2,13 +2,25 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { apiGet, apiPost, apiPut } from '@/lib/api';
+import { apiGet, apiPost, apiPut, apiPatch } from '@/lib/api';
 import { GettingStartedCard } from '@/components/GettingStartedCard';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase-client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import type { UserProfile, BurnBuddy, BurnSquad, GroupWorkout, BurnBuddyRequest, BurnSquadJoinRequest } from '@burnbuddy/shared';
+import type { UserProfile, BurnBuddy, BurnSquad, GroupWorkout, BurnBuddyRequest, BurnSquadJoinRequest, Workout, WorkoutType } from '@burnbuddy/shared';
+
+const WORKOUT_TYPES: WorkoutType[] = [
+  'Weightlifting', 'Running', 'Cycling', 'Yoga', 'Barre', 'Swimming', 'HIIT', 'Custom',
+];
+
+function formatElapsed(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
 
 interface Streaks {
   burnStreak: number;
@@ -51,12 +63,17 @@ export default function Home() {
   const [incomingBuddyRequests, setIncomingBuddyRequests] = useState<EnrichedBurnBuddyRequest[]>([]);
   const [incomingSquadRequests, setIncomingSquadRequests] = useState<EnrichedSquadJoinRequest[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
+  const [activeWorkout, setActiveWorkout] = useState<Workout | null>(null);
+  const [showWorkoutSelector, setShowWorkoutSelector] = useState(false);
+  const [selectedType, setSelectedType] = useState<WorkoutType | ''>('');
+  const [customType, setCustomType] = useState('');
+  const [elapsed, setElapsed] = useState(0);
 
   const loadData = useCallback(async () => {
     if (!user) return;
     setDataLoading(true);
     try {
-      const [userProfile, buddies, squads, groupWorkouts, buddyRequests, squadRequests] = await Promise.all([
+      const [userProfile, buddies, squads, groupWorkouts, buddyRequests, squadRequests, workouts] = await Promise.all([
         apiGet<UserProfile>('/users/me').catch(() => null),
         apiGet<BurnBuddy[]>('/burn-buddies').catch(() => [] as BurnBuddy[]),
         apiGet<BurnSquad[]>('/burn-squads').catch(() => [] as BurnSquad[]),
@@ -67,7 +84,11 @@ export default function Home() {
         apiGet<{ incoming: EnrichedSquadJoinRequest[]; outgoing: EnrichedSquadJoinRequest[] }>(
           '/burn-squads/join-requests',
         ).catch(() => ({ incoming: [], outgoing: [] })),
+        apiGet<Workout[]>('/workouts').catch(() => [] as Workout[]),
       ]);
+
+      const active = workouts.find((w) => w.status === 'active') ?? null;
+      setActiveWorkout(active);
 
       if (userProfile) {
         setProfile(userProfile);
@@ -161,6 +182,19 @@ export default function Home() {
     loadData();
   }, [loadData]);
 
+  // Update elapsed time every second while a workout is active
+  useEffect(() => {
+    if (!activeWorkout) {
+      setElapsed(0);
+      return;
+    }
+    const startTime = new Date(activeWorkout.startedAt).getTime();
+    const tick = () => setElapsed(Math.floor((Date.now() - startTime) / 1000));
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [activeWorkout]);
+
   const handleDismiss = async () => {
     setShowCard(false);
     try {
@@ -184,6 +218,30 @@ export default function Home() {
     try {
       await apiPost(`/burn-squads/${squadId}/join-requests/${requestId}/accept`);
       await loadData();
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleStartWorkout = async () => {
+    const type = selectedType === 'Custom' ? customType.trim() : selectedType;
+    if (!type) return;
+    try {
+      const workout = await apiPost<Workout>('/workouts', { type });
+      setActiveWorkout(workout);
+      setShowWorkoutSelector(false);
+      setSelectedType('');
+      setCustomType('');
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleEndWorkout = async () => {
+    if (!activeWorkout) return;
+    try {
+      await apiPatch(`/workouts/${activeWorkout.id}/end`);
+      setActiveWorkout(null);
     } catch {
       // ignore
     }
@@ -226,6 +284,175 @@ export default function Home() {
       </div>
 
       {showCard && <GettingStartedCard onDismiss={handleDismiss} />}
+
+      {/* Active Workout Banner */}
+      {activeWorkout && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '14px 16px',
+            marginBottom: 20,
+            borderRadius: 8,
+            backgroundColor: '#fef9c3',
+            border: '1px solid #fde047',
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: 'bold', fontSize: 15, color: '#713f12' }}>
+              🔥 Active Workout: {activeWorkout.type}
+            </div>
+            <div style={{ fontSize: 13, color: '#854d0e', marginTop: 2 }}>
+              {formatElapsed(elapsed)}
+            </div>
+          </div>
+          <button
+            onClick={handleEndWorkout}
+            style={{
+              padding: '8px 16px',
+              cursor: 'pointer',
+              backgroundColor: '#dc2626',
+              color: 'white',
+              border: 'none',
+              borderRadius: 6,
+              fontWeight: 'bold',
+              fontSize: 13,
+            }}
+          >
+            End Workout
+          </button>
+        </div>
+      )}
+
+      {/* Start Workout Button */}
+      {!activeWorkout && (
+        <div style={{ marginBottom: 24 }}>
+          <button
+            onClick={() => setShowWorkoutSelector(true)}
+            style={{
+              width: '100%',
+              padding: '16px',
+              cursor: 'pointer',
+              backgroundColor: '#f97316',
+              color: 'white',
+              border: 'none',
+              borderRadius: 8,
+              fontWeight: 'bold',
+              fontSize: 16,
+            }}
+          >
+            🔥 Start Workout
+          </button>
+        </div>
+      )}
+
+      {/* Workout Type Selector */}
+      {showWorkoutSelector && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 50,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: 'white',
+              borderRadius: 12,
+              padding: 24,
+              width: '90%',
+              maxWidth: 400,
+            }}
+          >
+            <h2 style={{ margin: '0 0 16px', fontSize: 18 }}>Choose Workout Type</h2>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 8,
+                marginBottom: 16,
+              }}
+            >
+              {WORKOUT_TYPES.map((wt) => (
+                <button
+                  key={wt}
+                  onClick={() => setSelectedType(wt)}
+                  style={{
+                    padding: '12px 8px',
+                    cursor: 'pointer',
+                    border: selectedType === wt ? '2px solid #f97316' : '2px solid #e2e8f0',
+                    borderRadius: 6,
+                    backgroundColor: selectedType === wt ? '#fff7ed' : 'white',
+                    fontWeight: selectedType === wt ? 'bold' : 'normal',
+                    fontSize: 14,
+                    color: selectedType === wt ? '#c2410c' : '#374151',
+                  }}
+                >
+                  {wt}
+                </button>
+              ))}
+            </div>
+            {selectedType === 'Custom' && (
+              <input
+                type="text"
+                placeholder="Enter custom workout type"
+                value={customType}
+                onChange={(e) => setCustomType(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: 6,
+                  fontSize: 14,
+                  marginBottom: 16,
+                  boxSizing: 'border-box',
+                }}
+              />
+            )}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => {
+                  setShowWorkoutSelector(false);
+                  setSelectedType('');
+                  setCustomType('');
+                }}
+                style={{
+                  padding: '10px 20px',
+                  cursor: 'pointer',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: 6,
+                  backgroundColor: 'white',
+                  fontSize: 14,
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleStartWorkout}
+                disabled={!selectedType || (selectedType === 'Custom' && !customType.trim())}
+                style={{
+                  padding: '10px 20px',
+                  cursor: 'pointer',
+                  backgroundColor: '#f97316',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 6,
+                  fontWeight: 'bold',
+                  fontSize: 14,
+                  opacity: (!selectedType || (selectedType === 'Custom' && !customType.trim())) ? 0.5 : 1,
+                }}
+              >
+                Start Workout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Pending Burn Buddy Requests */}
       {incomingBuddyRequests.length > 0 && (
