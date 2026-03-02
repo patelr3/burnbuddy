@@ -98,6 +98,8 @@ interface HomeListViewProps {
   onNavigateToNewBuddy: () => void;
   onNavigateToSquadDetail: (id: string) => void;
   onNavigateToNewSquad: () => void;
+  notificationSenderUid?: string | null;
+  onNotificationHandled?: () => void;
 }
 
 function HomeListView({
@@ -105,6 +107,8 @@ function HomeListView({
   onNavigateToNewBuddy,
   onNavigateToSquadDetail,
   onNavigateToNewSquad,
+  notificationSenderUid,
+  onNotificationHandled,
 }: HomeListViewProps) {
   const { user } = useAuth();
   const [buddies, setBuddies] = useState<EnrichedBurnBuddy[]>([]);
@@ -215,6 +219,24 @@ function HomeListView({
     if (!user) return;
     void loadData();
   }, [user, loadData]);
+
+  // Deep-link navigation from notification tap: navigate to the sender's burn buddy or squad
+  useEffect(() => {
+    if (!notificationSenderUid || loading) return;
+    const buddy = buddies.find(
+      (b) => b.uid1 === notificationSenderUid || b.uid2 === notificationSenderUid,
+    );
+    if (buddy) {
+      onNotificationHandled?.();
+      onNavigateToBuddyDetail(buddy.id);
+      return;
+    }
+    const squad = squads.find((s) => s.memberUids.includes(notificationSenderUid));
+    if (squad) {
+      onNotificationHandled?.();
+      onNavigateToSquadDetail(squad.id);
+    }
+  }, [notificationSenderUid, loading, buddies, squads, onNotificationHandled, onNavigateToBuddyDetail, onNavigateToSquadDetail]);
 
   const handleSignOut = async () => {
     try {
@@ -532,7 +554,12 @@ function HomeListView({
 
 // ----- HomeScreen (view router) -----
 
-export default function HomeScreen() {
+interface HomeScreenProps {
+  notificationSenderUid?: string | null;
+  onNotificationHandled?: () => void;
+}
+
+export default function HomeScreen({ notificationSenderUid, onNotificationHandled }: HomeScreenProps) {
   const [view, setView] = useState<HomeView>({ type: 'list' });
 
   if (view.type === 'buddy-detail') {
@@ -577,6 +604,8 @@ export default function HomeScreen() {
       onNavigateToNewBuddy={() => setView({ type: 'new-buddy' })}
       onNavigateToSquadDetail={(id) => setView({ type: 'squad-detail', squadId: id })}
       onNavigateToNewSquad={() => setView({ type: 'new-squad' })}
+      notificationSenderUid={notificationSenderUid}
+      onNotificationHandled={onNotificationHandled}
     />
   );
 }

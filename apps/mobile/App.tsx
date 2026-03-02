@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as Notifications from 'expo-notifications';
 import { AuthProvider, useAuth } from './src/lib/auth-context';
+import { registerForPushNotificationsAsync, savePushToken } from './src/lib/notifications';
 import LoginScreen from './src/screens/LoginScreen';
 import SignupScreen from './src/screens/SignupScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -41,6 +43,35 @@ function AppNavigator() {
   const { user, loading } = useAuth();
   const [authScreen, setAuthScreen] = useState<AuthScreen>('login');
   const [activeTab, setActiveTab] = useState<AppTab>('home');
+  const [notificationSenderUid, setNotificationSenderUid] = useState<string | null>(null);
+  const lastResponseId = useRef<string | null>(null);
+
+  // Register for push notifications when the user logs in
+  useEffect(() => {
+    if (!user) return;
+    registerForPushNotificationsAsync()
+      .then((token) => {
+        if (token) return savePushToken(token);
+      })
+      .catch(() => {
+        // Non-fatal: user may have denied permissions
+      });
+  }, [user]);
+
+  // Handle notification taps (foreground, background, and quit state)
+  const lastNotificationResponse = Notifications.useLastNotificationResponse();
+  useEffect(() => {
+    if (!lastNotificationResponse) return;
+    const responseId = lastNotificationResponse.notification.request.identifier;
+    if (lastResponseId.current === responseId) return;
+    lastResponseId.current = responseId;
+
+    const data = lastNotificationResponse.notification.request.content.data as Record<string, unknown>;
+    if (data?.type === 'WORKOUT_STARTED' && typeof data.uid === 'string') {
+      setActiveTab('home');
+      setNotificationSenderUid(data.uid);
+    }
+  }, [lastNotificationResponse]);
 
   if (loading) {
     return (
@@ -64,7 +95,14 @@ function AppNavigator() {
   return (
     <View style={styles.appContainer}>
       <View style={styles.screenContainer}>
-        {activeTab === 'home' ? <HomeScreen /> : <FriendsScreen />}
+        {activeTab === 'home' ? (
+          <HomeScreen
+            notificationSenderUid={notificationSenderUid}
+            onNotificationHandled={() => setNotificationSenderUid(null)}
+          />
+        ) : (
+          <FriendsScreen />
+        )}
       </View>
       <TabBar activeTab={activeTab} onTabPress={setActiveTab} />
     </View>
