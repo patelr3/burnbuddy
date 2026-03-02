@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { Router, type Request, type Response } from 'express';
-import type { BurnBuddy, BurnBuddyRequest, Workout } from '@burnbuddy/shared';
+import type { BurnBuddy, BurnBuddyRequest, Workout, WorkoutSchedule } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
 import { getDb } from '../lib/firestore';
 import { calculateStreaks } from '../services/streak-calculator';
@@ -188,6 +188,61 @@ router.get('/:id/streaks', requireAuth, async (req: Request, res: Response): Pro
   const streaks = calculateStreaks(memberUids, allWorkouts);
 
   res.json(streaks);
+});
+
+/**
+ * GET /burn-buddies/:id
+ * Returns a single Burn Buddy relationship (must be a member).
+ */
+router.get('/:id', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const uid = req.user!.uid;
+  const id = req.params['id'] as string;
+  const db = getDb();
+
+  const burnBuddyDoc = await db.collection('burnBuddies').doc(id).get();
+
+  if (!burnBuddyDoc.exists) {
+    res.status(404).json({ error: 'Burn Buddy not found' });
+    return;
+  }
+
+  const burnBuddy = burnBuddyDoc.data() as BurnBuddy;
+
+  if (burnBuddy.uid1 !== uid && burnBuddy.uid2 !== uid) {
+    res.status(403).json({ error: 'You are not a member of this Burn Buddy relationship' });
+    return;
+  }
+
+  res.json(burnBuddy);
+});
+
+/**
+ * PUT /burn-buddies/:id
+ * Updates the workout schedule for a Burn Buddy relationship (must be a member).
+ */
+router.put('/:id', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const uid = req.user!.uid;
+  const id = req.params['id'] as string;
+  const db = getDb();
+
+  const burnBuddyDoc = await db.collection('burnBuddies').doc(id).get();
+
+  if (!burnBuddyDoc.exists) {
+    res.status(404).json({ error: 'Burn Buddy not found' });
+    return;
+  }
+
+  const burnBuddy = burnBuddyDoc.data() as BurnBuddy;
+
+  if (burnBuddy.uid1 !== uid && burnBuddy.uid2 !== uid) {
+    res.status(403).json({ error: 'You are not a member of this Burn Buddy relationship' });
+    return;
+  }
+
+  const { workoutSchedule } = req.body as { workoutSchedule?: WorkoutSchedule };
+  await db.collection('burnBuddies').doc(id).update({ workoutSchedule: workoutSchedule ?? null });
+
+  res.json({ ...burnBuddy, workoutSchedule });
 });
 
 /**

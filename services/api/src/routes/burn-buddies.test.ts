@@ -17,6 +17,7 @@ const {
   mockBBDocGet,
   mockBBDocSet,
   mockBBDocDelete,
+  mockBBDocUpdate,
   mockBBDocRef,
   // burnBuddies — query
   mockBBQueryGet,
@@ -52,10 +53,12 @@ const {
   const mockBBDocGet = vi.fn();
   const mockBBDocSet = vi.fn();
   const mockBBDocDelete = vi.fn();
+  const mockBBDocUpdate = vi.fn();
   const mockBBDocRef = vi.fn(() => ({
     get: mockBBDocGet,
     set: mockBBDocSet,
     delete: mockBBDocDelete,
+    update: mockBBDocUpdate,
   }));
 
   // burnBuddies — query chain
@@ -87,6 +90,7 @@ const {
     mockBBDocGet,
     mockBBDocSet,
     mockBBDocDelete,
+    mockBBDocUpdate,
     mockBBDocRef,
     mockBBQueryGet,
     mockBBQueryChain,
@@ -167,6 +171,7 @@ beforeEach(() => {
     get: mockBBDocGet,
     set: mockBBDocSet,
     delete: mockBBDocDelete,
+    update: mockBBDocUpdate,
   }));
   mockFriendsDocRef.mockImplementation(() => ({ get: mockFriendsDocGet }));
 });
@@ -456,6 +461,100 @@ describe('GET /burn-buddies/:id/streaks', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ burnStreak: 1, supernovaStreak: 1 });
+  });
+});
+
+// ── GET /burn-buddies/:id ──────────────────────────────────────────────────────
+
+describe('GET /burn-buddies/:id', () => {
+  it('returns 401 when unauthenticated', async () => {
+    const res = await request(buildApp()).get(`/burn-buddies/${BURN_BUDDY_ID}`);
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 when the burn buddy does not exist', async () => {
+    mockBBDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .get(`/burn-buddies/${BURN_BUDDY_ID}`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 403 when user is not a member', async () => {
+    mockBBDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ id: BURN_BUDDY_ID, uid1: 'other-1', uid2: 'other-2', createdAt: '' }),
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-buddies/${BURN_BUDDY_ID}`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('returns the burn buddy when user is a member', async () => {
+    const bb = { id: BURN_BUDDY_ID, uid1: TEST_UID, uid2: OTHER_UID, createdAt: '2026-01-01T00:00:00.000Z' };
+    mockBBDocGet.mockResolvedValueOnce({ exists: true, data: () => bb });
+
+    const res = await request(buildApp())
+      .get(`/burn-buddies/${BURN_BUDDY_ID}`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ id: BURN_BUDDY_ID, uid1: TEST_UID, uid2: OTHER_UID });
+  });
+});
+
+// ── PUT /burn-buddies/:id ──────────────────────────────────────────────────────
+
+describe('PUT /burn-buddies/:id', () => {
+  it('returns 401 when unauthenticated', async () => {
+    const res = await request(buildApp()).put(`/burn-buddies/${BURN_BUDDY_ID}`);
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 when the burn buddy does not exist', async () => {
+    mockBBDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .put(`/burn-buddies/${BURN_BUDDY_ID}`)
+      .set('Authorization', VALID_TOKEN)
+      .send({ workoutSchedule: { days: ['Mon', 'Wed'], time: '07:00' } });
+
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 403 when user is not a member', async () => {
+    mockBBDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ id: BURN_BUDDY_ID, uid1: 'other-1', uid2: 'other-2', createdAt: '' }),
+    });
+
+    const res = await request(buildApp())
+      .put(`/burn-buddies/${BURN_BUDDY_ID}`)
+      .set('Authorization', VALID_TOKEN)
+      .send({ workoutSchedule: { days: ['Mon'], time: '08:00' } });
+
+    expect(res.status).toBe(403);
+  });
+
+  it('updates the workout schedule and returns the updated burn buddy', async () => {
+    const bb = { id: BURN_BUDDY_ID, uid1: TEST_UID, uid2: OTHER_UID, createdAt: '2026-01-01T00:00:00.000Z' };
+    mockBBDocGet.mockResolvedValueOnce({ exists: true, data: () => bb });
+    mockBBDocUpdate.mockResolvedValueOnce(undefined);
+
+    const schedule = { days: ['Mon', 'Wed', 'Fri'], time: '07:00' };
+    const res = await request(buildApp())
+      .put(`/burn-buddies/${BURN_BUDDY_ID}`)
+      .set('Authorization', VALID_TOKEN)
+      .send({ workoutSchedule: schedule });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ id: BURN_BUDDY_ID, workoutSchedule: schedule });
+    expect(mockBBDocUpdate).toHaveBeenCalledWith({ workoutSchedule: schedule });
   });
 });
 
