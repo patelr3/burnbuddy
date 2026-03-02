@@ -371,3 +371,16 @@ Started: Mon Mar  2 07:24:31 AM UTC 2026
   - Notification data payload from push-notifications.ts: { type: 'WORKOUT_STARTED', uid: senderUid } — uid is sender, not a buddy/squad ID; look up the buddy by uid1/uid2 match in loadData results
   - Background/quit notification handling works automatically via system tray; no explicit code needed for this — expo-notifications handles it
 ---
+
+## 2026-03-02 - US-031
+- What was implemented: Bicep IaC templates in infra/ for Azure Container Apps. infra/main.bicep is the orchestrator — deploys a Log Analytics workspace, a Container Apps Environment, and two Container App modules. infra/modules/api-container-app.bicep provisions the services/api Container App with system-assigned managed identity; Key Vault secrets (firebase-service-account-json, otel-collector-endpoint) referenced via keyVaultUrl + identity:'system'; Key Vault URI derived using environment().suffixes.keyvaultDns for cross-cloud compatibility. infra/modules/web-container-app.bicep provisions the apps/web (Next.js) Container App; receives apiUrl output from the API module. infra/main.prod.bicepparam and infra/main.dev.bicepparam provide per-environment parameters (buddyburn-prod vs buddyburn-dev resource groups). Generated ARM JSON (main.json) excluded via .gitignore. Bicep build validated clean with az bicep build (no errors, no warnings). TypeScript typecheck: all 4 workspaces pass.
+- Files changed: infra/main.bicep (new), infra/main.prod.bicepparam (new), infra/main.dev.bicepparam (new), infra/modules/api-container-app.bicep (new), infra/modules/web-container-app.bicep (new), .gitignore (infra/**/*.json exclusion added)
+- **Learnings for future iterations:**
+  - az bicep install auto-downloads the Bicep CLI to ~/.azure/bin/bicep — available in this devcontainer
+  - Use environment().suffixes.keyvaultDns (lowercase 'v') not keyVaultDns — Bicep property name is camelCase with lowercase 'v'
+  - Key Vault secret refs in Container Apps: secrets[].keyVaultUrl + secrets[].identity = 'system' (for managed identity); secretRef in env[] maps the secret name
+  - az deployment group create --what-if requires Azure credentials and an existing resource group — cannot run in devcontainer without auth; az bicep build validates syntax locally
+  - Add infra/**/*.json to .gitignore — az bicep build outputs ARM JSON alongside .bicep files, should not be committed
+  - Container App ingress: targetPort 3001 for API, 3000 for Next.js web; external: true makes both publicly accessible
+  - For cross-cloud Bicep templates, use environment().suffixes.* instead of hardcoded Azure URLs (keyvaultDns, acrLoginServerEndpoint, etc.)
+---

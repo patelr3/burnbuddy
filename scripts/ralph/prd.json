@@ -516,8 +516,8 @@
         "Typecheck passes"
       ],
       "priority": 31,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Bicep templates created in infra/: main.bicep (orchestrator), modules/api-container-app.bicep (services/api with Key Vault secret refs), modules/web-container-app.bicep (apps/web). Dev and prod .bicepparam parameter files included. az bicep build validates clean. TypeScript typecheck passes."
     },
     {
       "id": "US-032",
