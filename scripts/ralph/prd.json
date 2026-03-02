@@ -375,8 +375,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 22,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Start Workout button on home page opens a workout type selector modal with 8 types (Weightlifting, Running, Cycling, Yoga, Barre, Swimming, HIIT, Custom). Custom type shows a text input. Confirming calls POST /workouts; push notifications to buddies/squad members are triggered server-side. Active workout banner shows elapsed time (live timer via setInterval) and End Workout button (calls PATCH /workouts/:id/end). On next page load, GET /workouts is fetched to check for any active workout — if the workout auto-ended after 1.5h, no active banner appears. All typechecks pass, 181 tests pass."
     },
     {
       "id": "US-023",
