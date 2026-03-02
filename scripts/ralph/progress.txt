@@ -1,3 +1,13 @@
+## 2026-03-02 - US-023
+- What was implemented: Account page at apps/web/src/app/account/page.tsx. Page fetches GET /users/me to get profile state (gettingStartedDismissed). Shows display name and email from Firebase Auth user (user.displayName, user.email). Toggle button calls PUT /users/me with { gettingStartedDismissed: !current } to flip the card visibility state, with a success message shown afterwards. Log Out button calls Firebase signOut() and redirects to /login via useRouter.replace. Account link added to home page nav bar alongside existing Friends link.
+- Files changed: apps/web/src/app/account/page.tsx (new), apps/web/src/app/page.tsx (Account nav link added)
+- **Learnings for future iterations:**
+  - Account page: use Firebase Auth user object (user.displayName, user.email) for current profile info — more reliable than Firestore profile which may not exist yet
+  - Toggle pattern for gettingStartedDismissed: show current state in text, button label reflects the action ("Re-enable" if dismissed, "Hide" if visible)
+  - No new API changes needed — PUT /users/me already accepts gettingStartedDismissed field (from US-015)
+  - Account page has no API tests since it's a pure UI page; only typecheck + browser verification needed
+---
+
 ## 2026-03-02 - US-022
 - What was implemented: Start Workout button on home page (hidden when workout is active). Clicking opens a workout type selector modal with a 2-column grid of all 8 WorkoutType values (Weightlifting, Running, Cycling, Yoga, Barre, Swimming, HIIT, Custom). Selecting Custom shows a text input for the custom type name. Confirm button calls POST /workouts with { type } and updates the activeWorkout state. Active workout banner appears with the workout type, a live elapsed timer (useEffect + setInterval updating every second), and a red End Workout button (calls PATCH /workouts/:id/end). On page load, GET /workouts is fetched alongside other data; the first workout with status === 'active' is shown in the banner — if it auto-ended after 1.5h it won't appear. Push notifications to buddies/squad members are triggered server-side in POST /workouts (no changes needed). No new API changes. All typechecks pass, 181 tests pass.
 - Files changed: apps/web/src/app/page.tsx (WORKOUT_TYPES constant + formatElapsed helper, workout state vars, GET /workouts in loadData, elapsed useEffect, handleStartWorkout + handleEndWorkout handlers, active workout banner + Start Workout button + type selector modal)

@@ -391,8 +391,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 23,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Account page at /account: shows display name + email from Firebase Auth user. Toggle button calls PUT /users/me with { gettingStartedDismissed: false } to re-enable Getting Started card (or true to hide it). Log Out button calls Firebase signOut and redirects to /login via useRouter. Account link added to home page nav bar. All typechecks pass, 181 tests pass."
     },
     {
       "id": "US-024",
