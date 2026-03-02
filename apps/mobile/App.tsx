@@ -8,9 +8,10 @@ import LoginScreen from './src/screens/LoginScreen';
 import SignupScreen from './src/screens/SignupScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import FriendsScreen from './src/screens/FriendsScreen';
+import AccountScreen from './src/screens/AccountScreen';
 
 type AuthScreen = 'login' | 'signup';
-type AppTab = 'home' | 'friends';
+type AppTab = 'home' | 'friends' | 'account';
 
 function TabBar({ activeTab, onTabPress }: { activeTab: AppTab; onTabPress: (tab: AppTab) => void }) {
   return (
@@ -33,6 +34,16 @@ function TabBar({ activeTab, onTabPress }: { activeTab: AppTab; onTabPress: (tab
       >
         <Text style={[tabStyles.tabText, activeTab === 'friends' && tabStyles.activeTabText]}>
           👥 Friends
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={tabStyles.tab}
+        onPress={() => onTabPress('account')}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: activeTab === 'account' }}
+      >
+        <Text style={[tabStyles.tabText, activeTab === 'account' && tabStyles.activeTabText]}>
+          👤 Account
         </Text>
       </TouchableOpacity>
     </View>
@@ -100,8 +111,10 @@ function AppNavigator() {
             notificationSenderUid={notificationSenderUid}
             onNotificationHandled={() => setNotificationSenderUid(null)}
           />
-        ) : (
+        ) : activeTab === 'friends' ? (
           <FriendsScreen />
+        ) : (
+          <AccountScreen />
         )}
       </View>
       <TabBar activeTab={activeTab} onTabPress={setActiveTab} />
