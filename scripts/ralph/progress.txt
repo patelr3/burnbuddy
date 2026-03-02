@@ -5,6 +5,9 @@
 - `@burnbuddy/shared` is the shared types package — reference it as `"@burnbuddy/shared": "*"` in workspace deps
 - services/api uses pino for structured JSON logging; log must include level, time, msg fields
 - Run `git rm -r --cached <dir>` to unstage accidentally staged node_modules/dist before committing
+- Expo + yarn workspaces: convert root workspaces array to object with `nohoist` for react-native/expo packages
+- apps/mobile/metro.config.js must set watchFolders and resolver.nodeModulesPaths for monorepo resolution
+- Web support in Expo: install react-dom, react-native-web, @expo/metro-runtime via `npx expo install`
 ---
 
 # Ralph Progress Log
@@ -20,4 +23,16 @@ Started: Mon Mar  2 07:24:31 AM UTC 2026
   - `yarn workspace <name> typecheck` works per-workspace; `yarn workspaces run typecheck` runs all
   - The pino startup log emits valid JSON: `{"level":30,"time":...,"pid":...,"hostname":...,"port":3001,"msg":"..."}` — confirms level+time+msg fields
   - apps/web uses `transpilePackages: ['@burnbuddy/shared']` in next.config.ts for the local workspace package
+---
+
+## 2026-03-02 - US-002
+- What was implemented: Expo SDK 55 mobile app scaffolded in apps/mobile using blank-typescript template, configured for yarn workspaces monorepo, with @burnbuddy/shared types importable
+- Files changed: apps/mobile/App.tsx, apps/mobile/app.json, apps/mobile/index.ts, apps/mobile/metro.config.js, apps/mobile/package.json, apps/mobile/tsconfig.json, apps/mobile/assets/*, package.json (nohoist), .gitignore, yarn.lock
+- **Learnings for future iterations:**
+  - Expo SDK 55 requires adding nohoist to yarn workspaces root package.json (convert array to object form) for react-native, expo, @expo packages
+  - Metro needs metro.config.js with watchFolders=[workspaceRoot] and resolver.nodeModulesPaths pointing to both app and workspace root node_modules
+  - Web support requires installing react-dom, react-native-web, @expo/metro-runtime separately: `npx expo install react-dom react-native-web @expo/metro-runtime`
+  - Use `npx expo export --platform web` to verify web works without blocking dev server
+  - expo/tsconfig.base already includes strict:true when you extend it and add "strict": true in compilerOptions
+  - create-expo-app uses React 19.2.0 and React Native 0.83.2 with Expo SDK 55
 ---
