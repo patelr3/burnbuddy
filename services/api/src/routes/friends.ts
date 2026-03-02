@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { Router, type Request, type Response } from 'express';
-import type { Friend, FriendRequest } from '@burnbuddy/shared';
+import type { Friend, FriendRequest, UserProfile } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
 import { getDb } from '../lib/firestore';
 
@@ -119,6 +119,35 @@ router.post(
     res.json({ success: true, friendRequestId: id });
   },
 );
+
+/**
+ * GET /friends
+ * Returns all accepted friends for the authenticated user, enriched with profile data.
+ */
+router.get('/', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const uid = req.user!.uid;
+  const db = getDb();
+
+  const [uid1Snap, uid2Snap] = await Promise.all([
+    db.collection('friends').where('uid1', '==', uid).get(),
+    db.collection('friends').where('uid2', '==', uid).get(),
+  ]);
+
+  const friendDocs = [...uid1Snap.docs, ...uid2Snap.docs];
+
+  const enriched = await Promise.all(
+    friendDocs.map(async (doc) => {
+      const friend = doc.data() as Friend;
+      const otherUid = friend.uid1 === uid ? friend.uid2 : friend.uid1;
+      const userDoc = await db.collection('users').doc(otherUid).get();
+      if (!userDoc.exists) return null;
+      const profile = userDoc.data() as UserProfile;
+      return { uid: otherUid, displayName: profile.displayName, email: profile.email, createdAt: friend.createdAt };
+    }),
+  );
+
+  res.json(enriched.filter((f): f is { uid: string; displayName: string; email: string; createdAt: string } => f !== null));
+});
 
 /**
  * DELETE /friends/:uid

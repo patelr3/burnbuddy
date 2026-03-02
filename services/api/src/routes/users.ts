@@ -125,4 +125,22 @@ router.put('/me', requireAuth, async (req: Request, res: Response): Promise<void
   }
 });
 
+/**
+ * GET /users/:uid
+ * Returns public profile data (uid, displayName, email) for a user by uid.
+ */
+router.get('/:uid', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const uid = req.params['uid'] as string;
+  const db = getDb();
+  const doc = await db.collection('users').doc(uid).get();
+
+  if (!doc.exists) {
+    res.status(404).json({ error: 'User not found' });
+    return;
+  }
+
+  const profile = doc.data() as UserProfile;
+  res.json({ uid: profile.uid, displayName: profile.displayName, email: profile.email });
+});
+
 export default router;

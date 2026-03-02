@@ -18,9 +18,15 @@ const {
   mockFriendDocSet,
   mockFriendDocDelete,
   mockFriendDocRef,
+  // friends collection — query-based operations (GET /friends)
+  mockFriendsQueryGet,
+  mockFriendsQueryChain,
   // users collection — query-based operations
   mockUsersQueryGet,
   mockUsersQueryChain,
+  // users collection — doc-based operations (GET /friends profile enrichment)
+  mockUsersDocGet,
+  mockUsersDocRef,
 } = vi.hoisted(() => {
   const mockVerifyIdToken = vi.fn();
 
@@ -52,6 +58,13 @@ const {
     delete: mockFriendDocDelete,
   }));
 
+  // friends — query chain (GET /friends)
+  const mockFriendsQueryGet = vi.fn();
+  const mockFriendsQueryChain = {
+    where: vi.fn(),
+    get: mockFriendsQueryGet,
+  };
+
   // users — query chain
   const mockUsersQueryGet = vi.fn();
   const mockUsersQueryChain = {
@@ -59,6 +72,10 @@ const {
     limit: vi.fn(),
     get: mockUsersQueryGet,
   };
+
+  // users — doc operations (profile enrichment for GET /friends)
+  const mockUsersDocGet = vi.fn();
+  const mockUsersDocRef = vi.fn(() => ({ get: mockUsersDocGet }));
 
   return {
     mockVerifyIdToken,
@@ -72,8 +89,12 @@ const {
     mockFriendDocSet,
     mockFriendDocDelete,
     mockFriendDocRef,
+    mockFriendsQueryGet,
+    mockFriendsQueryChain,
     mockUsersQueryGet,
     mockUsersQueryChain,
+    mockUsersDocGet,
+    mockUsersDocRef,
   };
 });
 
@@ -94,10 +115,10 @@ vi.mock('../lib/firestore', () => ({
         };
       }
       if (name === 'friends') {
-        return { doc: mockFriendDocRef };
+        return { doc: mockFriendDocRef, where: () => mockFriendsQueryChain };
       }
       if (name === 'users') {
-        return { where: () => mockUsersQueryChain };
+        return { where: () => mockUsersQueryChain, doc: mockUsersDocRef };
       }
       return {};
     },
@@ -130,6 +151,7 @@ beforeEach(() => {
   mockFrRequestQueryChain.limit.mockReturnThis();
   mockUsersQueryChain.where.mockReturnThis();
   mockUsersQueryChain.limit.mockReturnThis();
+  mockFriendsQueryChain.where.mockReturnThis();
 
   // Re-setup doc refs to return their operation fns
   mockFrRequestDocRef.mockImplementation(() => ({
@@ -142,6 +164,7 @@ beforeEach(() => {
     set: mockFriendDocSet,
     delete: mockFriendDocDelete,
   }));
+  mockUsersDocRef.mockImplementation(() => ({ get: mockUsersDocGet }));
 });
 
 // ── GET /users/search ──────────────────────────────────────────────────────────
@@ -376,5 +399,78 @@ describe('DELETE /friends/:uid', () => {
 
     expect(res.status).toBe(204);
     expect(mockFriendDocDelete).toHaveBeenCalledOnce();
+  });
+});
+
+// ── GET /friends ───────────────────────────────────────────────────────────────
+
+describe('GET /friends', () => {
+  it('returns 401 when unauthenticated', async () => {
+    const res = await request(buildApp()).get('/friends');
+    expect(res.status).toBe(401);
+  });
+
+  it('returns an empty array when the user has no friends', async () => {
+    mockFriendsQueryGet
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [] });
+
+    const res = await request(buildApp()).get('/friends').set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+
+  it('returns enriched friend list with displayName and email', async () => {
+    const friendDoc = { uid1: TEST_UID, uid2: OTHER_UID, createdAt: '2026-01-01T00:00:00.000Z' };
+    const otherProfile = { uid: OTHER_UID, displayName: 'Other User', email: 'other@example.com', createdAt: '2026-01-01T00:00:00.000Z' };
+
+    // uid1 query returns one friend; uid2 query returns empty
+    mockFriendsQueryGet
+      .mockResolvedValueOnce({ docs: [{ data: () => friendDoc }] })
+      .mockResolvedValueOnce({ docs: [] });
+
+    // user profile lookup for OTHER_UID
+    mockUsersDocGet.mockResolvedValueOnce({ exists: true, data: () => otherProfile });
+
+    const res = await request(buildApp()).get('/friends').set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0]).toMatchObject({ uid: OTHER_UID, displayName: 'Other User', email: 'other@example.com' });
+  });
+
+  it('skips friends whose profiles no longer exist', async () => {
+    const friendDoc = { uid1: TEST_UID, uid2: OTHER_UID, createdAt: '2026-01-01T00:00:00.000Z' };
+
+    mockFriendsQueryGet
+      .mockResolvedValueOnce({ docs: [{ data: () => friendDoc }] })
+      .mockResolvedValueOnce({ docs: [] });
+
+    // profile does not exist
+    mockUsersDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp()).get('/friends').set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+
+  it('returns friends found via uid2 query (current user is uid2)', async () => {
+    const friendDoc = { uid1: OTHER_UID, uid2: TEST_UID, createdAt: '2026-01-01T00:00:00.000Z' };
+    const otherProfile = { uid: OTHER_UID, displayName: 'Other User', email: 'other@example.com', createdAt: '2026-01-01T00:00:00.000Z' };
+
+    // uid1 query returns empty; uid2 query returns one friend
+    mockFriendsQueryGet
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [{ data: () => friendDoc }] });
+
+    mockUsersDocGet.mockResolvedValueOnce({ exists: true, data: () => otherProfile });
+
+    const res = await request(buildApp()).get('/friends').set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].uid).toBe(OTHER_UID);
   });
 });

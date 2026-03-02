@@ -224,3 +224,34 @@ describe('PUT /users/me', () => {
     expect(mockUpdate).toHaveBeenCalledWith({ gettingStartedDismissed: true });
   });
 });
+
+// ── GET /users/:uid ────────────────────────────────────────────────────────────
+
+describe('GET /users/:uid', () => {
+  it('returns 401 when unauthenticated', async () => {
+    const res = await request(buildApp()).get('/users/some-uid');
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 when user does not exist', async () => {
+    mockGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .get('/users/nonexistent-uid')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(404);
+    expect(res.body).toMatchObject({ error: expect.stringContaining('not found') });
+  });
+
+  it('returns uid, displayName, and email when user exists', async () => {
+    mockGet.mockResolvedValueOnce({ exists: true, data: () => TEST_PROFILE });
+
+    const res = await request(buildApp())
+      .get(`/users/${TEST_UID}`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ uid: TEST_UID, displayName: 'Test User', email: 'test@example.com' });
+  });
+});
