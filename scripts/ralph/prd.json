@@ -134,7 +134,7 @@
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on deploy-web.yml (US-004) and Playwright tests (US-007)"
     },
     {

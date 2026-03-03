@@ -13,6 +13,7 @@
 - Next.js NEXT_PUBLIC_ vars must be passed as Docker build ARGs (baked at build time); the web Dockerfile has ARG directives for them
 - Post-deploy integration test jobs use `az containerapp show --query properties.configuration.ingress.fqdn --output tsv` to discover the live URL
 - Deploy workflow job chain: quality → deploy-beta → test-beta → deploy-prod → test-prod (beta tests gate prod deploy)
+- Playwright CI jobs need: `actions/setup-node`, `yarn install`, `npx playwright install --with-deps chromium`; artifacts uploaded with `actions/upload-artifact@v4` on failure
 ---
 
 # Progress Log
@@ -144,4 +145,21 @@
   - `$GITHUB_STEP_SUMMARY` with `if: always()` ensures test results appear even on failure
   - Chain: deploy-prod `needs: test-beta` means prod won't deploy if beta integration tests fail — good safety gate
   - Container App FQDN is fetched via `az containerapp show --query properties.configuration.ingress.fqdn --output tsv`
+---
+
+## 2026-03-03T05:29 - US-009
+- Wired Playwright E2E tests into deploy-web.yml workflow
+- Added `test-beta` job (runs after `deploy-beta`) that installs Playwright, fetches beta web FQDN, runs E2E tests
+- Added `test-prod` job (runs after `deploy-prod`) with the same pattern for production
+- Updated job dependency chain: quality → deploy-beta → test-beta → deploy-prod → test-prod
+- Both test jobs upload screenshots/traces as artifacts on failure (`actions/upload-artifact@v4`)
+- Both test jobs write results to `$GITHUB_STEP_SUMMARY` for visibility in GitHub Actions UI
+- If E2E tests fail, the job fails (no `continue-on-error`)
+- Files changed:
+  - `.github/workflows/deploy-web.yml` — added test-beta and test-prod jobs, changed deploy-prod to depend on test-beta
+- **Learnings for future iterations:**
+  - Playwright E2E test jobs need Node.js setup + `yarn install` + `npx playwright install --with-deps chromium` before running
+  - Use `actions/upload-artifact@v4` with `if: failure()` to capture test-results/ and playwright-report/ only when tests fail
+  - Artifact names must be unique across jobs — use `-beta` / `-prod` suffixes
+  - The test job pattern mirrors deploy-api.yml integration tests but adds Playwright-specific steps (Node setup, browser install, artifact upload)
 ---
