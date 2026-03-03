@@ -1,186 +1,234 @@
 {
-  "project": "BuddyBurn",
-  "branchName": "ralph/beta-deployment-and-ux-fixes",
-  "description": "Beta/Prod Deployment, CI/CD Refactor, and UX Consistency Fixes - Remove friends requirement from Burn Squad creation, provision beta environment, split CI/CD workflows, and add post-deployment tests",
+  "project": "BurnBuddy",
+  "branchName": "ralph/deployment-and-ui-overhaul",
+  "description": "Fix broken web deployment pipeline, replace Azure client secrets with OIDC, adopt FirebaseUI for login, add Tailwind CSS, and restyle all pages",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Update Bicep to support beta environment",
-      "description": "As a developer, I need Bicep to accept 'beta' as a valid environment so I can provision beta infrastructure.",
+      "title": "Add secrets-management rule to CLAUDE.md",
+      "description": "As a developer, I want CLAUDE.md to include a secrets-management rule so that all future development follows secure practices.",
       "acceptanceCriteria": [
-        "infra/main.bicep @allowed constraint updated to ['dev', 'beta', 'prod']",
-        "infra/main.beta.bicepparam exists with environment = 'beta'",
-        "Beta param file references 'buddyburn-beta-kv' as Key Vault name and 'buddyburn-beta' as resource group",
-        "Beta param file uses 'burnbuddyacr.azurecr.io' as container registry server",
+        "Add a new '## Secrets & Security' section to the end of CLAUDE.md in the repo root",
+        "Rule states: 'Store all secrets in Azure Key Vault (AKV). Avoid passwords and client secrets wherever possible; prefer managed identity and federated credentials.'",
+        "References Key Vaults: buddyburn-beta-kv (beta) and buddyburn-prod-kv (production)",
+        "Mentions that firebase-api-key and firebase-auth-domain can be retrieved from AKV as needed",
         "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": ""
+      "notes": "File is at /workspaces/burnbuddy/CLAUDE.md. Append the new section after the existing '## Commands' section."
     },
     {
       "id": "US-002",
-      "title": "Remove friends requirement from Burn Squad creation",
-      "description": "As a user, I want to create a Burn Squad without having friends added yet, so I can set up my squad and invite people later.",
+      "title": "Fix deploy-web.yml — gate prod on beta E2E",
+      "description": "As a developer, I want production web deployments to only proceed if beta E2E tests pass, so that broken code never reaches production.",
       "acceptanceCriteria": [
-        "When user has no friends, Burn Squad creation page shows informational message ('No friends to invite yet — you can add them later') but does NOT block form submission",
-        "Create Burn Squad button remains enabled when a squad name is entered, regardless of friend selection",
-        "A squad created with zero inviteUids is accepted by the API and returns 201",
-        "User is redirected to the home page after creating an empty squad",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "In .github/workflows/deploy-web.yml, change deploy-prod job's 'needs' from 'deploy-beta' to 'test-beta'",
+        "The pipeline dependency chain is now: quality → deploy-beta → test-beta → deploy-prod → test-prod",
+        "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "Currently line 146 says 'needs: deploy-beta'. Change to 'needs: test-beta'. This is a one-line fix. The API workflow (deploy-api.yml) already has this correct (its deploy-prod needs test-beta)."
     },
     {
       "id": "US-003",
-      "title": "Create API deploy workflow",
-      "description": "As a developer, I want a dedicated GitHub Actions workflow for the API so that only API-relevant changes trigger API builds and deploys.",
+      "title": "Update deploy-web.yml for OIDC federated auth",
+      "description": "As a developer, I want the web deployment workflow to use OIDC workload identity federation instead of client secrets for Azure authentication.",
       "acceptanceCriteria": [
-        ".github/workflows/deploy-api.yml exists and triggers on pushes to main when services/api/**, packages/shared/**, or infra/** change",
-        "Workflow includes quality checks (typecheck + API tests) before building",
-        "Workflow builds only the API Docker image and deploys only the API Container App",
-        "Workflow deploys to beta first, then production, in sequence",
+        "Add top-level 'permissions:' block with 'id-token: write' and 'contents: read' to the workflow",
+        "Replace all azure/login@v2 steps that use 'creds' JSON containing clientSecret with OIDC inputs: client-id (${{ secrets.AZURE_CLIENT_ID }}), tenant-id (${{ secrets.AZURE_TENANT_ID }}), subscription-id (${{ secrets.AZURE_SUBSCRIPTION_ID }})",
+        "Remove all references to AZURE_CLIENT_SECRET from deploy-web.yml",
+        "There are 4 azure/login steps in deploy-web.yml (deploy-beta, test-beta, deploy-prod, test-prod) — update all 4",
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "OIDC login format for azure/login@v2: use 'client-id', 'tenant-id', 'subscription-id' as separate inputs (not the 'creds' JSON). Federated credentials must be pre-configured on the Azure AD app registration for repo:patelr3/burnbuddy:environment:beta and :production."
     },
     {
       "id": "US-004",
-      "title": "Create web deploy workflow",
-      "description": "As a developer, I want a dedicated GitHub Actions workflow for the web app so that only web-relevant changes trigger web builds and deploys.",
+      "title": "Update deploy-api.yml for OIDC federated auth",
+      "description": "As a developer, I want the API deployment workflow to use OIDC workload identity federation instead of client secrets.",
       "acceptanceCriteria": [
-        ".github/workflows/deploy-web.yml exists and triggers on pushes to main when apps/web/** or packages/shared/** change",
-        "Workflow includes quality checks (typecheck) before building",
-        "Workflow builds the web Docker image with correct build args (Firebase config, API URL) for each environment",
-        "Workflow deploys to beta first, then production, in sequence",
+        "Add top-level 'permissions:' block with 'id-token: write' and 'contents: read' to the workflow",
+        "Replace all azure/login@v2 steps that use 'creds' JSON containing clientSecret with OIDC inputs: client-id, tenant-id, subscription-id",
+        "Remove all references to AZURE_CLIENT_SECRET from deploy-api.yml",
+        "There are 4 azure/login steps in deploy-api.yml (deploy-beta, test-beta, deploy-prod, test-prod) — update all 4",
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "Same pattern as US-003 but for .github/workflows/deploy-api.yml. Use identical OIDC input format."
     },
     {
       "id": "US-005",
-      "title": "Remove old deploy workflow",
-      "description": "As a developer, I want the original monolithic deploy.yml removed so it does not cause duplicate runs alongside the new split workflows.",
+      "title": "Install and configure Tailwind CSS",
+      "description": "As a developer, I want Tailwind CSS installed in the web app so that pages can use utility-first styling.",
       "acceptanceCriteria": [
-        "Original .github/workflows/deploy.yml is removed or renamed to deploy.yml.disabled",
-        "No duplicate workflow runs occur when pushing to main",
+        "Install tailwindcss, @tailwindcss/postcss, and postcss as dev dependencies in apps/web (use yarn workspace burnbuddy-web add -D)",
+        "Create apps/web/tailwind.config.ts with content paths: ['./src/**/*.{ts,tsx}']",
+        "Create apps/web/postcss.config.js with @tailwindcss/postcss plugin",
+        "Create apps/web/src/app/globals.css with Tailwind directives: @tailwind base; @tailwind components; @tailwind utilities;",
+        "Import globals.css in apps/web/src/app/layout.tsx",
+        "Define BurnBuddy color palette in tailwind config: primary orange #f97316, secondary blue #3b82f6, success green #22c55e, danger red #ef4444",
+        "Add a test class (e.g. className='text-primary') to verify it works",
+        "yarn build succeeds in apps/web",
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "Only remove after deploy-api.yml and deploy-web.yml are created"
+      "passes": false,
+      "notes": "The web app currently has zero CSS files — all styling is inline. Tailwind will coexist with inline styles so migration can be incremental. Check package name: the web app workspace might be 'burnbuddy-web' or '@burnbuddy/web' — verify in apps/web/package.json."
     },
     {
       "id": "US-006",
-      "title": "Create API integration test script",
-      "description": "As a developer, I want an integration test script that verifies live API endpoints so regressions are caught after deployment.",
+      "title": "Replace login page with FirebaseUI widget",
+      "description": "As a user, I want a polished login page using the official FirebaseUI drop-in auth widget.",
       "acceptanceCriteria": [
-        "Test script exists (e.g. scripts/integration-test.sh or tests/integration/) and accepts BASE_URL environment variable",
-        "Tests cover: GET /health (200), POST /users (401 without token), GET /users/me (401), GET /friends (401), POST /workouts/start (401)",
-        "Script exits non-zero on any test failure",
-        "Test results are clearly formatted for CI output",
-        "Typecheck passes"
+        "Install firebaseui and react-firebaseui packages in apps/web",
+        "Replace the custom form in apps/web/src/app/login/page.tsx with StyledFirebaseAuth component",
+        "Configure FirebaseUI with EmailAuthProvider and GoogleAuthProvider sign-in options",
+        "Import firebaseui CSS globally (in layout.tsx or the login page)",
+        "Page has 'use client' directive",
+        "After successful auth, redirect to home page '/'",
+        "Page has BurnBuddy branding (logo/title above the widget)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": "az CLI is authenticated — use `az keyvault secret show` to fetch Firebase test user credentials from Key Vault at runtime for authenticated endpoint tests."
+      "passes": false,
+      "notes": "Depends on US-005 (Tailwind for surrounding page styling). FirebaseUI handles email/password login AND signup in one widget, so a separate signup page may become optional."
     },
     {
       "id": "US-007",
-      "title": "Add Playwright E2E setup and browser tests",
-      "description": "As a developer, I want Playwright browser tests for critical user flows so the web app is verified after each deployment.",
+      "title": "Update signup page for FirebaseUI flow",
+      "description": "As a user, I want the signup page to integrate with or redirect to the FirebaseUI login widget.",
       "acceptanceCriteria": [
-        "Playwright is added as a dev dependency",
-        "E2E tests cover: load home/login page (200, no JS errors), navigate to Burn Squads page, create a new Burn Squad with no friends",
-        "Tests accept BASE_URL as environment variable to target beta or production",
-        "Playwright configured with retries: 1 for CI flakiness tolerance",
-        "Typecheck passes for any TypeScript test files"
+        "Update apps/web/src/app/signup/page.tsx to redirect to /login since FirebaseUI handles both login and signup",
+        "Or: replace signup page content with a note and link to /login ('Sign up on our login page')",
+        "Remove old custom signup form code",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
-      "passes": true,
-      "notes": "Use `az keyvault secret show` to fetch test account credentials from Azure Key Vault at runtime. az CLI is authenticated."
+      "passes": false,
+      "notes": "Depends on US-006 (FirebaseUI login page). Since FirebaseUI handles registration, the separate signup page becomes a redirect."
     },
     {
       "id": "US-008",
-      "title": "Wire API integration tests into deploy workflow",
-      "description": "As a developer, I want integration tests to run automatically after each API deployment so failures are caught immediately.",
+      "title": "Extract and restyle shared nav bar component",
+      "description": "As a developer, I want a shared nav bar component styled with Tailwind that all pages can use.",
       "acceptanceCriteria": [
-        "deploy-api.yml runs integration tests against beta after beta deploy",
-        "deploy-api.yml runs integration tests against prod after prod deploy",
-        "If integration tests fail, the workflow job fails (no silent failures)",
-        "Test results are visible in GitHub Actions summary",
-        "Typecheck passes"
+        "Create apps/web/src/components/NavBar.tsx as a 'use client' component",
+        "Extract the nav bar markup from the home page (apps/web/src/app/page.tsx, approximately lines 259-287)",
+        "Nav bar includes: BurnBuddy logo/text, links to Friends and Account, Sign Out button",
+        "Style with Tailwind: sticky top-0, white background, shadow-sm, flex layout, orange brand color for active link",
+        "Sign out button calls Firebase signOut and redirects to /login",
+        "Replace the inline nav in the home page with the new NavBar component import",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 8,
-      "passes": true,
-      "notes": "Depends on deploy-api.yml (US-003) and integration test script (US-006)"
+      "passes": false,
+      "notes": "Depends on US-005 (Tailwind). The nav bar is currently duplicated inline in each page with inline styles. Extract once, then subsequent page restyles will import it. Use Next.js usePathname() for active link highlighting."
     },
     {
       "id": "US-009",
-      "title": "Wire E2E tests into web deploy workflow",
-      "description": "As a developer, I want E2E browser tests to run after each web deployment so critical user flows are verified in both environments.",
+      "title": "Restyle home/dashboard page with Tailwind",
+      "description": "As a user, I want the home page to look modern and polished with consistent card styling.",
       "acceptanceCriteria": [
-        "deploy-web.yml runs Playwright E2E tests against beta after beta deploy",
-        "deploy-web.yml runs Playwright E2E tests against prod after prod deploy",
-        "Test artifacts (screenshots, traces) are uploaded as GitHub Actions artifacts on failure",
-        "If E2E tests fail, the workflow job fails",
-        "Typecheck passes"
+        "Replace ALL inline style props in apps/web/src/app/page.tsx with Tailwind utility classes",
+        "Use the shared NavBar component (from US-008) instead of inline nav",
+        "Active workout banner: rounded-lg, shadow, yellow/amber background, clear typography hierarchy",
+        "Start Workout button: bg-orange-500 hover:bg-orange-600, rounded-lg, font-semibold, padding",
+        "Buddy and squad cards: border, rounded-lg, shadow-sm, consistent padding, hover effect",
+        "Container: max-w-xl mx-auto px-4",
+        "Responsive: looks good at 375px mobile and 1280px desktop",
+        "No inline style props remain in the file",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 9,
-      "passes": true,
-      "notes": "Depends on deploy-web.yml (US-004) and Playwright tests (US-007)"
+      "passes": false,
+      "notes": "Depends on US-008 (shared NavBar). This is the largest page (675 lines). Focus on replacing style objects with className strings. Keep the same layout structure — just swap the styling approach."
     },
     {
       "id": "US-010",
-      "title": "Provision beta Azure environment",
-      "description": "As a developer, I need the beta Azure infrastructure provisioned so automated deploys have a live target environment.",
+      "title": "Restyle friends page with Tailwind",
+      "description": "As a user, I want the friends page to look polished with clear visual hierarchy.",
       "acceptanceCriteria": [
-        "buddyburn-beta resource group exists in Azure",
-        "buddyburn-beta-kv Key Vault exists with required secrets mirrored from prod",
-        "Beta Container Apps environment (buddyburn-beta-env) is provisioned via Bicep",
-        "Beta API Container App (buddyburn-beta-api) is reachable and returns 200 on GET /health",
-        "Beta Web Container App (buddyburn-beta-web) is reachable and returns 200"
+        "Replace ALL inline style props in apps/web/src/app/friends/page.tsx with Tailwind classes",
+        "Use the shared NavBar component instead of inline nav",
+        "Friend list items: card-style with rounded border, padding, name and action buttons",
+        "Add/search section clearly separated with border-t or bg-gray-50",
+        "Empty state: centered text with friendly message",
+        "Responsive layout",
+        "No inline style props remain",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 10,
-      "passes": true,
-      "notes": "az CLI is authenticated — use `az deployment group create`, `az keyvault secret set`, and `az containerapp` commands directly to provision and verify resources."
+      "passes": false,
+      "notes": "Depends on US-005 and US-008. Page is 425 lines."
     },
     {
       "id": "US-011",
-      "title": "Deploy and verify API pipeline end-to-end",
-      "description": "As a developer, I need the API deploy workflow to successfully push a Docker image and update beta and production Container Apps.",
+      "title": "Restyle account page with Tailwind",
+      "description": "As a user, I want the account settings page to look clean and organized.",
       "acceptanceCriteria": [
-        "API workflow runs without errors on push to main",
-        "Docker image is built, tagged with short commit SHA, and pushed to burnbuddyacr",
-        "buddyburn-beta-api Container App is updated to the new image",
-        "buddyburn-prod-api Container App is updated to the new image",
-        "All workflow steps show green in GitHub Actions UI"
+        "Replace ALL inline style props in apps/web/src/app/account/page.tsx with Tailwind classes",
+        "Use the shared NavBar component instead of inline nav",
+        "Form fields: consistent w-full, rounded-md border, focus:ring-orange-500",
+        "Sign out button: styled as destructive (text-red-600 or bg-red-500 text-white)",
+        "Container: max-w-xl mx-auto px-4",
+        "Responsive layout",
+        "No inline style props remain",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 11,
-      "passes": true,
-      "notes": "az CLI is authenticated — use `az containerapp show`, `az acr login`, and `gh workflow run` to iterate. No manual intervention needed."
+      "passes": false,
+      "notes": "Depends on US-005 and US-008. Page is 183 lines — small."
     },
     {
       "id": "US-012",
-      "title": "Deploy and verify web pipeline end-to-end",
-      "description": "As a developer, I need the web deploy workflow to successfully push a Docker image and update beta and production web Container Apps.",
+      "title": "Restyle burn buddy pages with Tailwind",
+      "description": "As a user, I want the burn buddy creation and detail pages to look polished.",
       "acceptanceCriteria": [
-        "Web workflow runs without errors on push to main",
-        "Docker image for apps/web is built with correct build args for each environment",
-        "buddyburn-beta-web Container App is updated to the new image",
-        "buddyburn-prod-web Container App is updated to the new image",
-        "All workflow steps show green in GitHub Actions UI"
+        "Replace ALL inline style props in apps/web/src/app/burn-buddies/new/page.tsx with Tailwind classes",
+        "If apps/web/src/app/burn-buddies/[id]/page.tsx exists, restyle it too",
+        "Use the shared NavBar component instead of inline nav",
+        "Form fields: consistent sizing, labels, rounded-md, focus ring",
+        "Submit button: bg-green-500 hover:bg-green-600, rounded, font-semibold",
+        "Detail view (if exists): card layout with burn streak, action buttons styled",
+        "Responsive layout",
+        "No inline style props remain in either file",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 12,
       "passes": false,
-      "notes": "az CLI is authenticated — use `az containerapp show`, `az acr login`, and `gh workflow run` to iterate. No manual intervention needed."
+      "notes": "Depends on US-005 and US-008. new page is 170 lines. Detail page may or may not exist — check and skip if absent."
+    },
+    {
+      "id": "US-013",
+      "title": "Restyle burn squad pages with Tailwind",
+      "description": "As a user, I want the burn squad creation and detail pages to look polished.",
+      "acceptanceCriteria": [
+        "Replace ALL inline style props in apps/web/src/app/burn-squads/new/page.tsx with Tailwind classes",
+        "If apps/web/src/app/burn-squads/[id]/page.tsx exists, restyle it too",
+        "Use the shared NavBar component instead of inline nav",
+        "Form fields: consistent sizing, labels, rounded-md, focus ring",
+        "Submit button: bg-blue-500 hover:bg-blue-600, rounded, font-semibold",
+        "Detail view (if exists): card layout with member list, burn stats, action buttons styled",
+        "Responsive layout",
+        "No inline style props remain in either file",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "Depends on US-005 and US-008. new page is 272 lines. Detail page may or may not exist — check and skip if absent."
     }
   ]
 }

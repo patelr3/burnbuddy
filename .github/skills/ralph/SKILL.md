@@ -1,7 +1,7 @@
 ---
 name: ralph
 description: "Convert PRDs to prd.json format for the Ralph autonomous agent system. Use when you have an existing PRD and need to convert it to Ralph's JSON format. Triggers on: convert this prd, turn this into ralph format, create prd.json from this, ralph json."
-user-invocable: true
+user-invokable: true
 ---
 
 # Ralph PRD Converter
@@ -12,7 +12,7 @@ Converts existing PRDs to the prd.json format that Ralph uses for autonomous exe
 
 ## The Job
 
-Take a PRD (markdown file or text) and convert it to `prd.json` in your ralph directory.
+Take a PRD (markdown file or text) and convert it to `prd.json` in your ralph directory (scripts/ralph).
 
 ---
 
