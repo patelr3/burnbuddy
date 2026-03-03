@@ -220,3 +220,54 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
   4. Trigger deploy: `gh workflow run deploy-web.yml`
 - **Files changed**: None (updated progress.txt only)
 ---
+
+## 2026-03-03T19:21Z - US-002 (iteration 9 — still blocked)
+- **Status**: BLOCKED — Firebase Web SDK config still not available
+- **Quick verification**: Azure KV (buddyburn-beta-kv) still has only `firebase-service-account-json` and `otel-collector-endpoint`. GitHub beta env secrets still have only Azure creds + NEXT_PUBLIC_API_URL. No new workflow runs since 17:51Z.
+- **Deploy workflow verified**: `.github/workflows/deploy-web.yml` is correctly configured to fetch `firebase-web-*` secrets from KV with fallback to GitHub secrets, then pass them as Docker `--build-arg`. Everything is ready for when the config is provided.
+- **All 4 remaining stories blocked**: US-002, US-004, US-005, US-006
+- **To unblock**, a human must:
+  1. Go to [Firebase Console](https://console.firebase.google.com/project/buddyburn-beta/settings/general) → Project Settings → Your apps → Web app
+  2. Copy the Firebase SDK config (apiKey, authDomain, projectId, storageBucket, messagingSenderId, appId)
+  3. Run: `./scripts/setup-firebase-web-config.sh --env all`
+  4. Trigger deploy: `gh workflow run deploy-web.yml`
+- **Files changed**: None (updated progress.txt only)
+---
+
+## 2026-03-03T19:25Z - US-002 (iteration 10 — still blocked)
+- **Status**: BLOCKED — Firebase Web SDK config still not available
+- **Quick verification**: Azure KV (buddyburn-beta-kv) still has only `firebase-service-account-json` (minimal: `{"type":"service_account","project_id":"buddyburn-beta"}`) and `otel-collector-endpoint`. GitHub beta/prod env secrets still have only Azure creds + NEXT_PUBLIC_API_URL. No new workflow runs since 17:51Z. Service account JSON has no private key or client email — cannot authenticate to Google APIs programmatically.
+- **All 4 remaining stories blocked**: US-002, US-004, US-005, US-006 — all require Firebase Web SDK config
+- **To unblock**, a human must:
+  1. Go to [Firebase Console](https://console.firebase.google.com/project/buddyburn-beta/settings/general) → Project Settings → Your apps → Web app
+  2. Copy the Firebase SDK config (apiKey, authDomain, projectId, storageBucket, messagingSenderId, appId)
+  3. Run: `./scripts/setup-firebase-web-config.sh --env all`
+  4. Trigger deploy: `gh workflow run deploy-web.yml`
+- **Files changed**: None (updated progress.txt only)
+---
+
+## 2026-03-03T19:27Z - US-002 (iteration 11 — still blocked)
+- **Status**: BLOCKED — Firebase Web SDK config still not available
+- **Quick verification**: Azure KV (buddyburn-beta-kv) still only has `firebase-service-account-json` and `otel-collector-endpoint`. GitHub beta/prod env secrets still only have Azure creds + NEXT_PUBLIC_API_URL. No new deployments since run 22635854332 at 17:51Z.
+- **All 4 remaining stories blocked**: US-002, US-004, US-005, US-006 — all require Firebase Web SDK config (apiKey, authDomain, projectId, storageBucket, messagingSenderId, appId)
+- **No new programmatic approaches remain** — exhausted across 11 iterations: KV, GitHub secrets, Firebase CLI, Google APIs, Firebase Hosting init.json, OIDC discovery, git history, container images, mobile config, env files
+- **To unblock**, a human must:
+  1. Go to [Firebase Console](https://console.firebase.google.com/project/buddyburn-beta/settings/general) → Project Settings → Your apps → Web app
+  2. Copy the Firebase SDK config
+  3. Run: `./scripts/setup-firebase-web-config.sh --env all`
+  4. Trigger deploy: `gh workflow run deploy-web.yml`
+- **Files changed**: None (updated progress.txt only)
+---
+
+## 2026-03-03T19:29Z - US-002 (iteration 12 — still blocked)
+- **Status**: BLOCKED — Firebase Web SDK config still not available
+- **Quick verification**: Azure KV (buddyburn-beta-kv) still has only `firebase-service-account-json` and `otel-collector-endpoint`. GitHub beta env secrets still have only Azure creds + NEXT_PUBLIC_API_URL. No new workflow runs since 22635854332 at ~18:17Z. Service account JSON is minimal `{"type":"service_account","project_id":"buddyburn-beta"}` — cannot authenticate to Google APIs.
+- **All 4 remaining stories blocked**: US-002, US-004, US-005, US-006 — all require Firebase Web SDK config (apiKey, authDomain, projectId, storageBucket, messagingSenderId, appId)
+- **No new programmatic approaches remain** — exhausted across 12 iterations
+- **To unblock**, a human must:
+  1. Go to [Firebase Console](https://console.firebase.google.com/project/buddyburn-beta/settings/general) → Project Settings → Your apps → Web app
+  2. Copy the Firebase SDK config
+  3. Run: `./scripts/setup-firebase-web-config.sh --env all`
+  4. Trigger deploy: `gh workflow run deploy-web.yml`
+- **Files changed**: None (updated progress.txt only)
+---
