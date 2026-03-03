@@ -3,8 +3,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { apiGet, apiPut } from '@/lib/api';
-import { useRouter, useParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { NavBar } from '@/components/NavBar';
 import type { BurnBuddy, GroupWorkout, WorkoutSchedule } from '@burnbuddy/shared';
 
 interface PartnerProfile {
@@ -66,7 +67,6 @@ function startOfMonthUTC(): Date {
 
 export default function BurnBuddyDetailPage() {
   const { user, loading } = useAuth();
-  const router = useRouter();
   const params = useParams();
   const id = params['id'] as string;
 
@@ -151,27 +151,33 @@ export default function BurnBuddyDetailPage() {
 
   if (dataLoading) {
     return (
-      <main style={{ maxWidth: 600, margin: '0 auto', padding: '0 16px' }}>
-        <div style={{ padding: '16px 0', borderBottom: '1px solid #e2e8f0', marginBottom: 24 }}>
-          <Link href="/" style={{ fontSize: 14, color: '#6b7280', textDecoration: 'none' }}>
-            ← Back
-          </Link>
-        </div>
-        <p style={{ color: '#6b7280' }}>Loading...</p>
-      </main>
+      <>
+        <NavBar />
+        <main className="mx-auto max-w-xl px-4">
+          <div className="border-b border-gray-200 py-4 mb-6">
+            <Link href="/" className="text-sm text-gray-500 no-underline hover:text-gray-700">
+              ← Back
+            </Link>
+          </div>
+          <p className="text-gray-500">Loading...</p>
+        </main>
+      </>
     );
   }
 
   if (notFound || !burnBuddy) {
     return (
-      <main style={{ maxWidth: 600, margin: '0 auto', padding: '0 16px' }}>
-        <div style={{ padding: '16px 0', borderBottom: '1px solid #e2e8f0', marginBottom: 24 }}>
-          <Link href="/" style={{ fontSize: 14, color: '#6b7280', textDecoration: 'none' }}>
-            ← Back
-          </Link>
-        </div>
-        <p style={{ color: '#9ca3af' }}>Burn Buddy not found.</p>
-      </main>
+      <>
+        <NavBar />
+        <main className="mx-auto max-w-xl px-4">
+          <div className="border-b border-gray-200 py-4 mb-6">
+            <Link href="/" className="text-sm text-gray-500 no-underline hover:text-gray-700">
+              ← Back
+            </Link>
+          </div>
+          <p className="text-gray-400">Burn Buddy not found.</p>
+        </main>
+      </>
     );
   }
 
@@ -182,173 +188,115 @@ export default function BurnBuddyDetailPage() {
   const partnerName = partner?.displayName ?? (burnBuddy.uid1 === user?.uid ? burnBuddy.uid2 : burnBuddy.uid1);
 
   return (
-    <main style={{ maxWidth: 600, margin: '0 auto', padding: '0 16px' }}>
-      {/* Nav */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '16px 0',
-          borderBottom: '1px solid #e2e8f0',
-          marginBottom: 24,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Link href="/" style={{ fontSize: 14, color: '#6b7280', textDecoration: 'none' }}>
-            ← Back
-          </Link>
-          <h1 style={{ margin: 0, fontSize: 20 }}>{partnerName}</h1>
-          <span
-            style={{
-              fontSize: 11,
-              padding: '2px 7px',
-              borderRadius: 12,
-              backgroundColor: '#fef3c7',
-              color: '#92400e',
-            }}
-          >
-            Buddy
-          </span>
-        </div>
-        <button
-          onClick={() => {
-            setEditing((e) => !e);
-            if (!editing && burnBuddy.workoutSchedule) {
-              setSelectedDays((burnBuddy.workoutSchedule.days as Day[]) ?? []);
-              setScheduleTime(burnBuddy.workoutSchedule.time ?? '');
-            } else if (!editing) {
-              setSelectedDays([]);
-              setScheduleTime('');
-            }
-          }}
-          style={{ padding: '6px 14px', fontSize: 13, cursor: 'pointer' }}
-        >
-          {editing ? 'Cancel' : 'Edit Schedule'}
-        </button>
-      </div>
-
-      {/* Edit schedule panel */}
-      {editing && (
-        <div
-          style={{
-            border: '1px solid #e2e8f0',
-            borderRadius: 8,
-            padding: 16,
-            backgroundColor: '#f8fafc',
-            marginBottom: 24,
-          }}
-        >
-          <h3 style={{ margin: '0 0 12px', fontSize: 15 }}>Workout Schedule</h3>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-            {DAYS.map((day) => (
-              <button
-                key={day}
-                onClick={() => toggleDay(day)}
-                style={{
-                  padding: '6px 12px',
-                  fontSize: 13,
-                  cursor: 'pointer',
-                  borderRadius: 4,
-                  border: '1px solid',
-                  borderColor: selectedDays.includes(day) ? '#22c55e' : '#d1d5db',
-                  backgroundColor: selectedDays.includes(day) ? '#f0fdf4' : 'white',
-                  color: selectedDays.includes(day) ? '#16a34a' : '#374151',
-                }}
-              >
-                {day}
-              </button>
-            ))}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <label style={{ fontSize: 13, color: '#6b7280' }}>Time (optional):</label>
-            <input
-              type="time"
-              value={scheduleTime}
-              onChange={(e) => setScheduleTime(e.target.value)}
-              style={{ fontSize: 13, padding: '4px 8px', borderRadius: 4, border: '1px solid #d1d5db' }}
-            />
+    <>
+      <NavBar />
+      <main className="mx-auto max-w-xl px-4">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-gray-200 py-4 mb-6">
+          <div className="flex items-center gap-3">
+            <Link href="/" className="text-sm text-gray-500 no-underline hover:text-gray-700">
+              ← Back
+            </Link>
+            <h1 className="m-0 text-xl font-bold">{partnerName}</h1>
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-800">
+              Buddy
+            </span>
           </div>
           <button
-            onClick={handleSaveSchedule}
-            disabled={saving}
-            style={{
-              padding: '8px 16px',
-              cursor: 'pointer',
-              backgroundColor: '#22c55e',
-              color: 'white',
-              border: 'none',
-              borderRadius: 4,
-              fontSize: 14,
+            onClick={() => {
+              setEditing((e) => !e);
+              if (!editing && burnBuddy.workoutSchedule) {
+                setSelectedDays((burnBuddy.workoutSchedule.days as Day[]) ?? []);
+                setScheduleTime(burnBuddy.workoutSchedule.time ?? '');
+              } else if (!editing) {
+                setSelectedDays([]);
+                setScheduleTime('');
+              }
             }}
+            className="cursor-pointer rounded-md border border-gray-300 bg-white px-3.5 py-1.5 text-[13px] hover:bg-gray-50"
           >
-            {saving ? 'Saving…' : 'Save Schedule'}
+            {editing ? 'Cancel' : 'Edit Schedule'}
           </button>
         </div>
-      )}
 
-      {/* Workout schedule display */}
-      {!editing && burnBuddy.workoutSchedule && burnBuddy.workoutSchedule.days.length > 0 && (
-        <div
-          style={{
-            padding: '10px 14px',
-            borderRadius: 6,
-            backgroundColor: '#f0fdf4',
-            border: '1px solid #bbf7d0',
-            marginBottom: 20,
-            fontSize: 13,
-            color: '#166534',
-          }}
-        >
-          Schedule: {burnBuddy.workoutSchedule.days.join(', ')}
-          {burnBuddy.workoutSchedule.time && ` at ${burnBuddy.workoutSchedule.time}`}
-        </div>
-      )}
-
-      {/* Stats grid */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(2, 1fr)',
-          gap: 12,
-          marginBottom: 28,
-        }}
-      >
-        <StatCard label="Burn Streak" value={`${streaks.burnStreak}`} unit="days" color="#f97316" />
-        <StatCard label="Supernova Streak" value={`${streaks.supernovaStreak}`} unit="days" color="#8b5cf6" />
-        <StatCard label="This Week" value={`${workoutsThisWeek}`} unit="group workouts" color="#3b82f6" />
-        <StatCard label="This Month" value={`${workoutsThisMonth}`} unit="group workouts" color="#3b82f6" />
-        <StatCard label="Burn Buddy Since" value={buddyAge(burnBuddy.createdAt)} unit="" color="#6b7280" />
-        <StatCard label="Started" value={formatDate(burnBuddy.createdAt)} unit="" color="#6b7280" />
-      </div>
-
-      {/* Group workout log */}
-      <h2 style={{ fontSize: 16, marginBottom: 12 }}>Group Workout Log</h2>
-      {groupWorkouts.length === 0 ? (
-        <p style={{ color: '#9ca3af', fontSize: 14 }}>No group workouts yet. Start one together!</p>
-      ) : (
-        <div>
-          {groupWorkouts.map((gw) => (
-            <div
-              key={gw.id}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '12px 0',
-                borderBottom: '1px solid #f1f5f9',
-              }}
-            >
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 500 }}>{formatDate(gw.startedAt)}</div>
-                <div style={{ fontSize: 12, color: '#9ca3af' }}>{gw.workoutIds.length} workout(s)</div>
-              </div>
-              <div style={{ fontSize: 13, color: '#6b7280' }}>{timeAgo(gw.startedAt)}</div>
+        {/* Edit schedule panel */}
+        {editing && (
+          <div className="mb-6 rounded-lg border border-gray-200 bg-slate-50 p-4">
+            <h3 className="mb-3 text-[15px] font-semibold">Workout Schedule</h3>
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {DAYS.map((day) => (
+                <button
+                  key={day}
+                  onClick={() => toggleDay(day)}
+                  className={`cursor-pointer rounded-md border px-3 py-1.5 text-[13px] transition-colors ${
+                    selectedDays.includes(day)
+                      ? 'border-success bg-green-50 text-green-600'
+                      : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {day}
+                </button>
+              ))}
             </div>
-          ))}
+            <div className="mb-3 flex items-center gap-2">
+              <label className="text-[13px] text-gray-500">Time (optional):</label>
+              <input
+                type="time"
+                value={scheduleTime}
+                onChange={(e) => setScheduleTime(e.target.value)}
+                className="rounded-md border border-gray-300 px-2 py-1 text-[13px] focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <button
+              onClick={handleSaveSchedule}
+              disabled={saving}
+              className="cursor-pointer rounded-md border-none bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50"
+            >
+              {saving ? 'Saving…' : 'Save Schedule'}
+            </button>
+          </div>
+        )}
+
+        {/* Workout schedule display */}
+        {!editing && burnBuddy.workoutSchedule && burnBuddy.workoutSchedule.days.length > 0 && (
+          <div className="mb-5 rounded-md border border-green-200 bg-green-50 px-3.5 py-2.5 text-[13px] text-green-800">
+            Schedule: {burnBuddy.workoutSchedule.days.join(', ')}
+            {burnBuddy.workoutSchedule.time && ` at ${burnBuddy.workoutSchedule.time}`}
+          </div>
+        )}
+
+        {/* Stats grid */}
+        <div className="mb-7 grid grid-cols-2 gap-3">
+          <StatCard label="Burn Streak" value={`${streaks.burnStreak}`} unit="days" colorClass="text-primary" />
+          <StatCard label="Supernova Streak" value={`${streaks.supernovaStreak}`} unit="days" colorClass="text-violet-500" />
+          <StatCard label="This Week" value={`${workoutsThisWeek}`} unit="group workouts" colorClass="text-secondary" />
+          <StatCard label="This Month" value={`${workoutsThisMonth}`} unit="group workouts" colorClass="text-secondary" />
+          <StatCard label="Burn Buddy Since" value={buddyAge(burnBuddy.createdAt)} unit="" colorClass="text-gray-500" />
+          <StatCard label="Started" value={formatDate(burnBuddy.createdAt)} unit="" colorClass="text-gray-500" />
         </div>
-      )}
-    </main>
+
+        {/* Group workout log */}
+        <h2 className="mb-3 text-base font-semibold">Group Workout Log</h2>
+        {groupWorkouts.length === 0 ? (
+          <p className="text-sm text-gray-400">No group workouts yet. Start one together!</p>
+        ) : (
+          <div>
+            {groupWorkouts.map((gw) => (
+              <div
+                key={gw.id}
+                className="flex items-center justify-between border-b border-gray-100 py-3"
+              >
+                <div>
+                  <div className="text-sm font-medium">{formatDate(gw.startedAt)}</div>
+                  <div className="text-xs text-gray-400">{gw.workoutIds.length} workout(s)</div>
+                </div>
+                <div className="text-[13px] text-gray-500">{timeAgo(gw.startedAt)}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </main>
+    </>
   );
 }
 
@@ -356,25 +304,18 @@ function StatCard({
   label,
   value,
   unit,
-  color,
+  colorClass,
 }: {
   label: string;
   value: string;
   unit: string;
-  color: string;
+  colorClass: string;
 }) {
   return (
-    <div
-      style={{
-        padding: '14px 16px',
-        borderRadius: 8,
-        border: '1px solid #e2e8f0',
-        backgroundColor: 'white',
-      }}
-    >
-      <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 'bold', color }}>{value}</div>
-      {unit && <div style={{ fontSize: 11, color: '#9ca3af' }}>{unit}</div>}
+    <div className="rounded-lg border border-gray-200 bg-white px-4 py-3.5">
+      <div className="mb-1 text-xs text-gray-400">{label}</div>
+      <div className={`text-2xl font-bold ${colorClass}`}>{value}</div>
+      {unit && <div className="text-[11px] text-gray-400">{unit}</div>}
     </div>
   );
 }
