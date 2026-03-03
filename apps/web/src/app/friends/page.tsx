@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { apiGet, apiPost, apiDelete } from '@/lib/api';
+import { NavBar } from '@/components/NavBar';
 import type { FriendRequest } from '@burnbuddy/shared';
 
 interface FriendWithProfile {
@@ -143,283 +144,181 @@ export default function FriendsPage() {
   if (loading) return null;
 
   return (
-    <main style={{ maxWidth: 600, margin: '80px auto', padding: '0 16px' }}>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 24,
-        }}
-      >
-        <h1 style={{ margin: 0 }}>Friends</h1>
-        <button
-          onClick={() => {
-            setShowSearch(!showSearch);
-            setSearchEmail('');
-            setSearchResult(null);
-            setSearchError(null);
-          }}
-          style={{ padding: '8px 16px', cursor: 'pointer' }}
-        >
-          + Add Friend
-        </button>
-      </div>
-
-      {error && <div style={{ color: 'red', marginBottom: 16 }}>{error}</div>}
-
-      {/* Add Friend search panel */}
-      {showSearch && (
-        <div
-          style={{
-            border: '1px solid #e2e8f0',
-            borderRadius: 8,
-            padding: 16,
-            marginBottom: 24,
-            backgroundColor: '#f8fafc',
-          }}
-        >
-          <h3 style={{ marginTop: 0, marginBottom: 12 }}>Search by Email</h3>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-            <input
-              type="email"
-              value={searchEmail}
-              onChange={(e) => setSearchEmail(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSearch();
-              }}
-              placeholder="friend@example.com"
-              style={{
-                flex: 1,
-                padding: '8px 12px',
-                borderRadius: 4,
-                border: '1px solid #d1d5db',
-                fontSize: 14,
-              }}
-            />
-            <button
-              onClick={handleSearch}
-              disabled={searching}
-              style={{ padding: '8px 16px', cursor: 'pointer' }}
-            >
-              {searching ? 'Searching…' : 'Search'}
-            </button>
-          </div>
-          {searchError && (
-            <p style={{ color: 'red', margin: 0, fontSize: 14 }}>{searchError}</p>
-          )}
-          {searchResult && (
-            <div
-              onClick={() => handleSelectUser(searchResult)}
-              style={{
-                padding: '10px 12px',
-                border: '1px solid #e2e8f0',
-                borderRadius: 4,
-                cursor: 'pointer',
-                backgroundColor: 'white',
-              }}
-            >
-              <strong>{searchResult.displayName}</strong>
-              <span style={{ color: '#6b7280', marginLeft: 8, fontSize: 14 }}>
-                {searchResult.email}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Confirmation dialog */}
-      {confirmUser && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 50,
-          }}
-        >
-          <div
-            style={{
-              background: 'white',
-              borderRadius: 8,
-              padding: 24,
-              maxWidth: 400,
-              width: '100%',
-              margin: '0 16px',
+    <>
+      <NavBar />
+      <main className="mx-auto max-w-xl px-4 pt-6 pb-12">
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-900">Friends</h1>
+          <button
+            onClick={() => {
+              setShowSearch(!showSearch);
+              setSearchEmail('');
+              setSearchResult(null);
+              setSearchError(null);
             }}
+            className="cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
           >
-            <h3 style={{ marginTop: 0 }}>Send Friend Request?</h3>
-            <p>
-              Send a friend request to <strong>{confirmUser.displayName}</strong> (
-              {confirmUser.email})?
-            </p>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => setConfirmUser(null)}
-                style={{ padding: '8px 16px', cursor: 'pointer' }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmRequest}
-                disabled={sendingRequest}
-                style={{
-                  padding: '8px 16px',
-                  cursor: 'pointer',
-                  backgroundColor: '#22c55e',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 4,
+            + Add Friend
+          </button>
+        </div>
+
+        {error && <div className="mb-4 text-sm text-danger">{error}</div>}
+
+        {/* Add Friend search panel */}
+        {showSearch && (
+          <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <h3 className="mb-3 text-base font-semibold text-gray-900">Search by Email</h3>
+            <div className="mb-3 flex gap-2">
+              <input
+                type="email"
+                value={searchEmail}
+                onChange={(e) => setSearchEmail(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSearch();
                 }}
+                placeholder="friend@example.com"
+                className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+              />
+              <button
+                onClick={handleSearch}
+                disabled={searching}
+                className="cursor-pointer rounded-md bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
               >
-                {sendingRequest ? 'Sending…' : 'Send Request'}
+                {searching ? 'Searching…' : 'Search'}
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {dataLoading ? (
-        <p>Loading…</p>
-      ) : (
-        <>
-          {/* Pending Requests */}
-          {(incoming.length > 0 || outgoing.length > 0) && (
-            <section style={{ marginBottom: 32 }}>
-              <h2 style={{ fontSize: 16, color: '#6b7280', marginBottom: 12 }}>
-                Pending Requests
-              </h2>
-
-              {incoming.map((req) => (
-                <div
-                  key={req.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '12px 0',
-                    borderBottom: '1px solid #f1f5f9',
-                  }}
-                >
-                  <div>
-                    <strong>{req.displayName ?? req.fromUid}</strong>
-                    <span
-                      style={{
-                        marginLeft: 8,
-                        fontSize: 12,
-                        color: '#22c55e',
-                        backgroundColor: '#f0fdf4',
-                        padding: '2px 8px',
-                        borderRadius: 12,
-                      }}
-                    >
-                      incoming
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button
-                      onClick={() => handleAcceptRequest(req.id)}
-                      style={{
-                        padding: '6px 12px',
-                        cursor: 'pointer',
-                        backgroundColor: '#22c55e',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: 4,
-                        fontSize: 13,
-                      }}
-                    >
-                      Accept
-                    </button>
-                    <button
-                      onClick={() => {
-                        /* Ignore — deferred to v2 */
-                      }}
-                      style={{ padding: '6px 12px', cursor: 'pointer', fontSize: 13 }}
-                    >
-                      Ignore
-                    </button>
-                  </div>
-                </div>
-              ))}
-
-              {outgoing.map((req) => (
-                <div
-                  key={req.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '12px 0',
-                    borderBottom: '1px solid #f1f5f9',
-                  }}
-                >
-                  <div>
-                    <strong>{req.displayName ?? req.toUid}</strong>
-                    <span
-                      style={{
-                        marginLeft: 8,
-                        fontSize: 12,
-                        color: '#6b7280',
-                        backgroundColor: '#f1f5f9',
-                        padding: '2px 8px',
-                        borderRadius: 12,
-                      }}
-                    >
-                      pending
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </section>
-          )}
-
-          {/* Friends List */}
-          <section>
-            <h2 style={{ fontSize: 16, color: '#6b7280', marginBottom: 12 }}>
-              Friends{friends.length > 0 ? ` (${friends.length})` : ''}
-            </h2>
-            {friends.length === 0 ? (
-              <p style={{ color: '#9ca3af' }}>No friends yet. Add your first friend above!</p>
-            ) : (
-              friends.map((friend) => (
-                <div
-                  key={friend.uid}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '12px 0',
-                    borderBottom: '1px solid #f1f5f9',
-                  }}
-                >
-                  <div>
-                    <strong>{friend.displayName}</strong>
-                    <div style={{ fontSize: 13, color: '#6b7280' }}>{friend.email}</div>
-                  </div>
-                  <button
-                    onClick={() => handleRemoveFriend(friend.uid)}
-                    style={{
-                      padding: '6px 12px',
-                      cursor: 'pointer',
-                      fontSize: 13,
-                      color: '#ef4444',
-                      background: 'none',
-                      border: '1px solid #fca5a5',
-                      borderRadius: 4,
-                    }}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))
+            {searchError && (
+              <p className="text-sm text-danger">{searchError}</p>
             )}
-          </section>
-        </>
-      )}
-    </main>
+            {searchResult && (
+              <div
+                onClick={() => handleSelectUser(searchResult)}
+                className="cursor-pointer rounded-md border border-gray-200 bg-white px-3 py-2.5 hover:bg-gray-50"
+              >
+                <strong className="text-gray-900">{searchResult.displayName}</strong>
+                <span className="ml-2 text-sm text-gray-500">
+                  {searchResult.email}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Confirmation dialog */}
+        {confirmUser && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="mx-4 w-full max-w-sm rounded-lg bg-white p-6">
+              <h3 className="mb-2 text-lg font-semibold text-gray-900">Send Friend Request?</h3>
+              <p className="mb-4 text-sm text-gray-600">
+                Send a friend request to <strong>{confirmUser.displayName}</strong> (
+                {confirmUser.email})?
+              </p>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setConfirmUser(null)}
+                  className="cursor-pointer rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmRequest}
+                  disabled={sendingRequest}
+                  className="cursor-pointer rounded-md bg-success px-4 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50"
+                >
+                  {sendingRequest ? 'Sending…' : 'Send Request'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {dataLoading ? (
+          <p className="text-gray-500">Loading…</p>
+        ) : (
+          <>
+            {/* Pending Requests */}
+            {(incoming.length > 0 || outgoing.length > 0) && (
+              <section className="mb-8">
+                <h2 className="mb-3 text-sm font-semibold tracking-wide text-gray-500 uppercase">
+                  Pending Requests
+                </h2>
+
+                {incoming.map((req) => (
+                  <div
+                    key={req.id}
+                    className="flex items-center justify-between rounded-lg border border-gray-100 bg-white p-3 mb-2 shadow-sm"
+                  >
+                    <div>
+                      <strong className="text-gray-900">{req.displayName ?? req.fromUid}</strong>
+                      <span className="ml-2 inline-block rounded-full bg-green-50 px-2 py-0.5 text-xs text-success">
+                        incoming
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleAcceptRequest(req.id)}
+                        className="cursor-pointer rounded-md bg-success px-3 py-1.5 text-xs font-medium text-white hover:bg-green-600"
+                      >
+                        Accept
+                      </button>
+                      <button
+                        onClick={() => {
+                          /* Ignore — deferred to v2 */
+                        }}
+                        className="cursor-pointer rounded-md border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+                      >
+                        Ignore
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {outgoing.map((req) => (
+                  <div
+                    key={req.id}
+                    className="flex items-center justify-between rounded-lg border border-gray-100 bg-white p-3 mb-2 shadow-sm"
+                  >
+                    <div>
+                      <strong className="text-gray-900">{req.displayName ?? req.toUid}</strong>
+                      <span className="ml-2 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+                        pending
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </section>
+            )}
+
+            {/* Friends List */}
+            <section>
+              <h2 className="mb-3 text-sm font-semibold tracking-wide text-gray-500 uppercase">
+                Friends{friends.length > 0 ? ` (${friends.length})` : ''}
+              </h2>
+              {friends.length === 0 ? (
+                <p className="text-center text-gray-400">No friends yet. Add your first friend above!</p>
+              ) : (
+                friends.map((friend) => (
+                  <div
+                    key={friend.uid}
+                    className="flex items-center justify-between rounded-lg border border-gray-100 bg-white p-3 mb-2 shadow-sm hover:bg-gray-50"
+                  >
+                    <div>
+                      <strong className="text-gray-900">{friend.displayName}</strong>
+                      <div className="text-xs text-gray-500">{friend.email}</div>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveFriend(friend.uid)}
+                      className="cursor-pointer rounded-md border border-red-200 bg-transparent px-3 py-1.5 text-xs text-danger hover:bg-red-50"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))
+              )}
+            </section>
+          </>
+        )}
+      </main>
+    </>
   );
 }
