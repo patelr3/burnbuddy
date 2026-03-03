@@ -143,7 +143,7 @@ jobs:
   deploy-prod:
     name: Deploy Web to Production
     runs-on: ubuntu-latest
-    needs: deploy-beta
+    needs: test-beta
     environment: production
     env:
       AZURE_RESOURCE_GROUP: buddyburn-prod
