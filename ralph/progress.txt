@@ -14,6 +14,7 @@
 - User routes include search and public profile in addition to CRUD: GET /users/search?email=..., GET /users/:uid
 - Friends API routes: POST /friends/requests, GET /friends/requests, POST /friends/requests/:id/accept, GET /friends, DELETE /friends/:uid
 - Friendship docs use sorted uid pair as doc ID: `${uid1}_${uid2}` where [uid1, uid2] = [a, b].sort()
+- Express route ordering matters: register literal path segments (e.g. `/join-requests`) BEFORE parameterized routes (`/:id`) to avoid param capture
 
 ## 2026-03-03T03:55Z - US-001
 - What was implemented: Verified existing monorepo scaffold (apps/web, services/api, packages/shared) meets all acceptance criteria. Added missing `build` script to apps/mobile so `yarn build` succeeds across all workspace packages.
@@ -134,4 +135,26 @@
   - BurnBuddy creation requires prior friendship (checked via friends collection doc)
   - Streak calculation is delegated to services/streak-calculator.ts (shared between burn buddies and burn squads)
   - The burn-buddies router includes extra endpoints beyond the AC: GET /:id, PUT /:id, GET /:id/streaks
+---
+
+## 2026-03-03T04:17Z - US-009
+- What was implemented: Verified existing Firestore Burn Squad schema and API meets all acceptance criteria. No code changes needed — everything was scaffolded in previous iterations.
+- Files changed: None (BurnSquad/BurnSquadJoinRequest types, routes, and tests already in place)
+- **Verification details:**
+  - BurnSquad type in packages/shared: { id, name, adminUid, memberUids, settings: { onlyAdminsCanAddMembers, workoutSchedule? }, createdAt }
+  - BurnSquadJoinRequest type: { id, squadId, fromUid, toUid, status: 'pending'|'accepted'|'declined', createdAt }
+  - POST /burn-squads creates squad; creator becomes admin; sends join requests to specified friend uids (validates friendship)
+  - GET /burn-squads returns all squads the authenticated user is a member of (array-contains query)
+  - POST /burn-squads/:id/join-requests/:requestId/accept accepts join request; adds user to squad memberUids
+  - POST /burn-squads/:id/members adds a friend (respects onlyAdminsCanAddMembers setting; validates friendship)
+  - PUT /burn-squads/:id/settings updates settings (admin only)
+  - DELETE /burn-squads/:id deletes squad (admin only)
+  - Additional endpoints: GET /:id (member only), PUT /:id (admin: name + settings), GET /:id/streaks, GET /join-requests (enriched with squad names)
+  - 48 test cases in burn-squads.test.ts cover all endpoints including auth, validation, and CRUD
+  - All 181 src/ tests pass, typecheck passes across all packages
+- **Learnings for future iterations:**
+  - Burn Squad routes follow the same Firestore mocking pattern as other routes: vi.hoisted() for mock variables, vi.mock('../lib/firestore') with collection-specific handlers
+  - BurnSquad uses array-contains query for memberUids — Firestore can filter on array membership natively
+  - Join request enrichment fetches squad names individually; same optimization concern as friend enrichment
+  - The /join-requests endpoint must be registered before /:id routes to avoid Express capturing 'join-requests' as a param
 ---
