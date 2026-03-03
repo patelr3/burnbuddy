@@ -108,7 +108,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-005 (Tailwind for surrounding page styling). FirebaseUI handles email/password login AND signup in one widget, so a separate signup page may become optional."
     },
     {

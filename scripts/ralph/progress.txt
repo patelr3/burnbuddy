@@ -85,3 +85,17 @@ Started: Tue Mar  3 08:20:41 AM UTC 2026
   - Firebase config secrets (NEXT_PUBLIC_FIREBASE_API_KEY etc.) are NOT yet set in GitHub environments — Docker builds use demo fallback values
   - To add real Firebase config: set environment secrets in beta/production GitHub environments, or store in AKV
 ---
+
+## 2026-03-03T15:30Z - US-007
+- Replaced custom login form with FirebaseUI drop-in auth widget
+- Created FirebaseAuthWidget component with EmailAuthProvider and GoogleAuthProvider
+- Imported firebaseui CSS globally in globals.css
+- Installed firebaseui and react-firebaseui packages
+- Login page has BurnBuddy branding, redirects to / on successful auth
+- Files changed: apps/web/package.json, apps/web/src/app/globals.css, apps/web/src/app/login/page.tsx, apps/web/src/components/FirebaseAuthWidget.tsx, yarn.lock
+- **Learnings for future iterations:**
+  - FirebaseUI requires firebase/compat/app and firebase/compat/auth for its AuthUI class — modern modular Firebase SDK doesn't work directly with FirebaseUI
+  - Dynamic import (`next/dynamic` with `ssr: false`) is needed for FirebaseUI since it accesses `window`/DOM on import
+  - firebaseui CSS must be imported as `firebaseui/dist/firebaseui.css` — no default CSS export
+  - The login page auto-redirects authenticated users to `/` via useEffect — verify by signing out first when testing
+---
