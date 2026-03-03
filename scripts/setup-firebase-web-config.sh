@@ -20,12 +20,15 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 --env <beta|production> [--vault <vault-name>] [--skip-github]"
+  echo "Usage: $0 --env <beta|production|all> [--vault <vault-name>] [--skip-github]"
   echo ""
   echo "Options:"
-  echo "  --env          Target environment (beta or production)"
+  echo "  --env          Target environment (beta, production, or all)"
   echo "  --vault        Key Vault name (default: buddyburn-<env>-kv)"
   echo "  --skip-github  Skip setting GitHub environment secrets"
+  echo ""
+  echo "NOTE: Both beta and production use the same Firebase project (buddyburn-beta)."
+  echo "Use '--env all' to set config for both environments at once."
   echo ""
   echo "Firebase config can be provided interactively or via env vars:"
   echo "  FIREBASE_API_KEY, FIREBASE_AUTH_DOMAIN, FIREBASE_PROJECT_ID,"
@@ -52,19 +55,10 @@ if [[ -z "$ENV" ]]; then
   usage
 fi
 
-if [[ "$ENV" != "beta" && "$ENV" != "production" ]]; then
-  echo "Error: --env must be 'beta' or 'production'"
+if [[ "$ENV" != "beta" && "$ENV" != "production" && "$ENV" != "all" ]]; then
+  echo "Error: --env must be 'beta', 'production', or 'all'"
   exit 1
 fi
-
-# Default vault name
-if [[ -z "$VAULT" ]]; then
-  VAULT="buddyburn-${ENV}-kv"
-fi
-
-echo "🔥 Firebase Web Config Setup — $ENV"
-echo "   Key Vault: $VAULT"
-echo ""
 
 # Prompt for values if not set in environment
 prompt_value() {
@@ -84,6 +78,8 @@ prompt_value() {
   fi
 }
 
+echo "🔥 Firebase Web Config Setup"
+echo ""
 echo "Enter Firebase Web SDK config (from Firebase Console > Project Settings):"
 echo ""
 prompt_value FIREBASE_API_KEY "API Key"
@@ -93,30 +89,42 @@ prompt_value FIREBASE_STORAGE_BUCKET "Storage Bucket"
 prompt_value FIREBASE_MESSAGING_SENDER_ID "Messaging Sender ID"
 prompt_value FIREBASE_APP_ID "App ID"
 
-echo ""
-echo "📦 Storing in Azure Key Vault ($VAULT)..."
+# Store config for a single environment
+store_for_env() {
+  local target_env="$1"
+  local vault="${VAULT:-buddyburn-${target_env}-kv}"
 
-az keyvault secret set --vault-name "$VAULT" --name firebase-web-api-key --value "$FIREBASE_API_KEY" --output none
-az keyvault secret set --vault-name "$VAULT" --name firebase-web-auth-domain --value "$FIREBASE_AUTH_DOMAIN" --output none
-az keyvault secret set --vault-name "$VAULT" --name firebase-web-project-id --value "$FIREBASE_PROJECT_ID" --output none
-az keyvault secret set --vault-name "$VAULT" --name firebase-web-storage-bucket --value "$FIREBASE_STORAGE_BUCKET" --output none
-az keyvault secret set --vault-name "$VAULT" --name firebase-web-messaging-sender-id --value "$FIREBASE_MESSAGING_SENDER_ID" --output none
-az keyvault secret set --vault-name "$VAULT" --name firebase-web-app-id --value "$FIREBASE_APP_ID" --output none
-
-echo "  ✅ Key Vault secrets stored"
-
-if [[ "$SKIP_GITHUB" == "false" ]]; then
   echo ""
-  echo "📦 Storing in GitHub environment secrets ($ENV)..."
+  echo "📦 Storing in Azure Key Vault ($vault) for $target_env..."
 
-  echo "$FIREBASE_API_KEY" | gh secret set NEXT_PUBLIC_FIREBASE_API_KEY --env "$ENV"
-  echo "$FIREBASE_AUTH_DOMAIN" | gh secret set NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN --env "$ENV"
-  echo "$FIREBASE_PROJECT_ID" | gh secret set NEXT_PUBLIC_FIREBASE_PROJECT_ID --env "$ENV"
-  echo "$FIREBASE_STORAGE_BUCKET" | gh secret set NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET --env "$ENV"
-  echo "$FIREBASE_MESSAGING_SENDER_ID" | gh secret set NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID --env "$ENV"
-  echo "$FIREBASE_APP_ID" | gh secret set NEXT_PUBLIC_FIREBASE_APP_ID --env "$ENV"
+  az keyvault secret set --vault-name "$vault" --name firebase-web-api-key --value "$FIREBASE_API_KEY" --output none
+  az keyvault secret set --vault-name "$vault" --name firebase-web-auth-domain --value "$FIREBASE_AUTH_DOMAIN" --output none
+  az keyvault secret set --vault-name "$vault" --name firebase-web-project-id --value "$FIREBASE_PROJECT_ID" --output none
+  az keyvault secret set --vault-name "$vault" --name firebase-web-storage-bucket --value "$FIREBASE_STORAGE_BUCKET" --output none
+  az keyvault secret set --vault-name "$vault" --name firebase-web-messaging-sender-id --value "$FIREBASE_MESSAGING_SENDER_ID" --output none
+  az keyvault secret set --vault-name "$vault" --name firebase-web-app-id --value "$FIREBASE_APP_ID" --output none
 
-  echo "  ✅ GitHub environment secrets stored"
+  echo "  ✅ Key Vault secrets stored ($vault)"
+
+  if [[ "$SKIP_GITHUB" == "false" ]]; then
+    echo "📦 Storing in GitHub environment secrets ($target_env)..."
+
+    echo "$FIREBASE_API_KEY" | gh secret set NEXT_PUBLIC_FIREBASE_API_KEY --env "$target_env"
+    echo "$FIREBASE_AUTH_DOMAIN" | gh secret set NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN --env "$target_env"
+    echo "$FIREBASE_PROJECT_ID" | gh secret set NEXT_PUBLIC_FIREBASE_PROJECT_ID --env "$target_env"
+    echo "$FIREBASE_STORAGE_BUCKET" | gh secret set NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET --env "$target_env"
+    echo "$FIREBASE_MESSAGING_SENDER_ID" | gh secret set NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID --env "$target_env"
+    echo "$FIREBASE_APP_ID" | gh secret set NEXT_PUBLIC_FIREBASE_APP_ID --env "$target_env"
+
+    echo "  ✅ GitHub environment secrets stored ($target_env)"
+  fi
+}
+
+if [[ "$ENV" == "all" ]]; then
+  store_for_env "beta"
+  store_for_env "production"
+else
+  store_for_env "$ENV"
 fi
 
 echo ""

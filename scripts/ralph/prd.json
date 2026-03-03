@@ -32,7 +32,7 @@
       ],
       "priority": 2,
       "passes": false,
-      "notes": "Root cause confirmed: GitHub beta env missing all NEXT_PUBLIC_FIREBASE_* secrets. Deployed JS has apiKey:'demo-api-key'. Workflow updated to fetch Firebase config from Azure KV. Setup script created at scripts/setup-firebase-web-config.sh. BLOCKED: Requires human to run setup script with Firebase Web SDK config from Firebase Console (project: buddyburn-beta). See progress.txt for detailed steps."
+      "notes": "Root cause confirmed: GitHub beta env missing all NEXT_PUBLIC_FIREBASE_* secrets. Deployed JS has apiKey:'demo-api-key'. Workflow updated to fetch Firebase config from Azure KV. Setup script created at scripts/setup-firebase-web-config.sh. BLOCKED: Requires human to run setup script with Firebase Web SDK config from Firebase Console (project: buddyburn-beta). Both beta and prod use the SAME Firebase project (buddyburn-beta). Run: ./scripts/setup-firebase-web-config.sh --env all"
     },
     {
       "id": "US-003",
@@ -60,7 +60,7 @@
       ],
       "priority": 4,
       "passes": false,
-      "notes": "Depends on US-002. Same fix pattern — ensure production GitHub environment secrets match the Firebase project config. Key Vault is buddyburn-prod-kv."
+      "notes": "Depends on US-002. Both environments use the SAME Firebase project (buddyburn-beta) — confirmed via service account JSON in both KVs. The setup script supports '--env all' to set config for both environments at once. Once US-002 is unblocked, US-004 is automatically resolved too."
     },
     {
       "id": "US-005",
