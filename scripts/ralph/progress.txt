@@ -2,6 +2,11 @@
 - Bicep param files use `using './main.bicep'` syntax and follow naming pattern `main.<env>.bicepparam`
 - API tests in `services/api` have pre-existing failures from stale `dist/` build artifacts (CommonJS import issue) — source `.ts` tests all pass
 - Typecheck: `yarn typecheck` runs across all workspaces (mobile, web, shared, api)
+- Deploy workflows use `azure/login@v2` with client-id/secret/tenant-id/subscription-id secrets and `az acr login` for container registry
+- Docker images are tagged with `${GITHUB_SHA::8}` (first 8 chars of commit SHA)
+- Container Apps are updated via `az containerapp update --name <app> --resource-group <rg> --image <image>`
+- Beta and prod deploy as separate jobs with `needs:` to enforce sequential ordering (beta → prod)
+- Next.js NEXT_PUBLIC_ vars must be passed as Docker build ARGs (baked at build time); the web Dockerfile has ARG directives for them
 ---
 
 # Progress Log
@@ -27,4 +32,38 @@
   - The Burn Squad creation form only requires `squadName` to be non-empty for submission; friends and schedule are optional
   - API `POST /burn-squads` only requires `name`; `inviteUids` is optional and validated per-friend (silently skips invalid)
   - Button disabled state is controlled by `sending || !squadName.trim()` — no friend count check
+---
+
+
+## 2026-03-03T05:16 - US-003
+- Created dedicated API deploy workflow at `.github/workflows/deploy-api.yml`
+- Triggers on pushes to main when `services/api/**`, `packages/shared/**`, or `infra/**` change
+- Quality checks job runs typecheck + API tests before any deployment
+- Deploys to beta first (buddyburn-beta-api), then production (buddyburn-prod-api) in sequence via `needs:` dependency
+- Uses GitHub environments (`beta`, `production`) for each deploy job
+- Files changed:
+  - `.github/workflows/deploy-api.yml` — new workflow file
+- **Learnings for future iterations:**
+  - The existing deploy.yml pattern uses `azure/login@v2` with 4 secrets (CLIENT_ID, CLIENT_SECRET, TENANT_ID, SUBSCRIPTION_ID)
+  - Docker images are tagged with first 8 chars of GITHUB_SHA
+  - Each deploy job needs its own checkout + Azure login + ACR login + build since jobs run on separate runners
+  - Use `environment:` key on jobs to enable GitHub environment protection rules
+---
+
+
+## 2026-03-03T05:17 - US-004
+- Created dedicated web deploy workflow at `.github/workflows/deploy-web.yml`
+- Triggers on pushes to main when `apps/web/**` or `packages/shared/**` change
+- Quality checks job runs typecheck before any deployment
+- Deploys to beta first (buddyburn-beta-web), then production (buddyburn-prod-web) in sequence via `needs:` dependency
+- Passes Firebase config and API URL as Docker build args per environment (from GitHub environment secrets)
+- Updated `apps/web/Dockerfile` to accept NEXT_PUBLIC build args so they're baked into Next.js at build time
+- Files changed:
+  - `.github/workflows/deploy-web.yml` — new workflow file
+  - `apps/web/Dockerfile` — added ARG directives for NEXT_PUBLIC env vars
+- **Learnings for future iterations:**
+  - Next.js NEXT_PUBLIC_ vars are baked at build time, so they must be passed as Docker build ARGs, not runtime ENV
+  - The Dockerfile previously had no ARG directives — build args are silently ignored without matching ARG declarations
+  - Each GitHub environment (beta, production) should have its own set of NEXT_PUBLIC secrets for Firebase config and API URL
+  - Web quality checks only run typecheck (no web-specific tests yet, unlike API which has vitest)
 ---
