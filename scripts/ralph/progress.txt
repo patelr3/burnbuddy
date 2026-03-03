@@ -11,6 +11,8 @@
 - All API routes except GET /health use `requireAuth` middleware — unauthenticated requests get 401
 - Integration test script is at `scripts/integration-test.sh` — accepts `BASE_URL` env var
 - Next.js NEXT_PUBLIC_ vars must be passed as Docker build ARGs (baked at build time); the web Dockerfile has ARG directives for them
+- Post-deploy integration test jobs use `az containerapp show --query properties.configuration.ingress.fqdn --output tsv` to discover the live URL
+- Deploy workflow job chain: quality → deploy-beta → test-beta → deploy-prod → test-prod (beta tests gate prod deploy)
 ---
 
 # Progress Log
@@ -126,4 +128,20 @@
   - Auth state file (`.auth/user.json`) must be gitignored — it contains session tokens
   - The web app middleware redirects unauthenticated users to `/login`, so E2E tests must authenticate first
   - `execSync` from `child_process` works well for calling `az keyvault secret show` synchronously in Playwright setup
+---
+
+## 2026-03-03T05:27 - US-008
+- Wired API integration tests into deploy-api.yml workflow
+- Added `test-beta` job (runs after `deploy-beta`) that fetches the Container App FQDN and runs `scripts/integration-test.sh`
+- Added `test-prod` job (runs after `deploy-prod`) with the same pattern for production
+- Updated job dependency chain: quality → deploy-beta → test-beta → deploy-prod → test-prod
+- Both test jobs write results to `$GITHUB_STEP_SUMMARY` for visibility in GitHub Actions UI
+- If integration tests fail, the job fails (script exits non-zero, no `continue-on-error`)
+- Files changed:
+  - `.github/workflows/deploy-api.yml` — added test-beta and test-prod jobs, changed deploy-prod to depend on test-beta
+- **Learnings for future iterations:**
+  - Integration test jobs need Azure login to run `az containerapp show` for FQDN discovery
+  - `$GITHUB_STEP_SUMMARY` with `if: always()` ensures test results appear even on failure
+  - Chain: deploy-prod `needs: test-beta` means prod won't deploy if beta integration tests fail — good safety gate
+  - Container App FQDN is fetched via `az containerapp show --query properties.configuration.ingress.fqdn --output tsv`
 ---
