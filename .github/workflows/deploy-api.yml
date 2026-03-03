@@ -7,6 +7,7 @@ on:
       - 'services/api/**'
       - 'packages/shared/**'
       - 'infra/**'
+  workflow_dispatch:
 
 env:
   ACR_LOGIN_SERVER: burnbuddyacr.azurecr.io
