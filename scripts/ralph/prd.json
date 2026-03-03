@@ -32,7 +32,7 @@
       ],
       "priority": 2,
       "passes": false,
-      "notes": "Next.js NEXT_PUBLIC_* env vars are inlined at build time — must be passed as --build-arg in Docker build. If GitHub Actions environment secrets are empty, fallback values in firebase-client.ts (demo-api-key, etc.) are used. Firebase config secrets are stored in Azure Key Vault (buddyburn-beta-kv). The deploy workflow is .github/workflows/deploy-web.yml. Check the Docker build step for --build-arg flags."
+      "notes": "Root cause confirmed: GitHub beta env missing all NEXT_PUBLIC_FIREBASE_* secrets. Deployed JS has apiKey:'demo-api-key'. Workflow updated to fetch Firebase config from Azure KV. Setup script created at scripts/setup-firebase-web-config.sh. BLOCKED: Requires human to run setup script with Firebase Web SDK config from Firebase Console (project: buddyburn-beta). See progress.txt for detailed steps."
     },
     {
       "id": "US-003",

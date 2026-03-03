@@ -5,6 +5,9 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
 - Tailwind v4 CSS is properly bundled in Next.js standalone Docker output — the Dockerfile correctly copies `.next/static` to the runtime stage
 - The deploy-web.yml workflow passes Firebase config as `--build-arg` to Docker build for NEXT_PUBLIC_* env vars
 - FirebaseUI CSS is imported via `@import "firebaseui/dist/firebaseui.css"` in globals.css and gets bundled into the single Next.js CSS file
+- Firebase Web client config (apiKey, authDomain, etc.) should be stored in Azure Key Vault as `firebase-web-*` secrets and fetched by the deploy workflow
+- The `buddyburn-beta` Firebase project exists (auth handler at buddyburn-beta.firebaseapp.com responds) but client config was never stored in KV or GitHub secrets
+- Firebase Admin SDK in the API container works with the minimal service account JSON (`{"type":"service_account","project_id":"buddyburn-beta"}`) — it successfully rejects invalid tokens
 
 ---
 
@@ -20,4 +23,24 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
   - The Dockerfile already handles static asset copying correctly for standalone mode
   - CSS loads as a single bundled file (e.g., `/_next/static/css/6ce528821d89d1ff.css`) containing both Tailwind utilities and FirebaseUI styles
   - When investigating "broken CSS", always check the live site first before making code changes — it may already be working
+---
+
+## 2026-03-03T18:30Z - US-002
+- **Root cause identified**: GitHub beta environment is missing all `NEXT_PUBLIC_FIREBASE_*` secrets. The deployed JS bundle has `apiKey:"demo-api-key"` (confirmed via `curl` of the JS chunks). The Firebase project `buddyburn-beta` exists (auth handler responds at `buddyburn-beta.firebaseapp.com`) but its Web SDK config was never stored in CI/CD.
+- **Changes made**:
+  - Updated `.github/workflows/deploy-web.yml` — both beta and prod deploy jobs now fetch Firebase Web config from Azure Key Vault (`firebase-web-*` secrets) with fallback to GitHub environment secrets
+  - Created `scripts/setup-firebase-web-config.sh` — stores Firebase Web SDK config in both Azure KV and GitHub environment secrets
+- **BLOCKED**: Cannot complete browser verification. Firebase Web SDK config values (apiKey, authDomain, etc.) are not stored anywhere accessible — not in Key Vault, not in GitHub secrets, not in the codebase. Retrieval requires Firebase Console access or authenticated `firebase apps:sdkconfig` CLI command, neither of which is available in this environment.
+- **To complete this story**, a human must:
+  1. Go to [Firebase Console](https://console.firebase.google.com/project/buddyburn-beta/settings/general) → Project Settings → General → Your apps → Web app
+  2. Copy the Firebase SDK config (apiKey, authDomain, projectId, storageBucket, messagingSenderId, appId)
+  3. Run: `./scripts/setup-firebase-web-config.sh --env beta`
+  4. Run: `./scripts/setup-firebase-web-config.sh --env production`
+  5. Trigger deploy: `gh workflow run deploy-web.yml`
+  6. Verify login works at https://buddyburn-beta.arayosun.com/login
+- **Learnings for future iterations:**
+  - Firebase client config (apiKey etc.) is PUBLIC info but must be stored somewhere CI/CD can access it — Key Vault or GitHub secrets
+  - The deploy-web.yml workflow now fetches from KV first (better centralization) with GH secrets as fallback
+  - Firebase Admin SDK (server-side) does NOT need the client API key — it uses service account credentials
+  - The `buddyburn-beta` KV has only a minimal service account JSON `{"type":"service_account","project_id":"buddyburn-beta"}` — no private key or client email
 ---
