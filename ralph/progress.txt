@@ -1,0 +1,31 @@
+## Codebase Patterns
+- Monorepo uses yarn workspaces with packages in `apps/*`, `packages/*`, `services/*`
+- TypeScript strict mode is enabled in all packages (apps/web, services/api, packages/shared)
+- API tests: only `src/` tests are reliable; `dist/` compiled tests fail with vitest CJS import error (pre-existing, not a blocker)
+- Use `expo export --platform web` to verify Expo web bundle without needing a browser
+- `@burnbuddy/shared` is the shared types/utilities package, imported by both web and api
+- pino is used for structured JSON logging in services/api with OpenTelemetry transport
+- `yarn build` runs `yarn workspaces run build` — every package needs a `build` script
+- `yarn typecheck` runs `yarn workspaces run typecheck` — every package needs a `typecheck` script
+- services/api uses Express.js with vitest for testing
+- apps/web is Next.js 14 with app directory routing
+- apps/mobile is Expo (React Native) — build script is `tsc --noEmit` (actual builds via EAS)
+
+## 2026-03-03T03:55Z - US-001
+- What was implemented: Verified existing monorepo scaffold (apps/web, services/api, packages/shared) meets all acceptance criteria. Added missing `build` script to apps/mobile so `yarn build` succeeds across all workspace packages.
+- Files changed: apps/mobile/package.json
+- **Learnings for future iterations:**
+  - The monorepo is already fully scaffolded with Next.js web app, Express API, shared types, and Expo mobile
+  - `yarn workspaces run <script>` runs the named script in ALL packages — if any package is missing the script, the entire command fails
+  - apps/mobile uses `tsc --noEmit` for both build and typecheck since Expo apps are built via EAS Build, not locally
+---
+
+## 2026-03-03T03:58Z - US-002
+- What was implemented: Verified existing Expo React Native mobile app scaffold meets all acceptance criteria. Expo SDK 55 with TypeScript strict mode, @burnbuddy/shared types importable (6+ files), expo start --web and expo export --platform web succeed, typecheck passes.
+- Files changed: None (app was already fully scaffolded by US-001)
+- **Learnings for future iterations:**
+  - The mobile app is already fully functional with screens (Login, Signup, Home, Friends, Account), auth context, push notification handling, and tab navigation
+  - Metro config at apps/mobile/metro.config.js resolves workspace packages by watching the workspace root and including both app and root node_modules
+  - API tests in dist/ directory fail because vitest CJS import doesn't work from compiled JS — only src/ tests should be relied upon (181 tests pass from src/)
+  - `expo export --platform web` is a good non-interactive way to verify the web bundle compiles without needing a browser
+---
