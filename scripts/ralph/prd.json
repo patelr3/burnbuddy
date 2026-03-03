@@ -1,0 +1,186 @@
+{
+  "project": "BuddyBurn",
+  "branchName": "ralph/beta-deployment-and-ux-fixes",
+  "description": "Beta/Prod Deployment, CI/CD Refactor, and UX Consistency Fixes - Remove friends requirement from Burn Squad creation, provision beta environment, split CI/CD workflows, and add post-deployment tests",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Update Bicep to support beta environment",
+      "description": "As a developer, I need Bicep to accept 'beta' as a valid environment so I can provision beta infrastructure.",
+      "acceptanceCriteria": [
+        "infra/main.bicep @allowed constraint updated to ['dev', 'beta', 'prod']",
+        "infra/main.beta.bicepparam exists with environment = 'beta'",
+        "Beta param file references 'buddyburn-beta-kv' as Key Vault name and 'buddyburn-beta' as resource group",
+        "Beta param file uses 'burnbuddyacr.azurecr.io' as container registry server",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Remove friends requirement from Burn Squad creation",
+      "description": "As a user, I want to create a Burn Squad without having friends added yet, so I can set up my squad and invite people later.",
+      "acceptanceCriteria": [
+        "When user has no friends, Burn Squad creation page shows informational message ('No friends to invite yet — you can add them later') but does NOT block form submission",
+        "Create Burn Squad button remains enabled when a squad name is entered, regardless of friend selection",
+        "A squad created with zero inviteUids is accepted by the API and returns 201",
+        "User is redirected to the home page after creating an empty squad",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Create API deploy workflow",
+      "description": "As a developer, I want a dedicated GitHub Actions workflow for the API so that only API-relevant changes trigger API builds and deploys.",
+      "acceptanceCriteria": [
+        ".github/workflows/deploy-api.yml exists and triggers on pushes to main when services/api/**, packages/shared/**, or infra/** change",
+        "Workflow includes quality checks (typecheck + API tests) before building",
+        "Workflow builds only the API Docker image and deploys only the API Container App",
+        "Workflow deploys to beta first, then production, in sequence",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Create web deploy workflow",
+      "description": "As a developer, I want a dedicated GitHub Actions workflow for the web app so that only web-relevant changes trigger web builds and deploys.",
+      "acceptanceCriteria": [
+        ".github/workflows/deploy-web.yml exists and triggers on pushes to main when apps/web/** or packages/shared/** change",
+        "Workflow includes quality checks (typecheck) before building",
+        "Workflow builds the web Docker image with correct build args (Firebase config, API URL) for each environment",
+        "Workflow deploys to beta first, then production, in sequence",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Remove old deploy workflow",
+      "description": "As a developer, I want the original monolithic deploy.yml removed so it does not cause duplicate runs alongside the new split workflows.",
+      "acceptanceCriteria": [
+        "Original .github/workflows/deploy.yml is removed or renamed to deploy.yml.disabled",
+        "No duplicate workflow runs occur when pushing to main",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Only remove after deploy-api.yml and deploy-web.yml are created"
+    },
+    {
+      "id": "US-006",
+      "title": "Create API integration test script",
+      "description": "As a developer, I want an integration test script that verifies live API endpoints so regressions are caught after deployment.",
+      "acceptanceCriteria": [
+        "Test script exists (e.g. scripts/integration-test.sh or tests/integration/) and accepts BASE_URL environment variable",
+        "Tests cover: GET /health (200), POST /users (401 without token), GET /users/me (401), GET /friends (401), POST /workouts/start (401)",
+        "Script exits non-zero on any test failure",
+        "Test results are clearly formatted for CI output",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "az CLI is authenticated — use `az keyvault secret show` to fetch Firebase test user credentials from Key Vault at runtime for authenticated endpoint tests."
+    },
+    {
+      "id": "US-007",
+      "title": "Add Playwright E2E setup and browser tests",
+      "description": "As a developer, I want Playwright browser tests for critical user flows so the web app is verified after each deployment.",
+      "acceptanceCriteria": [
+        "Playwright is added as a dev dependency",
+        "E2E tests cover: load home/login page (200, no JS errors), navigate to Burn Squads page, create a new Burn Squad with no friends",
+        "Tests accept BASE_URL as environment variable to target beta or production",
+        "Playwright configured with retries: 1 for CI flakiness tolerance",
+        "Typecheck passes for any TypeScript test files"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "Use `az keyvault secret show` to fetch test account credentials from Azure Key Vault at runtime. az CLI is authenticated."
+    },
+    {
+      "id": "US-008",
+      "title": "Wire API integration tests into deploy workflow",
+      "description": "As a developer, I want integration tests to run automatically after each API deployment so failures are caught immediately.",
+      "acceptanceCriteria": [
+        "deploy-api.yml runs integration tests against beta after beta deploy",
+        "deploy-api.yml runs integration tests against prod after prod deploy",
+        "If integration tests fail, the workflow job fails (no silent failures)",
+        "Test results are visible in GitHub Actions summary",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "Depends on deploy-api.yml (US-003) and integration test script (US-006)"
+    },
+    {
+      "id": "US-009",
+      "title": "Wire E2E tests into web deploy workflow",
+      "description": "As a developer, I want E2E browser tests to run after each web deployment so critical user flows are verified in both environments.",
+      "acceptanceCriteria": [
+        "deploy-web.yml runs Playwright E2E tests against beta after beta deploy",
+        "deploy-web.yml runs Playwright E2E tests against prod after prod deploy",
+        "Test artifacts (screenshots, traces) are uploaded as GitHub Actions artifacts on failure",
+        "If E2E tests fail, the workflow job fails",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "Depends on deploy-web.yml (US-004) and Playwright tests (US-007)"
+    },
+    {
+      "id": "US-010",
+      "title": "Provision beta Azure environment",
+      "description": "As a developer, I need the beta Azure infrastructure provisioned so automated deploys have a live target environment.",
+      "acceptanceCriteria": [
+        "buddyburn-beta resource group exists in Azure",
+        "buddyburn-beta-kv Key Vault exists with required secrets mirrored from prod",
+        "Beta Container Apps environment (buddyburn-beta-env) is provisioned via Bicep",
+        "Beta API Container App (buddyburn-beta-api) is reachable and returns 200 on GET /health",
+        "Beta Web Container App (buddyburn-beta-web) is reachable and returns 200"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "az CLI is authenticated — use `az deployment group create`, `az keyvault secret set`, and `az containerapp` commands directly to provision and verify resources."
+    },
+    {
+      "id": "US-011",
+      "title": "Deploy and verify API pipeline end-to-end",
+      "description": "As a developer, I need the API deploy workflow to successfully push a Docker image and update beta and production Container Apps.",
+      "acceptanceCriteria": [
+        "API workflow runs without errors on push to main",
+        "Docker image is built, tagged with short commit SHA, and pushed to burnbuddyacr",
+        "buddyburn-beta-api Container App is updated to the new image",
+        "buddyburn-prod-api Container App is updated to the new image",
+        "All workflow steps show green in GitHub Actions UI"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "az CLI is authenticated — use `az containerapp show`, `az acr login`, and `gh workflow run` to iterate. No manual intervention needed."
+    },
+    {
+      "id": "US-012",
+      "title": "Deploy and verify web pipeline end-to-end",
+      "description": "As a developer, I need the web deploy workflow to successfully push a Docker image and update beta and production web Container Apps.",
+      "acceptanceCriteria": [
+        "Web workflow runs without errors on push to main",
+        "Docker image for apps/web is built with correct build args for each environment",
+        "buddyburn-beta-web Container App is updated to the new image",
+        "buddyburn-prod-web Container App is updated to the new image",
+        "All workflow steps show green in GitHub Actions UI"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "az CLI is authenticated — use `az containerapp show`, `az acr login`, and `gh workflow run` to iterate. No manual intervention needed."
+    }
+  ]
+}
