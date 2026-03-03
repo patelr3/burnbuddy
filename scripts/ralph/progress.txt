@@ -1,6 +1,19 @@
 ## Codebase Patterns
-
+- Bicep param files use `using './main.bicep'` syntax and follow naming pattern `main.<env>.bicepparam`
+- API tests in `services/api` have pre-existing failures from stale `dist/` build artifacts (CommonJS import issue) — source `.ts` tests all pass
+- Typecheck: `yarn typecheck` runs across all workspaces (mobile, web, shared, api)
 ---
 
 # Progress Log
+
+## 2026-03-03T05:10 - US-001
+- Implemented beta environment support in Bicep infrastructure
+- Files changed:
+  - `infra/main.bicep` — updated `@allowed` constraint from `['dev', 'prod']` to `['dev', 'beta', 'prod']`
+  - `infra/main.beta.bicepparam` — created new beta parameter file with `buddyburn-beta-kv` Key Vault, `buddyburn-beta` resource group, `burnbuddyacr.azurecr.io` registry
+- **Learnings for future iterations:**
+  - Bicep param files follow a consistent pattern — copy an existing one and update env-specific values
+  - The `dist/` directory in `services/api` has stale CommonJS artifacts that cause 10 test suite failures — ignore these, only the `.ts` source tests matter
+  - Branch needed `git pull` to get the latest files after checkout — infra directory wasn't present initially
+---
 
