@@ -121,9 +121,12 @@ jobs:
           echo "BASE_URL=https://${FQDN}" >> "$GITHUB_OUTPUT"
 
       - name: Run Playwright E2E tests
-        run: BASE_URL=${{ steps.url.outputs.BASE_URL }} npx playwright test
+        run: npx playwright test
         env:
           CI: true
+          BASE_URL: ${{ steps.url.outputs.BASE_URL }}
+          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
 
       - name: Upload test artifacts
         if: failure()
@@ -232,9 +235,12 @@ jobs:
           echo "BASE_URL=https://${FQDN}" >> "$GITHUB_OUTPUT"
 
       - name: Run Playwright E2E tests
-        run: BASE_URL=${{ steps.url.outputs.BASE_URL }} npx playwright test
+        run: npx playwright test
         env:
           CI: true
+          BASE_URL: ${{ steps.url.outputs.BASE_URL }}
+          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
 
       - name: Upload test artifacts
         if: failure()
