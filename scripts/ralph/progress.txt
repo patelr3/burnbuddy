@@ -1,11 +1,15 @@
 ## Codebase Patterns
 - Bicep param files use `using './main.bicep'` syntax and follow naming pattern `main.<env>.bicepparam`
 - API tests in `services/api` have pre-existing failures from stale `dist/` build artifacts (CommonJS import issue) — source `.ts` tests all pass
+- Playwright E2E tests live in `tests/e2e/` with config at root `playwright.config.ts`; auth state stored in `tests/e2e/.auth/user.json`
+- E2E tests use `az keyvault secret show` for credentials, or `TEST_USER_EMAIL`/`TEST_USER_PASSWORD` env vars as override
 - Typecheck: `yarn typecheck` runs across all workspaces (mobile, web, shared, api)
 - Deploy workflows use `azure/login@v2` with client-id/secret/tenant-id/subscription-id secrets and `az acr login` for container registry
 - Docker images are tagged with `${GITHUB_SHA::8}` (first 8 chars of commit SHA)
 - Container Apps are updated via `az containerapp update --name <app> --resource-group <rg> --image <image>`
 - Beta and prod deploy as separate jobs with `needs:` to enforce sequential ordering (beta → prod)
+- All API routes except GET /health use `requireAuth` middleware — unauthenticated requests get 401
+- Integration test script is at `scripts/integration-test.sh` — accepts `BASE_URL` env var
 - Next.js NEXT_PUBLIC_ vars must be passed as Docker build ARGs (baked at build time); the web Dockerfile has ARG directives for them
 ---
 
@@ -77,4 +81,49 @@
   - GitHub Actions only processes `.yml`/`.yaml` files in `.github/workflows/` — renaming to `.disabled` effectively disables without deleting (preserves history)
   - The old workflow had no path filters (triggered on all main pushes), while new split workflows use path-specific triggers to avoid unnecessary runs
   - `git mv` is preferred for renames so Git tracks the file history correctly
+---
+
+## 2026-03-03T05:21 - US-006
+- Created API integration test script at `scripts/integration-test.sh`
+- Script accepts `BASE_URL` env var and tests 5 endpoints:
+  - GET /health → 200 (health check)
+  - POST /users → 401 (unauthenticated)
+  - GET /users/me → 401 (unauthenticated)
+  - GET /friends → 401 (unauthenticated)
+  - POST /workouts → 401 (unauthenticated)
+- Script accumulates all failures and exits non-zero with clear summary
+- Files changed:
+  - `scripts/integration-test.sh` — new integration test script
+- **Learnings for future iterations:**
+  - Bash `((VAR++))` returns exit code 1 when VAR starts at 0 — use `VAR=$((VAR + 1))` instead under `set -e`
+  - API routes: POST /workouts (not /workouts/start) is the actual start-workout endpoint
+  - All API routes except GET /health use `requireAuth` middleware and return 401 without a valid Firebase token
+  - curl `-o /dev/null -w "%{http_code}"` is the cleanest way to get just the status code
+---
+
+## 2026-03-03T05:23 - US-007
+- Added Playwright E2E test setup and browser tests
+- Installed `@playwright/test` as root dev dependency
+- Created `playwright.config.ts` at root with `retries: 1`, `BASE_URL` env var support, and project-based setup for auth
+- Created `tests/e2e/global-setup.ts` — authenticates via login page using credentials from Azure Key Vault (or env var override)
+- Created `tests/e2e/app.spec.ts` with 3 tests:
+  1. Load home/login page — verifies 200 status and no JS errors
+  2. Navigate to Burn Squads page — clicks "+ Burn Squad" link, verifies form elements
+  3. Create a new Burn Squad with no friends — fills name, submits, verifies redirect to home
+- Created `tests/e2e/tsconfig.json` for TypeScript checking of test files
+- All typechecks pass (workspace + e2e)
+- Files changed:
+  - `package.json` — added `@playwright/test` dev dependency
+  - `yarn.lock` — updated
+  - `playwright.config.ts` — new Playwright configuration
+  - `tests/e2e/global-setup.ts` — authentication setup
+  - `tests/e2e/app.spec.ts` — E2E test specs
+  - `tests/e2e/tsconfig.json` — TypeScript config for tests
+  - `tests/e2e/.gitignore` — ignore auth state and test artifacts
+- **Learnings for future iterations:**
+  - Playwright `projects` with `dependencies` allows a setup project to run auth before test projects
+  - `storageState` in Playwright persists cookies/localStorage so each test doesn't need to re-login
+  - Auth state file (`.auth/user.json`) must be gitignored — it contains session tokens
+  - The web app middleware redirects unauthenticated users to `/login`, so E2E tests must authenticate first
+  - `execSync` from `child_process` works well for calling `az keyvault secret show` synchronously in Playwright setup
 ---

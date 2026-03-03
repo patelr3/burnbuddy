@@ -89,7 +89,7 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "az CLI is authenticated — use `az keyvault secret show` to fetch Firebase test user credentials from Key Vault at runtime for authenticated endpoint tests."
     },
     {
@@ -104,7 +104,7 @@
         "Typecheck passes for any TypeScript test files"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Use `az keyvault secret show` to fetch test account credentials from Azure Key Vault at runtime. az CLI is authenticated."
     },
     {
