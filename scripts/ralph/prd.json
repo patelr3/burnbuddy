@@ -74,7 +74,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Only remove after deploy-api.yml and deploy-web.yml are created"
     },
     {

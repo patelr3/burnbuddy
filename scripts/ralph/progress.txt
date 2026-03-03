@@ -67,3 +67,14 @@
   - Each GitHub environment (beta, production) should have its own set of NEXT_PUBLIC secrets for Firebase config and API URL
   - Web quality checks only run typecheck (no web-specific tests yet, unlike API which has vitest)
 ---
+
+## 2026-03-03T05:20 - US-005
+- Renamed `.github/workflows/deploy.yml` to `.github/workflows/deploy.yml.disabled` to prevent duplicate workflow runs
+- The old deploy.yml triggered on all pushes to main (no path filter), which would have duplicated every run alongside the new split workflows
+- Files changed:
+  - `.github/workflows/deploy.yml` → `.github/workflows/deploy.yml.disabled` (git mv rename)
+- **Learnings for future iterations:**
+  - GitHub Actions only processes `.yml`/`.yaml` files in `.github/workflows/` — renaming to `.disabled` effectively disables without deleting (preserves history)
+  - The old workflow had no path filters (triggered on all main pushes), while new split workflows use path-specific triggers to avoid unnecessary runs
+  - `git mv` is preferred for renames so Git tracks the file history correctly
+---
