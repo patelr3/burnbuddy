@@ -20,11 +20,11 @@
     },
     {
       "id": "US-002",
-      "title": "Fix deploy-web.yml — gate prod on beta E2E",
+      "title": "Fix deploy-web.yml \u2014 gate prod on beta E2E",
       "description": "As a developer, I want production web deployments to only proceed if beta E2E tests pass, so that broken code never reaches production.",
       "acceptanceCriteria": [
         "In .github/workflows/deploy-web.yml, change deploy-prod job's 'needs' from 'deploy-beta' to 'test-beta'",
-        "The pipeline dependency chain is now: quality → deploy-beta → test-beta → deploy-prod → test-prod",
+        "The pipeline dependency chain is now: quality \u2192 deploy-beta \u2192 test-beta \u2192 deploy-prod \u2192 test-prod",
         "Typecheck passes"
       ],
       "priority": 2,
@@ -39,7 +39,7 @@
         "Add top-level 'permissions:' block with 'id-token: write' and 'contents: read' to the workflow",
         "Replace all azure/login@v2 steps that use 'creds' JSON containing clientSecret with OIDC inputs: client-id (${{ secrets.AZURE_CLIENT_ID }}), tenant-id (${{ secrets.AZURE_TENANT_ID }}), subscription-id (${{ secrets.AZURE_SUBSCRIPTION_ID }})",
         "Remove all references to AZURE_CLIENT_SECRET from deploy-web.yml",
-        "There are 4 azure/login steps in deploy-web.yml (deploy-beta, test-beta, deploy-prod, test-prod) — update all 4",
+        "There are 4 azure/login steps in deploy-web.yml (deploy-beta, test-beta, deploy-prod, test-prod) \u2014 update all 4",
         "Typecheck passes"
       ],
       "priority": 3,
@@ -54,7 +54,7 @@
         "Add top-level 'permissions:' block with 'id-token: write' and 'contents: read' to the workflow",
         "Replace all azure/login@v2 steps that use 'creds' JSON containing clientSecret with OIDC inputs: client-id, tenant-id, subscription-id",
         "Remove all references to AZURE_CLIENT_SECRET from deploy-api.yml",
-        "There are 4 azure/login steps in deploy-api.yml (deploy-beta, test-beta, deploy-prod, test-prod) — update all 4",
+        "There are 4 azure/login steps in deploy-api.yml (deploy-beta, test-beta, deploy-prod, test-prod) \u2014 update all 4",
         "Typecheck passes"
       ],
       "priority": 4,
@@ -78,7 +78,7 @@
       ],
       "priority": 5,
       "passes": true,
-      "notes": "The web app currently has zero CSS files — all styling is inline. Tailwind will coexist with inline styles so migration can be incremental. Check package name: the web app workspace might be 'burnbuddy-web' or '@burnbuddy/web' — verify in apps/web/package.json."
+      "notes": "The web app currently has zero CSS files \u2014 all styling is inline. Tailwind will coexist with inline styles so migration can be incremental. Check package name: the web app workspace might be 'burnbuddy-web' or '@burnbuddy/web' \u2014 verify in apps/web/package.json."
     },
     {
       "id": "US-006",
@@ -123,7 +123,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-006 (FirebaseUI login page). Since FirebaseUI handles registration, the separate signup page becomes a redirect."
     },
     {
@@ -141,7 +141,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-005 (Tailwind). The nav bar is currently duplicated inline in each page with inline styles. Extract once, then subsequent page restyles will import it. Use Next.js usePathname() for active link highlighting."
     },
     {
@@ -161,8 +161,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 10,
-      "passes": false,
-      "notes": "Depends on US-008 (shared NavBar). This is the largest page (675 lines). Focus on replacing style objects with className strings. Keep the same layout structure — just swap the styling approach."
+      "passes": true,
+      "notes": "Depends on US-008 (shared NavBar). This is the largest page (675 lines). Focus on replacing style objects with className strings. Keep the same layout structure \u2014 just swap the styling approach."
     },
     {
       "id": "US-011",
@@ -180,7 +180,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-005 and US-008. Page is 425 lines."
     },
     {
@@ -199,8 +199,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 12,
-      "passes": false,
-      "notes": "Depends on US-005 and US-008. Page is 183 lines — small."
+      "passes": true,
+      "notes": "Depends on US-005 and US-008. Page is 183 lines \u2014 small."
     },
     {
       "id": "US-013",
@@ -219,8 +219,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 13,
-      "passes": false,
-      "notes": "Depends on US-005 and US-008. new page is 170 lines. Detail page may or may not exist — check and skip if absent."
+      "passes": true,
+      "notes": "Depends on US-005 and US-008. new page is 170 lines. Detail page may or may not exist \u2014 check and skip if absent."
     },
     {
       "id": "US-014",
@@ -239,8 +239,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 14,
-      "passes": false,
-      "notes": "Depends on US-005 and US-008. new page is 272 lines. Detail page may or may not exist — check and skip if absent."
+      "passes": true,
+      "notes": "Depends on US-005 and US-008. new page is 272 lines. Detail page may or may not exist \u2014 check and skip if absent."
     },
     {
       "id": "US-015",
@@ -251,8 +251,8 @@
         "Typecheck passes"
       ],
       "priority": 15,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Workflow run 22631189971 succeeded on ralph/deployment-and-ui-overhaul branch — all 5 jobs passed (quality, deploy-beta, test-beta, deploy-prod, test-prod)"
     }
   ]
 }

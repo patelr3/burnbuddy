@@ -13,6 +13,8 @@ Started: Tue Mar  3 08:20:41 AM UTC 2026
 - OIDC federated credentials are configured for `repo:patelr3/burnbuddy:environment:beta` and `environment:production` on Azure AD app `buddyburn-github-actions`
 - E2E tests gracefully skip authenticated tests when TEST_USER_EMAIL/PASSWORD are not set — smoke tests always run
 - The service principal (appId=8a67fa84) has Key Vault Secrets User role on both buddyburn-beta-kv and buddyburn-prod-kv
+- When restyling pages, also check imported child components (e.g. GettingStartedCard) for inline styles — they need Tailwind conversion too
+- For Tailwind restyling: use `disabled:opacity-50` for disabled buttons, `bg-black/50` for modal backdrops, `mb-2` with rounded cards instead of `borderBottom`
 
 ## 2026-03-03T08:20Z - US-001
 - Added `## Secrets & Security` section to CLAUDE.md with AKV rules, key vault names, and firebase config notes
@@ -98,4 +100,121 @@ Started: Tue Mar  3 08:20:41 AM UTC 2026
   - Dynamic import (`next/dynamic` with `ssr: false`) is needed for FirebaseUI since it accesses `window`/DOM on import
   - firebaseui CSS must be imported as `firebaseui/dist/firebaseui.css` — no default CSS export
   - The login page auto-redirects authenticated users to `/` via useEffect — verify by signing out first when testing
+---
+
+## 2026-03-03T15:35Z - US-008
+- Replaced custom signup form with redirect to /login since FirebaseUI handles both login and signup
+- Page auto-redirects unauthenticated users to /login, authenticated users to /
+- Shows brief fallback UI with link to login page while redirecting
+- Uses Tailwind classes instead of inline styles
+- Files changed: apps/web/src/app/signup/page.tsx
+- **Learnings for future iterations:**
+  - FirebaseUI handles both login and registration so separate signup page is redundant — redirect is simplest approach
+  - Using `router.replace('/login')` in useEffect avoids adding to browser history
+  - Old signup page imported firebase/auth functions (createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup) — these are no longer needed since FirebaseUI handles everything
+---
+
+## 2026-03-03T15:35Z - US-009
+- Created shared NavBar component at apps/web/src/components/NavBar.tsx with Tailwind styling
+- Extracted nav bar from home page (page.tsx lines 259-287) into reusable component
+- NavBar: sticky top-0, white bg, shadow-sm, flex layout, active link highlighted in orange (text-primary)
+- Sign out button calls Firebase signOut and redirects to /login
+- Replaced inline nav in home page with NavBar import, removed unused signOut/router imports
+- Files changed: apps/web/src/components/NavBar.tsx (new), apps/web/src/app/page.tsx
+- **Learnings for future iterations:**
+  - NavBar uses `usePathname()` from next/navigation for active link highlighting
+  - Home page had handleSignOut + router that were only used by the nav bar — removing the nav also removes those imports
+  - The friends page does NOT have a nav bar (just a title header) — it will need NavBar added when restyled
+  - The account page has its own inline nav bar that will need to be replaced with NavBar when restyled
+  - NavBar component accepts no props — it reads auth state and pathname internally via hooks
+---
+
+## 2026-03-03T15:38Z - US-010
+- Replaced ALL inline style props in home page (page.tsx) and GettingStartedCard.tsx with Tailwind utility classes
+- Active workout banner: rounded-lg, shadow, yellow/amber background, clear typography
+- Start Workout button: bg-orange-500 hover:bg-orange-600, rounded-lg, font-semibold
+- Buddy/squad cards: border, rounded-lg, shadow-sm, hover:bg-gray-50 effect
+- Container: max-w-xl mx-auto px-4
+- Workout type selector modal: Tailwind-styled with disabled:opacity-50
+- Pending requests: color-coded cards (amber for buddies, blue for squads)
+- GettingStartedCard: converted all inline styles to Tailwind
+- Files changed: apps/web/src/app/page.tsx, apps/web/src/components/GettingStartedCard.tsx
+- **Learnings for future iterations:**
+  - When restyling pages, also check child components (GettingStartedCard) for inline styles
+  - Tailwind `disabled:opacity-50` replaces conditional `opacity` style for disabled buttons
+  - Use `bg-black/50` for modal backdrop instead of `rgba(0,0,0,0.5)`
+  - Cards in the combined list use `mb-2` spacing instead of `borderBottom` for cleaner separation with rounded corners
+---
+
+## 2026-03-03T15:41Z - US-011
+- Replaced ALL inline style props in friends page with Tailwind utility classes
+- Added shared NavBar component import instead of no nav
+- Friend list items: card-style with rounded-lg border, shadow-sm, hover:bg-gray-50
+- Search panel: bg-gray-50 with rounded-lg border, input with focus:ring-primary
+- Confirmation dialog: bg-black/50 backdrop, rounded-lg card
+- Pending requests: card-style with color-coded badges (green for incoming, gray for pending)
+- Empty state: centered text with text-gray-400
+- Add Friend button: bg-primary with hover:bg-orange-600
+- Files changed: apps/web/src/app/friends/page.tsx
+- **Learnings for future iterations:**
+  - Friends page had no nav bar at all (just a title) — NavBar import was added fresh, not replaced
+  - Section headings use uppercase tracking-wide style for visual hierarchy (text-sm font-semibold tracking-wide text-gray-500 uppercase)
+  - Consistent card pattern across pages: rounded-lg border border-gray-100 bg-white p-3 mb-2 shadow-sm
+---
+
+## 2026-03-03T15:43Z - US-012
+- Replaced ALL inline style props in account page with Tailwind utility classes
+- Replaced inline nav bar with shared NavBar component import
+- Profile section: rounded-lg border card with label/value pairs
+- Onboarding toggle: conditional bg-success/bg-primary with disabled:opacity-60
+- Sign out section: red-themed card (border-red-200, bg-red-50) with bg-red-600 destructive button
+- Container: max-w-xl mx-auto px-4 responsive layout
+- Removed unused Link import (NavBar handles navigation)
+- Files changed: apps/web/src/app/account/page.tsx
+- **Learnings for future iterations:**
+  - Account page is small (183→126 lines) — straightforward restyle with no child components to update
+  - Sign out button in the account page's dedicated section uses signOut + router.replace (same as NavBar pattern)
+  - Red-themed sections use border-red-200 + bg-red-50 for subtle danger indication
+---
+
+## 2026-03-03T15:45Z - US-013
+- Replaced ALL inline style props in burn-buddies/new/page.tsx and burn-buddies/[id]/page.tsx with Tailwind utility classes
+- Added shared NavBar component to both pages
+- new page: friend selection cards with green border/bg when selected, confirmation panel with Cancel/Send buttons
+- detail page: StatCard component uses Tailwind colorClass prop instead of inline color, schedule editor with day toggle buttons, workout log with border-b dividers
+- Removed unused `useRouter` import from detail page
+- Files changed: apps/web/src/app/burn-buddies/new/page.tsx, apps/web/src/app/burn-buddies/[id]/page.tsx
+- **Learnings for future iterations:**
+  - Detail page had unused `useRouter` import — cleanup during restyle
+  - StatCard converted from inline `color` prop to Tailwind `colorClass` prop (e.g. `text-primary`, `text-violet-500`)
+  - Both burn-buddy pages use "← Back" link plus NavBar — sub-pages keep the back navigation pattern alongside the global nav
+  - Day-toggle buttons use conditional Tailwind classes (border-success bg-green-50 vs border-gray-300 bg-white) similar to friend selection cards
+---
+
+## 2026-03-03T15:50Z - US-014
+- Replaced ALL inline style props in burn-squads/new/page.tsx and burn-squads/[id]/page.tsx with Tailwind utility classes
+- Added shared NavBar component to both pages
+- new page: friend selection cards with blue border/bg when selected, day toggle buttons with blue active state, Create Burn Squad button bg-blue-500
+- detail page: StatCard uses colorClass prop instead of inline color, violet scheme for squad branding (badge, schedule display, day toggles, save button)
+- Delete confirmation: red-themed card (border-red-300, bg-red-50) with bg-red-600 destructive button
+- Member list: indigo avatar circles with initial letter, amber Admin badge
+- Files changed: apps/web/src/app/burn-squads/new/page.tsx, apps/web/src/app/burn-squads/[id]/page.tsx
+- **Learnings for future iterations:**
+  - Squad pages use violet/purple (#8b5cf6) as brand accent color, buddy pages use green — keep this distinction
+  - StatCard pattern is identical across buddy and squad detail pages — could potentially be extracted to shared component
+  - Squad detail page has both edit settings panel AND delete confirmation — more complex than buddy detail which only has schedule editing
+  - The `[id]` page had unused `useRouter` import kept because it's used by handleDelete — don't remove it during restyle
+---
+
+## 2026-03-03T15:58Z - US-015
+- Triggered deploy-api.yml workflow_dispatch on ralph/deployment-and-ui-overhaul branch (run 22631189971)
+- All 5 jobs passed: Quality Checks, Deploy API to Beta, Integration Tests (Beta), Deploy API to Production, Integration Tests (Production)
+- No code changes needed — the OIDC updates from US-004 worked correctly
+- Typecheck passes locally
+- Files changed: scripts/ralph/prd.json, scripts/ralph/progress.txt
+- **Learnings for future iterations:**
+  - deploy-api.yml OIDC workflow works end-to-end on feature branches via workflow_dispatch
+  - The quality job includes yarn install, shared package build, typecheck, and API tests — all pass
+  - Integration tests use scripts/integration-test.sh against live Container App URLs
+  - Both beta and production deployments succeeded with the same commit, confirming OIDC federated credentials work for both environments
 ---
