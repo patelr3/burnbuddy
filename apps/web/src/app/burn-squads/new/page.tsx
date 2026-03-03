@@ -153,10 +153,7 @@ export default function NewBurnSquadPage() {
           <p style={{ color: '#6b7280', fontSize: 14 }}>Loading friends…</p>
         ) : friends.length === 0 ? (
           <p style={{ color: '#9ca3af', fontSize: 14 }}>
-            No friends yet.{' '}
-            <Link href="/friends" style={{ color: '#3b82f6' }}>
-              Add friends first
-            </Link>
+            No friends to invite yet — you can add them later
           </p>
         ) : (
           <div>
