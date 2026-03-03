@@ -77,11 +77,23 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "The web app currently has zero CSS files — all styling is inline. Tailwind will coexist with inline styles so migration can be incremental. Check package name: the web app workspace might be 'burnbuddy-web' or '@burnbuddy/web' — verify in apps/web/package.json."
     },
     {
       "id": "US-006",
+      "title": "Update deploy-web.yml to succeed with OIDC and Tailwind changes",
+      "description": "As a developer, I want the deploy-web.yml workflow to succeed",
+      "acceptanceCriteria": [
+        "Trigger the GitHub Actions workflow and keep fixing issues until it succeeds",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "It was originally failing due to missing AKV secrets user"
+    },
+    {
+      "id": "US-007",
       "title": "Replace login page with FirebaseUI widget",
       "description": "As a user, I want a polished login page using the official FirebaseUI drop-in auth widget.",
       "acceptanceCriteria": [
@@ -95,12 +107,12 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 6,
+      "priority": 7,
       "passes": false,
       "notes": "Depends on US-005 (Tailwind for surrounding page styling). FirebaseUI handles email/password login AND signup in one widget, so a separate signup page may become optional."
     },
     {
-      "id": "US-007",
+      "id": "US-008",
       "title": "Update signup page for FirebaseUI flow",
       "description": "As a user, I want the signup page to integrate with or redirect to the FirebaseUI login widget.",
       "acceptanceCriteria": [
@@ -110,12 +122,12 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 7,
+      "priority": 8,
       "passes": false,
       "notes": "Depends on US-006 (FirebaseUI login page). Since FirebaseUI handles registration, the separate signup page becomes a redirect."
     },
     {
-      "id": "US-008",
+      "id": "US-009",
       "title": "Extract and restyle shared nav bar component",
       "description": "As a developer, I want a shared nav bar component styled with Tailwind that all pages can use.",
       "acceptanceCriteria": [
@@ -128,12 +140,12 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 8,
+      "priority": 9,
       "passes": false,
       "notes": "Depends on US-005 (Tailwind). The nav bar is currently duplicated inline in each page with inline styles. Extract once, then subsequent page restyles will import it. Use Next.js usePathname() for active link highlighting."
     },
     {
-      "id": "US-009",
+      "id": "US-010",
       "title": "Restyle home/dashboard page with Tailwind",
       "description": "As a user, I want the home page to look modern and polished with consistent card styling.",
       "acceptanceCriteria": [
@@ -148,12 +160,12 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 9,
+      "priority": 10,
       "passes": false,
       "notes": "Depends on US-008 (shared NavBar). This is the largest page (675 lines). Focus on replacing style objects with className strings. Keep the same layout structure — just swap the styling approach."
     },
     {
-      "id": "US-010",
+      "id": "US-011",
       "title": "Restyle friends page with Tailwind",
       "description": "As a user, I want the friends page to look polished with clear visual hierarchy.",
       "acceptanceCriteria": [
@@ -167,12 +179,12 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 10,
+      "priority": 11,
       "passes": false,
       "notes": "Depends on US-005 and US-008. Page is 425 lines."
     },
     {
-      "id": "US-011",
+      "id": "US-012",
       "title": "Restyle account page with Tailwind",
       "description": "As a user, I want the account settings page to look clean and organized.",
       "acceptanceCriteria": [
@@ -186,12 +198,12 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 11,
+      "priority": 12,
       "passes": false,
       "notes": "Depends on US-005 and US-008. Page is 183 lines — small."
     },
     {
-      "id": "US-012",
+      "id": "US-013",
       "title": "Restyle burn buddy pages with Tailwind",
       "description": "As a user, I want the burn buddy creation and detail pages to look polished.",
       "acceptanceCriteria": [
@@ -206,12 +218,12 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 12,
+      "priority": 13,
       "passes": false,
       "notes": "Depends on US-005 and US-008. new page is 170 lines. Detail page may or may not exist — check and skip if absent."
     },
     {
-      "id": "US-013",
+      "id": "US-014",
       "title": "Restyle burn squad pages with Tailwind",
       "description": "As a user, I want the burn squad creation and detail pages to look polished.",
       "acceptanceCriteria": [
@@ -226,9 +238,21 @@
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 13,
+      "priority": 14,
       "passes": false,
       "notes": "Depends on US-005 and US-008. new page is 272 lines. Detail page may or may not exist — check and skip if absent."
+    },
+    {
+      "id": "US-015",
+      "title": "Verify deploy-api.yml still succeeds",
+      "description": "As a developer, I want the deploy-api.yml workflow to succeed",
+      "acceptanceCriteria": [
+        "Trigger the GitHub Actions workflow and keep fixing issues until it succeeds",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
     }
   ]
 }

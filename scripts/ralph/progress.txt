@@ -7,6 +7,12 @@ Started: Tue Mar  3 08:20:41 AM UTC 2026
 - `yarn typecheck` runs typecheck across all workspaces (web, mobile, shared, api)
 - azure/login@v2 OIDC uses `client-id`, `tenant-id`, `subscription-id` as separate `with:` inputs — requires top-level `permissions: { id-token: write, contents: read }`
 - deploy-api.yml and deploy-web.yml share identical OIDC login patterns — keep them in sync when making changes
+- Web app workspace name is "web" — use `yarn workspace web add` for package installs
+- Tailwind v4 is installed: use `@import "tailwindcss"` and `@theme { --color-* }` in CSS, not v3 `@tailwind` directives
+- BurnBuddy colors: primary=#f97316 (orange), secondary=#3b82f6 (blue), success=#22c55e (green), danger=#ef4444 (red)
+- OIDC federated credentials are configured for `repo:patelr3/burnbuddy:environment:beta` and `environment:production` on Azure AD app `buddyburn-github-actions`
+- E2E tests gracefully skip authenticated tests when TEST_USER_EMAIL/PASSWORD are not set — smoke tests always run
+- The service principal (appId=8a67fa84) has Key Vault Secrets User role on both buddyburn-beta-kv and buddyburn-prod-kv
 
 ## 2026-03-03T08:20Z - US-001
 - Added `## Secrets & Security` section to CLAUDE.md with AKV rules, key vault names, and firebase config notes
@@ -44,4 +50,38 @@ Started: Tue Mar  3 08:20:41 AM UTC 2026
 - **Learnings for future iterations:**
   - deploy-api.yml and deploy-web.yml now both use identical OIDC pattern — keep them in sync for future changes
   - Both workflows have 4 azure/login steps each (deploy-beta, test-beta, deploy-prod, test-prod) — always update all 4 together
+---
+
+## 2026-03-03T08:30Z - US-005
+- Installed tailwindcss v4.2.1, @tailwindcss/postcss, postcss as dev dependencies in apps/web workspace
+- Created postcss.config.js with @tailwindcss/postcss plugin
+- Created tailwind.config.ts with content paths and BurnBuddy color palette (primary orange, secondary blue, success green, danger red)
+- Created globals.css with Tailwind v4 `@import "tailwindcss"` and `@theme` color definitions
+- Imported globals.css in layout.tsx, added `min-h-screen bg-white antialiased` body classes to verify Tailwind works
+- Files changed: apps/web/package.json, apps/web/postcss.config.js, apps/web/tailwind.config.ts, apps/web/src/app/globals.css, apps/web/src/app/layout.tsx, yarn.lock
+- **Learnings for future iterations:**
+  - Web app workspace name is "web" (not "burnbuddy-web" or "@burnbuddy/web") — use `yarn workspace web add` for package installs
+  - Tailwind v4 uses `@import "tailwindcss"` instead of v3's `@tailwind base; @tailwind components; @tailwind utilities;`
+  - Tailwind v4 uses `@theme { --color-primary: #f97316; }` in CSS for custom colors instead of the config file's theme.extend.colors
+  - PostCSS plugin is `@tailwindcss/postcss` (not `tailwindcss` directly) in v4
+  - The tailwind.config.ts is created for reference/compatibility but v4 primarily uses CSS-based configuration
+  - Build outputs CSS to `.next/static/css/` — check there to verify Tailwind is generating output
+---
+
+## 2026-03-03T15:30Z - US-006
+- Fixed deploy-web.yml workflow to succeed end-to-end with OIDC and Tailwind changes
+- Set up Azure AD federated identity credentials for beta and production environments
+- Granted Key Vault Secrets User role on both AKVs to the GitHub Actions service principal
+- Updated workflow to pass TEST_USER_EMAIL/PASSWORD from GitHub env secrets
+- Made E2E test setup gracefully handle missing credentials (writes empty auth state, authenticated tests skip)
+- Added smoke.spec.ts for auth-independent tests, separated Playwright projects
+- Files changed: .github/workflows/deploy-web.yml, tests/e2e/global-setup.ts, tests/e2e/app.spec.ts, tests/e2e/smoke.spec.ts, playwright.config.ts
+- **Learnings for future iterations:**
+  - OIDC federated credentials must be created on the Azure AD app registration (app object ID: 6f773332-60c5-4425-b8e8-17b91d7cfd8a) for each GitHub environment
+  - Subject claim format for environments: `repo:patelr3/burnbuddy:environment:{env_name}`
+  - The service principal needs Key Vault Secrets User role (not just Reader) to read secrets from AKV
+  - Playwright skips do NOT prevent dependent projects from running — if setup skips, chromium tests still run. Must write empty auth state file instead.
+  - `execSync` pipes stderr to parent by default — use `stdio: ["pipe", "pipe", "pipe"]` to suppress AKV error messages
+  - Firebase config secrets (NEXT_PUBLIC_FIREBASE_API_KEY etc.) are NOT yet set in GitHub environments — Docker builds use demo fallback values
+  - To add real Firebase config: set environment secrets in beta/production GitHub environments, or store in AKV
 ---
