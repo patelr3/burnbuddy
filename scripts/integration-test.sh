@@ -51,6 +51,24 @@ echo " Target: $BASE_URL"
 echo "============================================"
 echo ""
 
+echo "── Waiting for API to be ready ──"
+MAX_RETRIES=6
+RETRY_DELAY=10
+for i in $(seq 1 "$MAX_RETRIES"); do
+  status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "${BASE_URL}/health" 2>/dev/null) || status="000"
+  if [[ "$status" == "200" ]]; then
+    echo "  ✅ API is ready (attempt $i)"
+    break
+  fi
+  if [[ "$i" == "$MAX_RETRIES" ]]; then
+    echo "  ❌ API not ready after $MAX_RETRIES attempts"
+  else
+    echo "  ⏳ Attempt $i: got $status, retrying in ${RETRY_DELAY}s..."
+    sleep "$RETRY_DELAY"
+  fi
+done
+echo ""
+
 echo "── Health Check ──"
 check_status GET /health 200 "Health endpoint should return 200"
 
