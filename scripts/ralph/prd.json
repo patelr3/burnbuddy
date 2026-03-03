@@ -149,7 +149,7 @@
         "Beta Web Container App (buddyburn-beta-web) is reachable and returns 200"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "az CLI is authenticated — use `az deployment group create`, `az keyvault secret set`, and `az containerapp` commands directly to provision and verify resources."
     },
     {

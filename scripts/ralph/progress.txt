@@ -14,6 +14,11 @@
 - Post-deploy integration test jobs use `az containerapp show --query properties.configuration.ingress.fqdn --output tsv` to discover the live URL
 - Deploy workflow job chain: quality → deploy-beta → test-beta → deploy-prod → test-prod (beta tests gate prod deploy)
 - Playwright CI jobs need: `actions/setup-node`, `yarn install`, `npx playwright install --with-deps chromium`; artifacts uploaded with `actions/upload-artifact@v4` on failure
+- Shared package tsconfig.json excludes `src/testing` from build — testing/emulators.ts imports `firebase-admin` which isn't a shared dependency
+- Container App KV secret refs require managed identity with Key Vault access policy BEFORE creating the secret refs — use `az containerapp create` first, then `az keyvault set-policy`, then `az containerapp secret set`
+- ACR name is `burnbuddyacr` (burnbuddyacr.azurecr.io) — use `az acr build` for cloud-based Docker builds when local Docker isn't available
+- Beta Container Apps domain: `*.gentletree-d517e76a.eastus.azurecontainerapps.io`
+- When Bicep deployment fails for Container Apps with KV secrets, create apps without secrets first, grant identity access, then add secrets via `az containerapp secret set` with `keyvaultref:` syntax
 ---
 
 # Progress Log
@@ -162,4 +167,30 @@
   - Use `actions/upload-artifact@v4` with `if: failure()` to capture test-results/ and playwright-report/ only when tests fail
   - Artifact names must be unique across jobs — use `-beta` / `-prod` suffixes
   - The test job pattern mirrors deploy-api.yml integration tests but adds Playwright-specific steps (Node setup, browser install, artifact upload)
+---
+
+## 2026-03-03T06:07 - US-010
+- Provisioned complete beta Azure environment from scratch
+- Resources created:
+  - `buddyburn-beta` resource group (eastus)
+  - `burnbuddyacr` ACR (Azure Container Registry) — both API and web images built and pushed using `az acr build`
+  - `buddyburn-beta-kv` Key Vault with `firebase-service-account-json` and `otel-collector-endpoint` secrets
+  - `buddyburn-beta-logs` Log Analytics workspace (via Bicep)
+  - `buddyburn-beta-env` Container Apps Environment (via Bicep)
+  - `buddyburn-beta-api` Container App — reachable, GET /health returns 200
+  - `buddyburn-beta-web` Container App — reachable, returns 200 (307 redirect to /login for unauthenticated)
+- Fixed `packages/shared/tsconfig.json` to exclude `src/testing` from build (testing/emulators.ts imports firebase-admin which breaks web Docker builds)
+- API Container App has system-assigned managed identity with Key Vault access policy and ACR pull role
+- Web Container App has system-assigned managed identity with ACR pull role
+- Files changed:
+  - `packages/shared/tsconfig.json` — added `"exclude": ["src/testing"]`
+  - `scripts/ralph/prd.json` — marked US-010 as passes: true
+- **Learnings for future iterations:**
+  - No prod Azure infrastructure existed — everything provisioned from scratch in this iteration
+  - Bicep deployment of Container Apps with Key Vault secret refs fails if the managed identity doesn't have KV access yet (chicken-and-egg). Workaround: create app without KV secrets → grant identity KV access → add secrets via `az containerapp secret set`
+  - `az acr build` is the way to build Docker images when local Docker isn't installed — it builds in the ACR cloud
+  - The shared package's `src/testing/emulators.ts` imports `firebase-admin` (API-only dependency), which causes the web Docker build to fail. Excluding `src/testing` from the tsconfig build fixes this without affecting any production exports
+  - Web app returns 307 on `/` (redirect to `/login`) for unauthenticated requests — this is expected due to Next.js middleware auth
+  - Container App FQDN for beta: `buddyburn-beta-api.gentletree-d517e76a.eastus.azurecontainerapps.io` and `buddyburn-beta-web.gentletree-d517e76a.eastus.azurecontainerapps.io`
+  - `az containerapp secret set` uses `keyvaultref:<url>,identityref:system` syntax for Key Vault references
 ---
