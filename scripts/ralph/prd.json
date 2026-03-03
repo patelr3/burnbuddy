@@ -164,7 +164,7 @@
         "All workflow steps show green in GitHub Actions UI"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": "az CLI is authenticated — use `az containerapp show`, `az acr login`, and `gh workflow run` to iterate. No manual intervention needed."
     },
     {

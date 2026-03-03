@@ -1,6 +1,9 @@
 ## Codebase Patterns
 - Bicep param files use `using './main.bicep'` syntax and follow naming pattern `main.<env>.bicepparam`
 - API tests in `services/api` have pre-existing failures from stale `dist/` build artifacts (CommonJS import issue) — source `.ts` tests all pass
+- `azure/login@v2` does NOT accept `client-secret` as a separate input — use `creds` JSON format: `'{"clientId":"...","clientSecret":"...","tenantId":"...","subscriptionId":"..."}'`
+- Container Apps may need a warm-up period after image updates — integration test scripts should include a retry loop for the health check
+- Prod Container Apps domain: `*.bravepebble-01e00c04.eastus.azurecontainerapps.io`
 - Playwright E2E tests live in `tests/e2e/` with config at root `playwright.config.ts`; auth state stored in `tests/e2e/.auth/user.json`
 - E2E tests use `az keyvault secret show` for credentials, or `TEST_USER_EMAIL`/`TEST_USER_PASSWORD` env vars as override
 - Typecheck: `yarn typecheck` runs across all workspaces (mobile, web, shared, api)
@@ -193,4 +196,31 @@
   - Web app returns 307 on `/` (redirect to `/login`) for unauthenticated requests — this is expected due to Next.js middleware auth
   - Container App FQDN for beta: `buddyburn-beta-api.gentletree-d517e76a.eastus.azurecontainerapps.io` and `buddyburn-beta-web.gentletree-d517e76a.eastus.azurecontainerapps.io`
   - `az containerapp secret set` uses `keyvaultref:<url>,identityref:system` syntax for Key Vault references
+---
+
+## 2026-03-03T06:35 - US-011
+- Deployed and verified the API pipeline end-to-end
+- Provisioned complete production Azure infrastructure:
+  - `buddyburn-prod` resource group (eastus)
+  - `buddyburn-prod-env` Container Apps environment
+  - `buddyburn-prod-api` Container App (reachable at `buddyburn-prod-api.bravepebble-01e00c04.eastus.azurecontainerapps.io`)
+  - `buddyburn-prod-kv` Key Vault with firebase-service-account-json and otel-collector-endpoint secrets
+- Created `buddyburn-github-actions` service principal with Contributor + AcrPush/AcrPull roles
+- Created GitHub environments (beta, production) with Azure credentials secrets
+- Fixed `azure/login@v2` auth: switched from individual `client-id`/`client-secret` inputs to `creds` JSON format
+- Added health check warm-up retry loop to `scripts/integration-test.sh` (6 retries, 10s intervals)
+- Added `workflow_dispatch` trigger to `deploy-api.yml` for manual testing
+- Workflow run 22611343877 completed successfully: all 5 jobs green (quality → deploy-beta → test-beta → deploy-prod → test-prod)
+- Both environments updated to image `burnbuddyacr.azurecr.io/burnbuddy/api:5fa8fcd9`
+- Files changed:
+  - `.github/workflows/deploy-api.yml` — fixed azure login creds format, added workflow_dispatch
+  - `scripts/integration-test.sh` — added warm-up retry loop before health check
+- **Learnings for future iterations:**
+  - `azure/login@v2` does NOT accept `client-secret` as a separate input — must use `creds` JSON format with `{"clientId":"...","clientSecret":"...","tenantId":"...","subscriptionId":"..."}`
+  - Container Apps need 30-60s warm-up after image updates — the integration test retry loop (6×10s) handles this
+  - GitHub environments must be created before setting environment-scoped secrets (`gh api --method PUT repos/owner/repo/environments/name`)
+  - Service principal needs both AcrPush (for CI builds) and AcrPull (for read access) on ACR, plus Contributor on the subscription
+  - Container Apps system-assigned managed identity needs AcrPull to pull images and Key Vault Secrets User to read KV secrets
+  - Prod Container Apps FQDN: `buddyburn-prod-api.bravepebble-01e00c04.eastus.azurecontainerapps.io`
+  - `gh workflow run` requires the workflow file to exist on the target branch (main) — must merge first
 ---
