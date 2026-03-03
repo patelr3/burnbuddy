@@ -4,9 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { apiGet, apiPost, apiPut, apiPatch } from '@/lib/api';
 import { GettingStartedCard } from '@/components/GettingStartedCard';
-import { signOut } from 'firebase/auth';
-import { auth } from '@/lib/firebase-client';
-import { useRouter } from 'next/navigation';
+import { NavBar } from '@/components/NavBar';
 import Link from 'next/link';
 import type { UserProfile, BurnBuddy, BurnSquad, GroupWorkout, BurnBuddyRequest, BurnSquadJoinRequest, Workout, WorkoutType } from '@burnbuddy/shared';
 
@@ -56,7 +54,6 @@ function timeAgo(isoString: string | null): string {
 
 export default function Home() {
   const { user, loading } = useAuth();
-  const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [showCard, setShowCard] = useState(false);
   const [items, setItems] = useState<CombinedItem[]>([]);
@@ -247,44 +244,12 @@ export default function Home() {
     }
   };
 
-  const handleSignOut = async () => {
-    await signOut(auth);
-    router.replace('/login');
-  };
-
   if (loading) return null;
 
   return (
-    <main style={{ maxWidth: 600, margin: '0 auto', padding: '0 16px' }}>
-      {/* Nav bar */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '16px 0',
-          borderBottom: '1px solid #e2e8f0',
-          marginBottom: 24,
-        }}
-      >
-        <h1 style={{ margin: 0, fontSize: 20 }}>BurnBuddy</h1>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <Link href="/friends" style={{ fontSize: 14, color: '#6b7280', textDecoration: 'none' }}>
-            Friends
-          </Link>
-          <Link href="/account" style={{ fontSize: 14, color: '#6b7280', textDecoration: 'none' }}>
-            Account
-          </Link>
-          {user && (
-            <button
-              onClick={handleSignOut}
-              style={{ padding: '6px 12px', fontSize: 13, cursor: 'pointer' }}
-            >
-              Sign out
-            </button>
-          )}
-        </div>
-      </div>
+    <>
+      <NavBar />
+      <main style={{ maxWidth: 600, margin: '0 auto', padding: '0 16px' }}>
 
       {showCard && <GettingStartedCard onDismiss={handleDismiss} />}
 
@@ -670,5 +635,6 @@ export default function Home() {
         </div>
       )}
     </main>
+    </>
   );
 }
