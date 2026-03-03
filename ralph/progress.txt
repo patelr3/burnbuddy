@@ -55,3 +55,21 @@
   - instrumentation.ts must be imported first in index.ts to properly initialize OpenTelemetry before any other code runs
   - apps/web uses pino with `browser: { asObject: true }` for server/client compatibility in Next.js
 ---
+
+## 2026-03-03T04:08Z - US-005
+- What was implemented: Verified existing Firebase Auth backend middleware meets all acceptance criteria. No code changes needed — everything was scaffolded in previous iterations.
+- Files changed: None (auth middleware, tests, and emulator integration already in place)
+- **Verification details:**
+  - firebase-admin ^13.7.0 installed in services/api
+  - `services/api/src/middleware/auth.ts`: `requireAuth` middleware validates Firebase Auth JWT from `Authorization: Bearer <token>` header
+  - Missing/invalid tokens return 401; valid tokens attach `{ uid }` to `req.user`
+  - `services/api/src/types/express.d.ts`: augments Express Request with `user?: { uid: string }`
+  - `services/api/src/middleware/auth.test.ts`: 4 test cases (missing header, non-Bearer, invalid token, valid token)
+  - `vitest.setup.ts` calls `initTestAdmin()` from `packages/shared/src/testing/emulators.ts` — initializes firebase-admin against local emulators when FIREBASE_AUTH_EMULATOR_HOST is set
+  - `firebase.json` configures Auth emulator on port 9099 and Firestore emulator on port 8080
+  - All 181 src/ tests pass, typecheck passes across all packages
+- **Learnings for future iterations:**
+  - Tests use vi.mock to stub firebase-admin when emulators aren't running, but support real emulators when FIREBASE_AUTH_EMULATOR_HOST env var is set
+  - The auth middleware is already used as `requireAuth` in route handlers (e.g., `/me` endpoint in index.ts)
+  - dist/ test failures are pre-existing (vitest CJS import issue) and not related to src/ test results — only 10 src/ test files matter
+---
