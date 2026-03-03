@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "firebaseui/dist/firebaseui.css";
 
 @theme {
   --color-primary: #f97316;
