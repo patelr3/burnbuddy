@@ -23,5 +23,8 @@
     "typecheck": "yarn workspaces run typecheck",
     "dev:web": "yarn workspace web dev",
     "dev:api": "yarn workspace api dev"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
   }
 }
