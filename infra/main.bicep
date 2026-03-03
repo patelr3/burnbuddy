@@ -19,7 +19,7 @@
 */
 
 @description('Environment name — used as a prefix for all resource names.')
-@allowed(['dev', 'prod'])
+@allowed(['dev', 'beta', 'prod'])
 param environment string
 
 @description('Azure region for all resources.')
