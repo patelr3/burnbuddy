@@ -10,6 +10,10 @@
 - services/api uses Express.js with vitest for testing
 - apps/web is Next.js 14 with app directory routing
 - apps/mobile is Expo (React Native) — build script is `tsc --noEmit` (actual builds via EAS)
+- Firestore mocking pattern: use `vi.hoisted()` for mock variables, then `vi.mock('../lib/firestore')` returning `{ getDb: () => ({ collection: () => ({ doc: mockDocRef }) }) }`
+- User routes include search and public profile in addition to CRUD: GET /users/search?email=..., GET /users/:uid
+- Friends API routes: POST /friends/requests, GET /friends/requests, POST /friends/requests/:id/accept, GET /friends, DELETE /friends/:uid
+- Friendship docs use sorted uid pair as doc ID: `${uid1}_${uid2}` where [uid1, uid2] = [a, b].sort()
 
 ## 2026-03-03T03:55Z - US-001
 - What was implemented: Verified existing monorepo scaffold (apps/web, services/api, packages/shared) meets all acceptance criteria. Added missing `build` script to apps/mobile so `yarn build` succeeds across all workspace packages.
@@ -72,4 +76,41 @@
   - Tests use vi.mock to stub firebase-admin when emulators aren't running, but support real emulators when FIREBASE_AUTH_EMULATOR_HOST env var is set
   - The auth middleware is already used as `requireAuth` in route handlers (e.g., `/me` endpoint in index.ts)
   - dist/ test failures are pre-existing (vitest CJS import issue) and not related to src/ test results — only 10 src/ test files matter
+---
+
+## 2026-03-03T04:11Z - US-006
+- What was implemented: Verified existing Firestore user profile schema and API meets all acceptance criteria. No code changes needed — everything was scaffolded in previous iterations.
+- Files changed: None (UserProfile type, routes, and tests already in place)
+- **Verification details:**
+  - UserProfile type in packages/shared/src/types.ts: { uid, email, displayName, fcmToken?, gettingStartedDismissed?, createdAt }
+  - Firestore collection users/<uid> stores UserProfile documents via services/api/src/routes/users.ts
+  - GET /users/me returns authenticated user's profile (or 404 if not yet created)
+  - PUT /users/me upserts the authenticated user's profile (handles both update and create)
+  - POST /users creates the user profile document (returns 409 if already exists)
+  - 18 unit tests in services/api/src/routes/users.test.ts cover all endpoints including auth, validation, and CRUD
+  - All 181 src/ tests pass, typecheck passes across all packages
+- **Learnings for future iterations:**
+  - User routes also include GET /users/search?email=... and GET /users/:uid for friend search and public profile lookup
+  - PUT /users/me handles both update (existing profile) and create (new profile) — true upsert semantics
+  - The gettingStartedDismissed field on UserProfile is used by the onboarding card (US-015) — already supported in PUT /users/me
+  - Firestore mocking pattern: vi.hoisted() for mock variables, vi.mock('../lib/firestore') returning collection→doc chain
+---
+
+## 2026-03-03T04:13Z - US-007
+- What was implemented: Verified existing Firestore friends schema and API meets all acceptance criteria. No code changes needed — everything was scaffolded in previous iterations.
+- Files changed: None (FriendRequest type, friend routes, and tests already in place)
+- **Verification details:**
+  - FriendRequest type in packages/shared: { id, fromUid, toUid, status: 'pending'|'accepted'|'declined', createdAt }
+  - GET /users/search?email=... returns matching user (uid, displayName, email) or 404 (in users.ts)
+  - POST /friends/requests sends a friend request to another user by uid (checks for duplicate pending requests)
+  - GET /friends/requests returns pending incoming and outgoing friend requests
+  - POST /friends/requests/:id/accept accepts request; creates bidirectional friendship doc with sorted uid pair
+  - DELETE /friends/:uid removes a friendship without approval
+  - GET /friends returns enriched friend list with profile data
+  - 28 test cases cover all endpoints (friends.test.ts includes user search tests)
+  - All 181 src/ tests pass, typecheck passes across all packages
+- **Learnings for future iterations:**
+  - Friendship document IDs use sorted uid pair: `${uid1}_${uid2}` — ensures one doc per friendship regardless of who initiated
+  - Friends query requires two separate queries (uid1 == currentUid OR uid2 == currentUid) since Firestore doesn't support OR
+  - Friend enrichment fetches user profiles individually; may need batch optimization for large friend lists
 ---
