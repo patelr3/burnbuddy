@@ -2,6 +2,15 @@
 FROM node:24-alpine AS builder
 WORKDIR /app
 
+# Firebase and API build args (baked into Next.js at build time)
+ARG NEXT_PUBLIC_FIREBASE_API_KEY
+ARG NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+ARG NEXT_PUBLIC_FIREBASE_PROJECT_ID
+ARG NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+ARG NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+ARG NEXT_PUBLIC_FIREBASE_APP_ID
+ARG NEXT_PUBLIC_API_URL
+
 # Copy workspace manifests for dependency installation
 COPY package.json yarn.lock ./
 COPY packages/shared/package.json ./packages/shared/
