@@ -28,7 +28,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Currently line 146 says 'needs: deploy-beta'. Change to 'needs: test-beta'. This is a one-line fix. The API workflow (deploy-api.yml) already has this correct (its deploy-prod needs test-beta)."
     },
     {
@@ -43,7 +43,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "OIDC login format for azure/login@v2: use 'client-id', 'tenant-id', 'subscription-id' as separate inputs (not the 'creds' JSON). Federated credentials must be pre-configured on the Azure AD app registration for repo:patelr3/burnbuddy:environment:beta and :production."
     },
     {
@@ -58,7 +58,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Same pattern as US-003 but for .github/workflows/deploy-api.yml. Use identical OIDC input format."
     },
     {
