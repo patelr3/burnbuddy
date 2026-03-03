@@ -1,3 +1,23 @@
 # Ralph Progress Log
 Started: Tue Mar  3 05:48:16 PM UTC 2026
+
+## Codebase Patterns
+- Tailwind v4 CSS is properly bundled in Next.js standalone Docker output — the Dockerfile correctly copies `.next/static` to the runtime stage
+- The deploy-web.yml workflow passes Firebase config as `--build-arg` to Docker build for NEXT_PUBLIC_* env vars
+- FirebaseUI CSS is imported via `@import "firebaseui/dist/firebaseui.css"` in globals.css and gets bundled into the single Next.js CSS file
+
+---
+
+## 2026-03-03T17:58Z - US-001
+- **Investigation result**: CSS is NOT broken in beta. The Tailwind v4 CSS renders correctly, matching localhost exactly.
+- **Verified**: Orange primary title, FirebaseUI buttons (red "Sign in with email", "Sign in with Google"), proper layout and font sizing
+- **Files checked** (no changes needed):
+  - `apps/web/Dockerfile` — correctly copies `.next/static` and `public` to runtime stage
+  - `apps/web/next.config.mjs` — standalone output configured
+  - `apps/web/postcss.config.js` — `@tailwindcss/postcss` plugin
+  - `apps/web/src/app/globals.css` — `@import "tailwindcss"` and `@theme` block
+- **Learnings for future iterations:**
+  - The Dockerfile already handles static asset copying correctly for standalone mode
+  - CSS loads as a single bundled file (e.g., `/_next/static/css/6ce528821d89d1ff.css`) containing both Tailwind utilities and FirebaseUI styles
+  - When investigating "broken CSS", always check the live site first before making code changes — it may already be working
 ---

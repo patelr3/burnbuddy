@@ -15,8 +15,8 @@
         "Verify in browser using dev-browser skill: beta web URL (https://buddyburn-beta-web.gentletree-d517e76a.eastus.azurecontainerapps.io) renders with proper styling (orange primary buttons, proper layout, font sizing) matching localhost"
       ],
       "priority": 1,
-      "passes": false,
-      "notes": "Tailwind v4 uses @import 'tailwindcss' and @tailwindcss/postcss plugin. Next.js standalone output copies server.js but static assets (including CSS in .next/static) must be explicitly copied in the Dockerfile. Check apps/web/Dockerfile and next.config.mjs output setting. The deploy workflow is .github/workflows/deploy-web.yml."
+      "passes": true,
+      "notes": "Tailwind v4 uses @import 'tailwindcss' and @tailwindcss/postcss plugin. Next.js standalone output copies server.js but static assets (including CSS in .next/static) must be explicitly copied in the Dockerfile. Check apps/web/Dockerfile and next.config.mjs output setting. The deploy workflow is .github/workflows/deploy-web.yml. VERIFIED: CSS is already working correctly in beta — matches localhost styling."
     },
     {
       "id": "US-002",
