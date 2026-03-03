@@ -8,6 +8,7 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
 - Firebase Web client config (apiKey, authDomain, etc.) should be stored in Azure Key Vault as `firebase-web-*` secrets and fetched by the deploy workflow
 - The `buddyburn-beta` Firebase project exists (auth handler at buddyburn-beta.firebaseapp.com responds) but client config was never stored in KV or GitHub secrets
 - Firebase Admin SDK in the API container works with the minimal service account JSON (`{"type":"service_account","project_id":"buddyburn-beta"}`) — it successfully rejects invalid tokens
+- Use custom domain URLs (buddyburn.arayosun.com) for browser testing — direct Azure FQDN URLs can timeout
 
 ---
 
@@ -43,4 +44,17 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
   - The deploy-web.yml workflow now fetches from KV first (better centralization) with GH secrets as fallback
   - Firebase Admin SDK (server-side) does NOT need the client API key — it uses service account credentials
   - The `buddyburn-beta` KV has only a minimal service account JSON `{"type":"service_account","project_id":"buddyburn-beta"}` — no private key or client email
+---
+
+## 2026-03-03T18:35Z - US-003
+- **Investigation result**: Production CSS is NOT broken. The Tailwind v4 CSS renders correctly in production, matching both beta and localhost exactly.
+- **Verified**: Orange gradient title, proper Tailwind fonts (system UI sans-serif), centered layout — identical between `https://buddyburn.arayosun.com/login` and `https://buddyburn-beta.arayosun.com/login`
+- **Same CSS bundle** loaded on both environments: `/_next/static/css/6ce528821d89d1ff.css`
+- **No code changes needed** — the Dockerfile already handles `.next/static` asset copying correctly for standalone mode
+- **Typecheck passes**: All 4 workspaces (mobile, web, shared, api) pass
+- **Files changed**: None (verification only, updated prd.json and progress.txt)
+- **Learnings for future iterations:**
+  - Both beta and prod serve the exact same Docker image (built from the same deploy-web.yml workflow), so CSS issues would affect both identically
+  - The FirebaseUI login widget is missing from the page — that's a Firebase API key issue (US-002), not CSS
+  - Custom domain URLs (buddyburn.arayosun.com) are more reliable than direct Azure FQDN URLs for browser testing — the Azure URLs can timeout
 ---
