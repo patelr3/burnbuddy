@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth-context';
 import { apiGet, apiPut, apiDelete } from '@/lib/api';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import { NavBar } from '@/components/NavBar';
 import type { BurnSquad, GroupWorkout, WorkoutSchedule } from '@burnbuddy/shared';
 
 interface MemberProfile {
@@ -177,27 +178,33 @@ export default function BurnSquadDetailPage() {
 
   if (dataLoading) {
     return (
-      <main style={{ maxWidth: 600, margin: '0 auto', padding: '0 16px' }}>
-        <div style={{ padding: '16px 0', borderBottom: '1px solid #e2e8f0', marginBottom: 24 }}>
-          <Link href="/" style={{ fontSize: 14, color: '#6b7280', textDecoration: 'none' }}>
-            ← Back
-          </Link>
-        </div>
-        <p style={{ color: '#6b7280' }}>Loading...</p>
-      </main>
+      <>
+        <NavBar />
+        <main className="mx-auto max-w-xl px-4">
+          <div className="border-b border-gray-200 py-4 mb-6">
+            <Link href="/" className="text-sm text-gray-500 no-underline hover:text-gray-700">
+              ← Back
+            </Link>
+          </div>
+          <p className="text-gray-500">Loading...</p>
+        </main>
+      </>
     );
   }
 
   if (notFound || !squad) {
     return (
-      <main style={{ maxWidth: 600, margin: '0 auto', padding: '0 16px' }}>
-        <div style={{ padding: '16px 0', borderBottom: '1px solid #e2e8f0', marginBottom: 24 }}>
-          <Link href="/" style={{ fontSize: 14, color: '#6b7280', textDecoration: 'none' }}>
-            ← Back
-          </Link>
-        </div>
-        <p style={{ color: '#9ca3af' }}>Burn Squad not found.</p>
-      </main>
+      <>
+        <NavBar />
+        <main className="mx-auto max-w-xl px-4">
+          <div className="border-b border-gray-200 py-4 mb-6">
+            <Link href="/" className="text-sm text-gray-500 no-underline hover:text-gray-700">
+              ← Back
+            </Link>
+          </div>
+          <p className="text-gray-400">Burn Squad not found.</p>
+        </main>
+      </>
     );
   }
 
@@ -208,324 +215,198 @@ export default function BurnSquadDetailPage() {
   const workoutsThisMonth = groupWorkouts.filter((gw) => new Date(gw.startedAt) >= monthStart).length;
 
   return (
-    <main style={{ maxWidth: 600, margin: '0 auto', padding: '0 16px' }}>
-      {/* Nav */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '16px 0',
-          borderBottom: '1px solid #e2e8f0',
-          marginBottom: 24,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Link href="/" style={{ fontSize: 14, color: '#6b7280', textDecoration: 'none' }}>
-            ← Back
-          </Link>
-          <h1 style={{ margin: 0, fontSize: 20 }}>{squad.name}</h1>
-          <span
-            style={{
-              fontSize: 11,
-              padding: '2px 7px',
-              borderRadius: 12,
-              backgroundColor: '#ede9fe',
-              color: '#5b21b6',
-            }}
-          >
-            Squad
-          </span>
-        </div>
-        {isAdmin && (
-          <button
-            onClick={() => {
-              setEditing((e) => !e);
-              if (!editing) {
-                setEditName(squad.name);
-                setOnlyAdminsCanAdd(squad.settings.onlyAdminsCanAddMembers);
-                setSelectedDays((squad.settings.workoutSchedule?.days as Day[]) ?? []);
-                setScheduleTime(squad.settings.workoutSchedule?.time ?? '');
-              }
-            }}
-            style={{ padding: '6px 14px', fontSize: 13, cursor: 'pointer' }}
-          >
-            {editing ? 'Cancel' : 'Edit Settings'}
-          </button>
-        )}
-      </div>
-
-      {/* Edit settings panel (admin only) */}
-      {editing && isAdmin && (
-        <div
-          style={{
-            border: '1px solid #e2e8f0',
-            borderRadius: 8,
-            padding: 16,
-            backgroundColor: '#f8fafc',
-            marginBottom: 24,
-          }}
-        >
-          <h3 style={{ margin: '0 0 12px', fontSize: 15 }}>Squad Settings</h3>
-
-          <label style={{ display: 'block', fontSize: 13, color: '#6b7280', marginBottom: 4 }}>
-            Squad Name
-          </label>
-          <input
-            type="text"
-            value={editName}
-            onChange={(e) => setEditName(e.target.value)}
-            style={{
-              width: '100%',
-              fontSize: 14,
-              padding: '6px 10px',
-              borderRadius: 4,
-              border: '1px solid #d1d5db',
-              marginBottom: 12,
-              boxSizing: 'border-box',
-            }}
-          />
-
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginBottom: 12, cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={onlyAdminsCanAdd}
-              onChange={(e) => setOnlyAdminsCanAdd(e.target.checked)}
-            />
-            Only admins can add members
-          </label>
-
-          <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 6 }}>Workout Schedule</div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-            {DAYS.map((day) => (
-              <button
-                key={day}
-                onClick={() => toggleDay(day)}
-                style={{
-                  padding: '6px 12px',
-                  fontSize: 13,
-                  cursor: 'pointer',
-                  borderRadius: 4,
-                  border: '1px solid',
-                  borderColor: selectedDays.includes(day) ? '#8b5cf6' : '#d1d5db',
-                  backgroundColor: selectedDays.includes(day) ? '#f5f3ff' : 'white',
-                  color: selectedDays.includes(day) ? '#5b21b6' : '#374151',
-                }}
-              >
-                {day}
-              </button>
-            ))}
+    <>
+      <NavBar />
+      <main className="mx-auto max-w-xl px-4">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-gray-200 py-4 mb-6">
+          <div className="flex items-center gap-3">
+            <Link href="/" className="text-sm text-gray-500 no-underline hover:text-gray-700">
+              ← Back
+            </Link>
+            <h1 className="m-0 text-xl font-bold">{squad.name}</h1>
+            <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] text-violet-800">
+              Squad
+            </span>
           </div>
-          {selectedDays.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <label style={{ fontSize: 13, color: '#6b7280' }}>Time (optional):</label>
-              <input
-                type="time"
-                value={scheduleTime}
-                onChange={(e) => setScheduleTime(e.target.value)}
-                style={{ fontSize: 13, padding: '4px 8px', borderRadius: 4, border: '1px solid #d1d5db' }}
-              />
-            </div>
+          {isAdmin && (
+            <button
+              onClick={() => {
+                setEditing((e) => !e);
+                if (!editing) {
+                  setEditName(squad.name);
+                  setOnlyAdminsCanAdd(squad.settings.onlyAdminsCanAddMembers);
+                  setSelectedDays((squad.settings.workoutSchedule?.days as Day[]) ?? []);
+                  setScheduleTime(squad.settings.workoutSchedule?.time ?? '');
+                }
+              }}
+              className="cursor-pointer rounded-md border border-gray-300 bg-white px-3.5 py-1.5 text-[13px] hover:bg-gray-50"
+            >
+              {editing ? 'Cancel' : 'Edit Settings'}
+            </button>
           )}
-
-          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-            <button
-              onClick={handleSaveSettings}
-              disabled={saving || !editName.trim()}
-              style={{
-                padding: '8px 16px',
-                cursor: 'pointer',
-                backgroundColor: '#8b5cf6',
-                color: 'white',
-                border: 'none',
-                borderRadius: 4,
-                fontSize: 14,
-              }}
-            >
-              {saving ? 'Saving…' : 'Save Settings'}
-            </button>
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              style={{
-                padding: '8px 16px',
-                cursor: 'pointer',
-                backgroundColor: 'white',
-                color: '#dc2626',
-                border: '1px solid #dc2626',
-                borderRadius: 4,
-                fontSize: 14,
-              }}
-            >
-              Delete Squad
-            </button>
-          </div>
         </div>
-      )}
 
-      {/* Delete confirmation dialog */}
-      {showDeleteConfirm && (
-        <div
-          style={{
-            border: '1px solid #fca5a5',
-            borderRadius: 8,
-            padding: 16,
-            backgroundColor: '#fff5f5',
-            marginBottom: 24,
-          }}
-        >
-          <p style={{ margin: '0 0 12px', fontSize: 14, color: '#dc2626' }}>
-            Are you sure you want to delete <strong>{squad.name}</strong>? This cannot be undone.
-          </p>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              onClick={handleDelete}
-              disabled={deleting}
-              style={{
-                padding: '8px 16px',
-                cursor: 'pointer',
-                backgroundColor: '#dc2626',
-                color: 'white',
-                border: 'none',
-                borderRadius: 4,
-                fontSize: 14,
-              }}
-            >
-              {deleting ? 'Deleting…' : 'Yes, Delete'}
-            </button>
-            <button
-              onClick={() => setShowDeleteConfirm(false)}
-              style={{
-                padding: '8px 16px',
-                cursor: 'pointer',
-                backgroundColor: 'white',
-                border: '1px solid #d1d5db',
-                borderRadius: 4,
-                fontSize: 14,
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
+        {/* Edit settings panel (admin only) */}
+        {editing && isAdmin && (
+          <div className="mb-6 rounded-lg border border-gray-200 bg-slate-50 p-4">
+            <h3 className="mb-3 text-[15px] font-semibold">Squad Settings</h3>
 
-      {/* Schedule display */}
-      {!editing && squad.settings.workoutSchedule && squad.settings.workoutSchedule.days.length > 0 && (
-        <div
-          style={{
-            padding: '10px 14px',
-            borderRadius: 6,
-            backgroundColor: '#f5f3ff',
-            border: '1px solid #ddd6fe',
-            marginBottom: 20,
-            fontSize: 13,
-            color: '#5b21b6',
-          }}
-        >
-          Schedule: {squad.settings.workoutSchedule.days.join(', ')}
-          {squad.settings.workoutSchedule.time && ` at ${squad.settings.workoutSchedule.time}`}
-        </div>
-      )}
+            <label className="mb-1 block text-[13px] text-gray-500">
+              Squad Name
+            </label>
+            <input
+              type="text"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="mb-3 w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+            />
 
-      {/* Stats grid */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(2, 1fr)',
-          gap: 12,
-          marginBottom: 28,
-        }}
-      >
-        <StatCard label="Burn Streak" value={`${streaks.burnStreak}`} unit="days" color="#f97316" />
-        <StatCard label="Supernova Streak" value={`${streaks.supernovaStreak}`} unit="days" color="#8b5cf6" />
-        <StatCard label="This Week" value={`${workoutsThisWeek}`} unit="group workouts" color="#3b82f6" />
-        <StatCard label="This Month" value={`${workoutsThisMonth}`} unit="group workouts" color="#3b82f6" />
-        <StatCard label="Squad Age" value={squadAge(squad.createdAt)} unit="" color="#6b7280" />
-        <StatCard label="Created" value={formatDate(squad.createdAt)} unit="" color="#6b7280" />
-      </div>
+            <label className="mb-3 flex cursor-pointer items-center gap-2 text-[13px]">
+              <input
+                type="checkbox"
+                checked={onlyAdminsCanAdd}
+                onChange={(e) => setOnlyAdminsCanAdd(e.target.checked)}
+              />
+              Only admins can add members
+            </label>
 
-      {/* Member list */}
-      <h2 style={{ fontSize: 16, marginBottom: 12 }}>Members ({squad.memberUids.length})</h2>
-      <div style={{ marginBottom: 28 }}>
-        {members.map((member) => (
-          <div
-            key={member.uid}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              padding: '10px 0',
-              borderBottom: '1px solid #f1f5f9',
-            }}
-          >
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: '50%',
-                backgroundColor: '#e0e7ff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 14,
-                fontWeight: 600,
-                color: '#4338ca',
-                flexShrink: 0,
-              }}
-            >
-              {member.displayName.charAt(0).toUpperCase()}
+            <div className="mb-1.5 text-[13px] text-gray-500">Workout Schedule</div>
+            <div className="mb-2.5 flex flex-wrap gap-1.5">
+              {DAYS.map((day) => (
+                <button
+                  key={day}
+                  onClick={() => toggleDay(day)}
+                  className={`cursor-pointer rounded-md border px-3 py-1.5 text-[13px] transition-colors ${
+                    selectedDays.includes(day)
+                      ? 'border-violet-500 bg-violet-50 text-violet-800'
+                      : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {day}
+                </button>
+              ))}
             </div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 500 }}>
-                {member.displayName}
-                {member.uid === squad.adminUid && (
-                  <span
-                    style={{
-                      marginLeft: 8,
-                      fontSize: 11,
-                      padding: '1px 6px',
-                      borderRadius: 10,
-                      backgroundColor: '#fef3c7',
-                      color: '#92400e',
-                    }}
-                  >
-                    Admin
-                  </span>
-                )}
+            {selectedDays.length > 0 && (
+              <div className="mb-3 flex items-center gap-2">
+                <label className="text-[13px] text-gray-500">Time (optional):</label>
+                <input
+                  type="time"
+                  value={scheduleTime}
+                  onChange={(e) => setScheduleTime(e.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1 text-[13px] focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
               </div>
-              <div style={{ fontSize: 12, color: '#9ca3af' }}>{member.email}</div>
+            )}
+
+            <div className="mt-1 flex gap-2">
+              <button
+                onClick={handleSaveSettings}
+                disabled={saving || !editName.trim()}
+                className="cursor-pointer rounded-md border-none bg-violet-500 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-600 disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Save Settings'}
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="cursor-pointer rounded-md border border-red-600 bg-white px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+              >
+                Delete Squad
+              </button>
             </div>
           </div>
-        ))}
-      </div>
+        )}
 
-      {/* Group workout log */}
-      <h2 style={{ fontSize: 16, marginBottom: 12 }}>Group Workout Log</h2>
-      {groupWorkouts.length === 0 ? (
-        <p style={{ color: '#9ca3af', fontSize: 14 }}>No group workouts yet. Start one together!</p>
-      ) : (
-        <div>
-          {groupWorkouts.map((gw) => (
+        {/* Delete confirmation dialog */}
+        {showDeleteConfirm && (
+          <div className="mb-6 rounded-lg border border-red-300 bg-red-50 p-4">
+            <p className="mb-3 text-sm text-red-600">
+              Are you sure you want to delete <strong>{squad.name}</strong>? This cannot be undone.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="cursor-pointer rounded-md border-none bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleting ? 'Deleting…' : 'Yes, Delete'}
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="cursor-pointer rounded-md border border-gray-300 bg-white px-4 py-2 text-sm hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Schedule display */}
+        {!editing && squad.settings.workoutSchedule && squad.settings.workoutSchedule.days.length > 0 && (
+          <div className="mb-5 rounded-md border border-violet-200 bg-violet-50 px-3.5 py-2.5 text-[13px] text-violet-800">
+            Schedule: {squad.settings.workoutSchedule.days.join(', ')}
+            {squad.settings.workoutSchedule.time && ` at ${squad.settings.workoutSchedule.time}`}
+          </div>
+        )}
+
+        {/* Stats grid */}
+        <div className="mb-7 grid grid-cols-2 gap-3">
+          <StatCard label="Burn Streak" value={`${streaks.burnStreak}`} unit="days" colorClass="text-primary" />
+          <StatCard label="Supernova Streak" value={`${streaks.supernovaStreak}`} unit="days" colorClass="text-violet-500" />
+          <StatCard label="This Week" value={`${workoutsThisWeek}`} unit="group workouts" colorClass="text-secondary" />
+          <StatCard label="This Month" value={`${workoutsThisMonth}`} unit="group workouts" colorClass="text-secondary" />
+          <StatCard label="Squad Age" value={squadAge(squad.createdAt)} unit="" colorClass="text-gray-500" />
+          <StatCard label="Created" value={formatDate(squad.createdAt)} unit="" colorClass="text-gray-500" />
+        </div>
+
+        {/* Member list */}
+        <h2 className="mb-3 text-base font-semibold">Members ({squad.memberUids.length})</h2>
+        <div className="mb-7">
+          {members.map((member) => (
             <div
-              key={gw.id}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '12px 0',
-                borderBottom: '1px solid #f1f5f9',
-              }}
+              key={member.uid}
+              className="flex items-center gap-3 border-b border-gray-100 py-2.5"
             >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">
+                {member.displayName.charAt(0).toUpperCase()}
+              </div>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 500 }}>{formatDate(gw.startedAt)}</div>
-                <div style={{ fontSize: 12, color: '#9ca3af' }}>{gw.workoutIds.length} workout(s)</div>
+                <div className="text-sm font-medium">
+                  {member.displayName}
+                  {member.uid === squad.adminUid && (
+                    <span className="ml-2 rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] text-amber-800">
+                      Admin
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-gray-400">{member.email}</div>
               </div>
-              <div style={{ fontSize: 13, color: '#6b7280' }}>{timeAgo(gw.startedAt)}</div>
             </div>
           ))}
         </div>
-      )}
-    </main>
+
+        {/* Group workout log */}
+        <h2 className="mb-3 text-base font-semibold">Group Workout Log</h2>
+        {groupWorkouts.length === 0 ? (
+          <p className="text-sm text-gray-400">No group workouts yet. Start one together!</p>
+        ) : (
+          <div>
+            {groupWorkouts.map((gw) => (
+              <div
+                key={gw.id}
+                className="flex items-center justify-between border-b border-gray-100 py-3"
+              >
+                <div>
+                  <div className="text-sm font-medium">{formatDate(gw.startedAt)}</div>
+                  <div className="text-xs text-gray-400">{gw.workoutIds.length} workout(s)</div>
+                </div>
+                <div className="text-[13px] text-gray-500">{timeAgo(gw.startedAt)}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </main>
+    </>
   );
 }
 
@@ -533,25 +414,18 @@ function StatCard({
   label,
   value,
   unit,
-  color,
+  colorClass,
 }: {
   label: string;
   value: string;
   unit: string;
-  color: string;
+  colorClass: string;
 }) {
   return (
-    <div
-      style={{
-        padding: '14px 16px',
-        borderRadius: 8,
-        border: '1px solid #e2e8f0',
-        backgroundColor: 'white',
-      }}
-    >
-      <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 'bold', color }}>{value}</div>
-      {unit && <div style={{ fontSize: 11, color: '#9ca3af' }}>{unit}</div>}
+    <div className="rounded-lg border border-gray-200 bg-white px-4 py-3.5">
+      <div className="mb-1 text-xs text-gray-400">{label}</div>
+      <div className={`text-2xl font-bold ${colorClass}`}>{value}</div>
+      {unit && <div className="text-[11px] text-gray-400">{unit}</div>}
     </div>
   );
 }

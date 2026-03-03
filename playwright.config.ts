@@ -17,12 +17,18 @@ export default defineConfig({
   projects: [
     { name: "setup", testMatch: /global-setup\.ts/ },
     {
+      name: "smoke",
+      use: { browserName: "chromium" },
+      testMatch: /smoke\.spec\.ts/,
+    },
+    {
       name: "chromium",
       use: {
         browserName: "chromium",
         storageState: "./tests/e2e/.auth/user.json",
       },
       dependencies: ["setup"],
+      testIgnore: /smoke\.spec\.ts/,
     },
   ],
 });

@@ -1,0 +1,226 @@
+## Codebase Patterns
+- Bicep param files use `using './main.bicep'` syntax and follow naming pattern `main.<env>.bicepparam`
+- API tests in `services/api` have pre-existing failures from stale `dist/` build artifacts (CommonJS import issue) — source `.ts` tests all pass
+- `azure/login@v2` does NOT accept `client-secret` as a separate input — use `creds` JSON format: `'{"clientId":"...","clientSecret":"...","tenantId":"...","subscriptionId":"..."}'`
+- Container Apps may need a warm-up period after image updates — integration test scripts should include a retry loop for the health check
+- Prod Container Apps domain: `*.bravepebble-01e00c04.eastus.azurecontainerapps.io`
+- Playwright E2E tests live in `tests/e2e/` with config at root `playwright.config.ts`; auth state stored in `tests/e2e/.auth/user.json`
+- E2E tests use `az keyvault secret show` for credentials, or `TEST_USER_EMAIL`/`TEST_USER_PASSWORD` env vars as override
+- Typecheck: `yarn typecheck` runs across all workspaces (mobile, web, shared, api)
+- Deploy workflows use `azure/login@v2` with client-id/secret/tenant-id/subscription-id secrets and `az acr login` for container registry
+- Docker images are tagged with `${GITHUB_SHA::8}` (first 8 chars of commit SHA)
+- Container Apps are updated via `az containerapp update --name <app> --resource-group <rg> --image <image>`
+- Beta and prod deploy as separate jobs with `needs:` to enforce sequential ordering (beta → prod)
+- All API routes except GET /health use `requireAuth` middleware — unauthenticated requests get 401
+- Integration test script is at `scripts/integration-test.sh` — accepts `BASE_URL` env var
+- Next.js NEXT_PUBLIC_ vars must be passed as Docker build ARGs (baked at build time); the web Dockerfile has ARG directives for them
+- Post-deploy integration test jobs use `az containerapp show --query properties.configuration.ingress.fqdn --output tsv` to discover the live URL
+- Deploy workflow job chain: quality → deploy-beta → test-beta → deploy-prod → test-prod (beta tests gate prod deploy)
+- Playwright CI jobs need: `actions/setup-node`, `yarn install`, `npx playwright install --with-deps chromium`; artifacts uploaded with `actions/upload-artifact@v4` on failure
+- Shared package tsconfig.json excludes `src/testing` from build — testing/emulators.ts imports `firebase-admin` which isn't a shared dependency
+- Container App KV secret refs require managed identity with Key Vault access policy BEFORE creating the secret refs — use `az containerapp create` first, then `az keyvault set-policy`, then `az containerapp secret set`
+- ACR name is `burnbuddyacr` (burnbuddyacr.azurecr.io) — use `az acr build` for cloud-based Docker builds when local Docker isn't available
+- Beta Container Apps domain: `*.gentletree-d517e76a.eastus.azurecontainerapps.io`
+- When Bicep deployment fails for Container Apps with KV secrets, create apps without secrets first, grant identity access, then add secrets via `az containerapp secret set` with `keyvaultref:` syntax
+---
+
+# Progress Log
+
+## 2026-03-03T05:10 - US-001
+- Implemented beta environment support in Bicep infrastructure
+- Files changed:
+  - `infra/main.bicep` — updated `@allowed` constraint from `['dev', 'prod']` to `['dev', 'beta', 'prod']`
+  - `infra/main.beta.bicepparam` — created new beta parameter file with `buddyburn-beta-kv` Key Vault, `buddyburn-beta` resource group, `burnbuddyacr.azurecr.io` registry
+- **Learnings for future iterations:**
+  - Bicep param files follow a consistent pattern — copy an existing one and update env-specific values
+  - The `dist/` directory in `services/api` has stale CommonJS artifacts that cause 10 test suite failures — ignore these, only the `.ts` source tests matter
+  - Branch needed `git pull` to get the latest files after checkout — infra directory wasn't present initially
+---
+
+
+## 2026-03-03T05:12 - US-002
+- Updated no-friends message on Burn Squad creation page from "No friends yet. Add friends first" (with link) to "No friends to invite yet — you can add them later" (informational, non-blocking)
+- The Create button and API already supported zero-friend squad creation; only the UI message needed updating
+- Files changed:
+  - `apps/web/src/app/burn-squads/new/page.tsx` — updated empty friends message text, removed Link to /friends
+- **Learnings for future iterations:**
+  - The Burn Squad creation form only requires `squadName` to be non-empty for submission; friends and schedule are optional
+  - API `POST /burn-squads` only requires `name`; `inviteUids` is optional and validated per-friend (silently skips invalid)
+  - Button disabled state is controlled by `sending || !squadName.trim()` — no friend count check
+---
+
+
+## 2026-03-03T05:16 - US-003
+- Created dedicated API deploy workflow at `.github/workflows/deploy-api.yml`
+- Triggers on pushes to main when `services/api/**`, `packages/shared/**`, or `infra/**` change
+- Quality checks job runs typecheck + API tests before any deployment
+- Deploys to beta first (buddyburn-beta-api), then production (buddyburn-prod-api) in sequence via `needs:` dependency
+- Uses GitHub environments (`beta`, `production`) for each deploy job
+- Files changed:
+  - `.github/workflows/deploy-api.yml` — new workflow file
+- **Learnings for future iterations:**
+  - The existing deploy.yml pattern uses `azure/login@v2` with 4 secrets (CLIENT_ID, CLIENT_SECRET, TENANT_ID, SUBSCRIPTION_ID)
+  - Docker images are tagged with first 8 chars of GITHUB_SHA
+  - Each deploy job needs its own checkout + Azure login + ACR login + build since jobs run on separate runners
+  - Use `environment:` key on jobs to enable GitHub environment protection rules
+---
+
+
+## 2026-03-03T05:17 - US-004
+- Created dedicated web deploy workflow at `.github/workflows/deploy-web.yml`
+- Triggers on pushes to main when `apps/web/**` or `packages/shared/**` change
+- Quality checks job runs typecheck before any deployment
+- Deploys to beta first (buddyburn-beta-web), then production (buddyburn-prod-web) in sequence via `needs:` dependency
+- Passes Firebase config and API URL as Docker build args per environment (from GitHub environment secrets)
+- Updated `apps/web/Dockerfile` to accept NEXT_PUBLIC build args so they're baked into Next.js at build time
+- Files changed:
+  - `.github/workflows/deploy-web.yml` — new workflow file
+  - `apps/web/Dockerfile` — added ARG directives for NEXT_PUBLIC env vars
+- **Learnings for future iterations:**
+  - Next.js NEXT_PUBLIC_ vars are baked at build time, so they must be passed as Docker build ARGs, not runtime ENV
+  - The Dockerfile previously had no ARG directives — build args are silently ignored without matching ARG declarations
+  - Each GitHub environment (beta, production) should have its own set of NEXT_PUBLIC secrets for Firebase config and API URL
+  - Web quality checks only run typecheck (no web-specific tests yet, unlike API which has vitest)
+---
+
+## 2026-03-03T05:20 - US-005
+- Renamed `.github/workflows/deploy.yml` to `.github/workflows/deploy.yml.disabled` to prevent duplicate workflow runs
+- The old deploy.yml triggered on all pushes to main (no path filter), which would have duplicated every run alongside the new split workflows
+- Files changed:
+  - `.github/workflows/deploy.yml` → `.github/workflows/deploy.yml.disabled` (git mv rename)
+- **Learnings for future iterations:**
+  - GitHub Actions only processes `.yml`/`.yaml` files in `.github/workflows/` — renaming to `.disabled` effectively disables without deleting (preserves history)
+  - The old workflow had no path filters (triggered on all main pushes), while new split workflows use path-specific triggers to avoid unnecessary runs
+  - `git mv` is preferred for renames so Git tracks the file history correctly
+---
+
+## 2026-03-03T05:21 - US-006
+- Created API integration test script at `scripts/integration-test.sh`
+- Script accepts `BASE_URL` env var and tests 5 endpoints:
+  - GET /health → 200 (health check)
+  - POST /users → 401 (unauthenticated)
+  - GET /users/me → 401 (unauthenticated)
+  - GET /friends → 401 (unauthenticated)
+  - POST /workouts → 401 (unauthenticated)
+- Script accumulates all failures and exits non-zero with clear summary
+- Files changed:
+  - `scripts/integration-test.sh` — new integration test script
+- **Learnings for future iterations:**
+  - Bash `((VAR++))` returns exit code 1 when VAR starts at 0 — use `VAR=$((VAR + 1))` instead under `set -e`
+  - API routes: POST /workouts (not /workouts/start) is the actual start-workout endpoint
+  - All API routes except GET /health use `requireAuth` middleware and return 401 without a valid Firebase token
+  - curl `-o /dev/null -w "%{http_code}"` is the cleanest way to get just the status code
+---
+
+## 2026-03-03T05:23 - US-007
+- Added Playwright E2E test setup and browser tests
+- Installed `@playwright/test` as root dev dependency
+- Created `playwright.config.ts` at root with `retries: 1`, `BASE_URL` env var support, and project-based setup for auth
+- Created `tests/e2e/global-setup.ts` — authenticates via login page using credentials from Azure Key Vault (or env var override)
+- Created `tests/e2e/app.spec.ts` with 3 tests:
+  1. Load home/login page — verifies 200 status and no JS errors
+  2. Navigate to Burn Squads page — clicks "+ Burn Squad" link, verifies form elements
+  3. Create a new Burn Squad with no friends — fills name, submits, verifies redirect to home
+- Created `tests/e2e/tsconfig.json` for TypeScript checking of test files
+- All typechecks pass (workspace + e2e)
+- Files changed:
+  - `package.json` — added `@playwright/test` dev dependency
+  - `yarn.lock` — updated
+  - `playwright.config.ts` — new Playwright configuration
+  - `tests/e2e/global-setup.ts` — authentication setup
+  - `tests/e2e/app.spec.ts` — E2E test specs
+  - `tests/e2e/tsconfig.json` — TypeScript config for tests
+  - `tests/e2e/.gitignore` — ignore auth state and test artifacts
+- **Learnings for future iterations:**
+  - Playwright `projects` with `dependencies` allows a setup project to run auth before test projects
+  - `storageState` in Playwright persists cookies/localStorage so each test doesn't need to re-login
+  - Auth state file (`.auth/user.json`) must be gitignored — it contains session tokens
+  - The web app middleware redirects unauthenticated users to `/login`, so E2E tests must authenticate first
+  - `execSync` from `child_process` works well for calling `az keyvault secret show` synchronously in Playwright setup
+---
+
+## 2026-03-03T05:27 - US-008
+- Wired API integration tests into deploy-api.yml workflow
+- Added `test-beta` job (runs after `deploy-beta`) that fetches the Container App FQDN and runs `scripts/integration-test.sh`
+- Added `test-prod` job (runs after `deploy-prod`) with the same pattern for production
+- Updated job dependency chain: quality → deploy-beta → test-beta → deploy-prod → test-prod
+- Both test jobs write results to `$GITHUB_STEP_SUMMARY` for visibility in GitHub Actions UI
+- If integration tests fail, the job fails (script exits non-zero, no `continue-on-error`)
+- Files changed:
+  - `.github/workflows/deploy-api.yml` — added test-beta and test-prod jobs, changed deploy-prod to depend on test-beta
+- **Learnings for future iterations:**
+  - Integration test jobs need Azure login to run `az containerapp show` for FQDN discovery
+  - `$GITHUB_STEP_SUMMARY` with `if: always()` ensures test results appear even on failure
+  - Chain: deploy-prod `needs: test-beta` means prod won't deploy if beta integration tests fail — good safety gate
+  - Container App FQDN is fetched via `az containerapp show --query properties.configuration.ingress.fqdn --output tsv`
+---
+
+## 2026-03-03T05:29 - US-009
+- Wired Playwright E2E tests into deploy-web.yml workflow
+- Added `test-beta` job (runs after `deploy-beta`) that installs Playwright, fetches beta web FQDN, runs E2E tests
+- Added `test-prod` job (runs after `deploy-prod`) with the same pattern for production
+- Updated job dependency chain: quality → deploy-beta → test-beta → deploy-prod → test-prod
+- Both test jobs upload screenshots/traces as artifacts on failure (`actions/upload-artifact@v4`)
+- Both test jobs write results to `$GITHUB_STEP_SUMMARY` for visibility in GitHub Actions UI
+- If E2E tests fail, the job fails (no `continue-on-error`)
+- Files changed:
+  - `.github/workflows/deploy-web.yml` — added test-beta and test-prod jobs, changed deploy-prod to depend on test-beta
+- **Learnings for future iterations:**
+  - Playwright E2E test jobs need Node.js setup + `yarn install` + `npx playwright install --with-deps chromium` before running
+  - Use `actions/upload-artifact@v4` with `if: failure()` to capture test-results/ and playwright-report/ only when tests fail
+  - Artifact names must be unique across jobs — use `-beta` / `-prod` suffixes
+  - The test job pattern mirrors deploy-api.yml integration tests but adds Playwright-specific steps (Node setup, browser install, artifact upload)
+---
+
+## 2026-03-03T06:07 - US-010
+- Provisioned complete beta Azure environment from scratch
+- Resources created:
+  - `buddyburn-beta` resource group (eastus)
+  - `burnbuddyacr` ACR (Azure Container Registry) — both API and web images built and pushed using `az acr build`
+  - `buddyburn-beta-kv` Key Vault with `firebase-service-account-json` and `otel-collector-endpoint` secrets
+  - `buddyburn-beta-logs` Log Analytics workspace (via Bicep)
+  - `buddyburn-beta-env` Container Apps Environment (via Bicep)
+  - `buddyburn-beta-api` Container App — reachable, GET /health returns 200
+  - `buddyburn-beta-web` Container App — reachable, returns 200 (307 redirect to /login for unauthenticated)
+- Fixed `packages/shared/tsconfig.json` to exclude `src/testing` from build (testing/emulators.ts imports firebase-admin which breaks web Docker builds)
+- API Container App has system-assigned managed identity with Key Vault access policy and ACR pull role
+- Web Container App has system-assigned managed identity with ACR pull role
+- Files changed:
+  - `packages/shared/tsconfig.json` — added `"exclude": ["src/testing"]`
+  - `scripts/ralph/prd.json` — marked US-010 as passes: true
+- **Learnings for future iterations:**
+  - No prod Azure infrastructure existed — everything provisioned from scratch in this iteration
+  - Bicep deployment of Container Apps with Key Vault secret refs fails if the managed identity doesn't have KV access yet (chicken-and-egg). Workaround: create app without KV secrets → grant identity KV access → add secrets via `az containerapp secret set`
+  - `az acr build` is the way to build Docker images when local Docker isn't installed — it builds in the ACR cloud
+  - The shared package's `src/testing/emulators.ts` imports `firebase-admin` (API-only dependency), which causes the web Docker build to fail. Excluding `src/testing` from the tsconfig build fixes this without affecting any production exports
+  - Web app returns 307 on `/` (redirect to `/login`) for unauthenticated requests — this is expected due to Next.js middleware auth
+  - Container App FQDN for beta: `buddyburn-beta-api.gentletree-d517e76a.eastus.azurecontainerapps.io` and `buddyburn-beta-web.gentletree-d517e76a.eastus.azurecontainerapps.io`
+  - `az containerapp secret set` uses `keyvaultref:<url>,identityref:system` syntax for Key Vault references
+---
+
+## 2026-03-03T06:35 - US-011
+- Deployed and verified the API pipeline end-to-end
+- Provisioned complete production Azure infrastructure:
+  - `buddyburn-prod` resource group (eastus)
+  - `buddyburn-prod-env` Container Apps environment
+  - `buddyburn-prod-api` Container App (reachable at `buddyburn-prod-api.bravepebble-01e00c04.eastus.azurecontainerapps.io`)
+  - `buddyburn-prod-kv` Key Vault with firebase-service-account-json and otel-collector-endpoint secrets
+- Created `buddyburn-github-actions` service principal with Contributor + AcrPush/AcrPull roles
+- Created GitHub environments (beta, production) with Azure credentials secrets
+- Fixed `azure/login@v2` auth: switched from individual `client-id`/`client-secret` inputs to `creds` JSON format
+- Added health check warm-up retry loop to `scripts/integration-test.sh` (6 retries, 10s intervals)
+- Added `workflow_dispatch` trigger to `deploy-api.yml` for manual testing
+- Workflow run 22611343877 completed successfully: all 5 jobs green (quality → deploy-beta → test-beta → deploy-prod → test-prod)
+- Both environments updated to image `burnbuddyacr.azurecr.io/burnbuddy/api:5fa8fcd9`
+- Files changed:
+  - `.github/workflows/deploy-api.yml` — fixed azure login creds format, added workflow_dispatch
+  - `scripts/integration-test.sh` — added warm-up retry loop before health check
+- **Learnings for future iterations:**
+  - `azure/login@v2` does NOT accept `client-secret` as a separate input — must use `creds` JSON format with `{"clientId":"...","clientSecret":"...","tenantId":"...","subscriptionId":"..."}`
+  - Container Apps need 30-60s warm-up after image updates — the integration test retry loop (6×10s) handles this
+  - GitHub environments must be created before setting environment-scoped secrets (`gh api --method PUT repos/owner/repo/environments/name`)
+  - Service principal needs both AcrPush (for CI builds) and AcrPull (for read access) on ACR, plus Contributor on the subscription
+  - Container Apps system-assigned managed identity needs AcrPull to pull images and Key Vault Secrets User to read KV secrets
+  - Prod Container Apps FQDN: `buddyburn-prod-api.bravepebble-01e00c04.eastus.azurecontainerapps.io`
+  - `gh workflow run` requires the workflow file to exist on the target branch (main) — must merge first
+---
