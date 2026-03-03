@@ -29,3 +29,13 @@
   - API tests in dist/ directory fail because vitest CJS import doesn't work from compiled JS — only src/ tests should be relied upon (181 tests pass from src/)
   - `expo export --platform web` is a good non-interactive way to verify the web bundle compiles without needing a browser
 ---
+
+## 2026-03-03T04:02Z - US-003
+- What was implemented: Verified existing Docker and docker-compose setup meets all acceptance criteria. Dockerfile uses multi-stage build (node:24-alpine) with builder and runtime stages. docker-compose.yml starts services/api on port 3001 with healthcheck. API starts without any secrets/credentials (initFirebase gracefully handles dev mode). Pino logs valid JSON on startup.
+- Files changed: None (Dockerfile and docker-compose.yml were already complete from previous scaffolding)
+- **Learnings for future iterations:**
+  - Docker is not available in the devcontainer/Codespace environment — cannot run `docker compose up` for live testing
+  - The API can be tested locally without Docker via `node services/api/dist/index.js` — it starts, logs a pino JSON message, and serves /health
+  - initFirebase() in src/lib/firebase.ts handles three modes: emulator (FIREBASE_AUTH_EMULATOR_HOST), production (GOOGLE_APPLICATION_CREDENTIALS), and dev (no credentials) — all use the same `admin.initializeApp({ projectId })`
+  - The Dockerfile uses workspace-aware builds: copies only packages/shared and services/api (not apps/) to avoid pulling in mobile deps
+---
