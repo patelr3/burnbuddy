@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-**buddyburn** is an app that motivates buddies to burn calories. It is in early-stage development — no application source code exists yet.
+**buddyburn** is an app that motivates buddies to burn calories. Monorepo with a Next.js web app, Express API, Expo mobile app, and shared types package.
 
 ## Tech Stack
 
@@ -19,4 +19,8 @@ This project uses a Dev Container. Open in VS Code with the Remote - Containers 
 
 ## Commands
 
-No build, lint, or test scripts exist yet. Once a `package.json` is created, update this file with the relevant commands.
+- **Build all packages**: `yarn build`
+- **Typecheck all packages**: `yarn typecheck`
+- **Run API tests**: `cd services/api && yarn test`
+- **Dev web app**: `yarn dev:web`
+- **Dev API service**: `yarn dev:api`
