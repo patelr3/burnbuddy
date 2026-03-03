@@ -84,8 +84,8 @@ Use `pino` in API and web. The mobile app uses `createMobileLogger()` from `@bur
 |---|---|---|
 | **Resource group** | `buddyburn-beta` | `buddyburn-prod` |
 | **Key Vault** | `buddyburn-beta-kv` | `buddyburn-prod-kv` |
-| **API URL** | `https://buddyburn-beta-api.gentletree-d517e76a.eastus.azurecontainerapps.io` | `https://buddyburn-prod-api.bravepebble-01e00c04.eastus.azurecontainerapps.io` |
-| **Web URL** | `https://buddyburn-beta-web.gentletree-d517e76a.eastus.azurecontainerapps.io` | `https://buddyburn-prod-web.bravepebble-01e00c04.eastus.azurecontainerapps.io` |
+| **API URL** | `https://buddyburn-beta-api.arayosun.com` | `https://buddyburn-api.arayosun.com` |
+| **Web URL** | `https://buddyburn-beta.arayosun.com` | `https://buddyburn.arayosun.com` |
 | **ACR** | `burnbuddyacr.azurecr.io` (shared) | `burnbuddyacr.azurecr.io` (shared) |
 
 ### Testing against environments
