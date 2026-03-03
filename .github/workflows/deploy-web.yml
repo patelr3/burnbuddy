@@ -62,16 +62,38 @@ jobs:
         id: vars
         run: echo "TAG=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
 
+      - name: Fetch Firebase config from Key Vault
+        id: firebase
+        run: |
+          KV_NAME="${{ env.AZURE_RESOURCE_GROUP }}-kv"
+          echo "Fetching Firebase web config from $KV_NAME..."
+          API_KEY=$(az keyvault secret show --vault-name "$KV_NAME" --name firebase-web-api-key --query value -o tsv 2>/dev/null || echo "")
+          AUTH_DOMAIN=$(az keyvault secret show --vault-name "$KV_NAME" --name firebase-web-auth-domain --query value -o tsv 2>/dev/null || echo "")
+          PROJECT_ID=$(az keyvault secret show --vault-name "$KV_NAME" --name firebase-web-project-id --query value -o tsv 2>/dev/null || echo "")
+          STORAGE_BUCKET=$(az keyvault secret show --vault-name "$KV_NAME" --name firebase-web-storage-bucket --query value -o tsv 2>/dev/null || echo "")
+          SENDER_ID=$(az keyvault secret show --vault-name "$KV_NAME" --name firebase-web-messaging-sender-id --query value -o tsv 2>/dev/null || echo "")
+          APP_ID=$(az keyvault secret show --vault-name "$KV_NAME" --name firebase-web-app-id --query value -o tsv 2>/dev/null || echo "")
+          # Use KV values, fall back to GitHub secrets
+          echo "FIREBASE_API_KEY=${API_KEY:-${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}}" >> "$GITHUB_OUTPUT"
+          echo "FIREBASE_AUTH_DOMAIN=${AUTH_DOMAIN:-${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}}" >> "$GITHUB_OUTPUT"
+          echo "FIREBASE_PROJECT_ID=${PROJECT_ID:-${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}}" >> "$GITHUB_OUTPUT"
+          echo "FIREBASE_STORAGE_BUCKET=${STORAGE_BUCKET:-${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}}" >> "$GITHUB_OUTPUT"
+          echo "FIREBASE_SENDER_ID=${SENDER_ID:-${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}}" >> "$GITHUB_OUTPUT"
+          echo "FIREBASE_APP_ID=${APP_ID:-${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}}" >> "$GITHUB_OUTPUT"
+          if [[ -z "${API_KEY:-${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}}" ]]; then
+            echo "::warning::Firebase API key not found. Run scripts/setup-firebase-web-config.sh to configure."
+          fi
+
       - name: Build and push web image
         run: |
           docker build \
             -f apps/web/Dockerfile \
-            --build-arg NEXT_PUBLIC_FIREBASE_API_KEY=${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }} \
-            --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }} \
-            --build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }} \
-            --build-arg NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }} \
-            --build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }} \
-            --build-arg NEXT_PUBLIC_FIREBASE_APP_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }} \
+            --build-arg NEXT_PUBLIC_FIREBASE_API_KEY=${{ steps.firebase.outputs.FIREBASE_API_KEY }} \
+            --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ steps.firebase.outputs.FIREBASE_AUTH_DOMAIN }} \
+            --build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ steps.firebase.outputs.FIREBASE_PROJECT_ID }} \
+            --build-arg NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ steps.firebase.outputs.FIREBASE_STORAGE_BUCKET }} \
+            --build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ steps.firebase.outputs.FIREBASE_SENDER_ID }} \
+            --build-arg NEXT_PUBLIC_FIREBASE_APP_ID=${{ steps.firebase.outputs.FIREBASE_APP_ID }} \
             --build-arg NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }} \
             -t ${{ env.ACR_LOGIN_SERVER }}/burnbuddy/web:${{ steps.vars.outputs.TAG }} \
             .
@@ -176,16 +198,34 @@ jobs:
         id: vars
         run: echo "TAG=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
 
+      - name: Fetch Firebase config from Key Vault
+        id: firebase
+        run: |
+          KV_NAME="${{ env.AZURE_RESOURCE_GROUP }}-kv"
+          echo "Fetching Firebase web config from $KV_NAME..."
+          API_KEY=$(az keyvault secret show --vault-name "$KV_NAME" --name firebase-web-api-key --query value -o tsv 2>/dev/null || echo "")
+          AUTH_DOMAIN=$(az keyvault secret show --vault-name "$KV_NAME" --name firebase-web-auth-domain --query value -o tsv 2>/dev/null || echo "")
+          PROJECT_ID=$(az keyvault secret show --vault-name "$KV_NAME" --name firebase-web-project-id --query value -o tsv 2>/dev/null || echo "")
+          STORAGE_BUCKET=$(az keyvault secret show --vault-name "$KV_NAME" --name firebase-web-storage-bucket --query value -o tsv 2>/dev/null || echo "")
+          SENDER_ID=$(az keyvault secret show --vault-name "$KV_NAME" --name firebase-web-messaging-sender-id --query value -o tsv 2>/dev/null || echo "")
+          APP_ID=$(az keyvault secret show --vault-name "$KV_NAME" --name firebase-web-app-id --query value -o tsv 2>/dev/null || echo "")
+          echo "FIREBASE_API_KEY=${API_KEY:-${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}}" >> "$GITHUB_OUTPUT"
+          echo "FIREBASE_AUTH_DOMAIN=${AUTH_DOMAIN:-${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}}" >> "$GITHUB_OUTPUT"
+          echo "FIREBASE_PROJECT_ID=${PROJECT_ID:-${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}}" >> "$GITHUB_OUTPUT"
+          echo "FIREBASE_STORAGE_BUCKET=${STORAGE_BUCKET:-${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}}" >> "$GITHUB_OUTPUT"
+          echo "FIREBASE_SENDER_ID=${SENDER_ID:-${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}}" >> "$GITHUB_OUTPUT"
+          echo "FIREBASE_APP_ID=${APP_ID:-${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}}" >> "$GITHUB_OUTPUT"
+
       - name: Build and push web image
         run: |
           docker build \
             -f apps/web/Dockerfile \
-            --build-arg NEXT_PUBLIC_FIREBASE_API_KEY=${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }} \
-            --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }} \
-            --build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }} \
-            --build-arg NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }} \
-            --build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }} \
-            --build-arg NEXT_PUBLIC_FIREBASE_APP_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }} \
+            --build-arg NEXT_PUBLIC_FIREBASE_API_KEY=${{ steps.firebase.outputs.FIREBASE_API_KEY }} \
+            --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ steps.firebase.outputs.FIREBASE_AUTH_DOMAIN }} \
+            --build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ steps.firebase.outputs.FIREBASE_PROJECT_ID }} \
+            --build-arg NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ steps.firebase.outputs.FIREBASE_STORAGE_BUCKET }} \
+            --build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ steps.firebase.outputs.FIREBASE_SENDER_ID }} \
+            --build-arg NEXT_PUBLIC_FIREBASE_APP_ID=${{ steps.firebase.outputs.FIREBASE_APP_ID }} \
             --build-arg NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }} \
             -t ${{ env.ACR_LOGIN_SERVER }}/burnbuddy/web:${{ steps.vars.outputs.TAG }} \
             .
