@@ -249,44 +249,24 @@ export default function Home() {
   return (
     <>
       <NavBar />
-      <main style={{ maxWidth: 600, margin: '0 auto', padding: '0 16px' }}>
+      <main className="mx-auto max-w-xl px-4">
 
       {showCard && <GettingStartedCard onDismiss={handleDismiss} />}
 
       {/* Active Workout Banner */}
       {activeWorkout && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '14px 16px',
-            marginBottom: 20,
-            borderRadius: 8,
-            backgroundColor: '#fef9c3',
-            border: '1px solid #fde047',
-          }}
-        >
+        <div className="mb-5 flex items-center justify-between rounded-lg border border-yellow-300 bg-yellow-100 px-4 py-3.5 shadow">
           <div>
-            <div style={{ fontWeight: 'bold', fontSize: 15, color: '#713f12' }}>
+            <div className="text-[15px] font-bold text-yellow-900">
               🔥 Active Workout: {activeWorkout.type}
             </div>
-            <div style={{ fontSize: 13, color: '#854d0e', marginTop: 2 }}>
+            <div className="mt-0.5 text-[13px] text-yellow-800">
               {formatElapsed(elapsed)}
             </div>
           </div>
           <button
             onClick={handleEndWorkout}
-            style={{
-              padding: '8px 16px',
-              cursor: 'pointer',
-              backgroundColor: '#dc2626',
-              color: 'white',
-              border: 'none',
-              borderRadius: 6,
-              fontWeight: 'bold',
-              fontSize: 13,
-            }}
+            className="cursor-pointer rounded-md bg-red-600 px-4 py-2 text-[13px] font-bold text-white hover:bg-red-700"
           >
             End Workout
           </button>
@@ -295,20 +275,10 @@ export default function Home() {
 
       {/* Start Workout Button */}
       {!activeWorkout && (
-        <div style={{ marginBottom: 24 }}>
+        <div className="mb-6">
           <button
             onClick={() => setShowWorkoutSelector(true)}
-            style={{
-              width: '100%',
-              padding: '16px',
-              cursor: 'pointer',
-              backgroundColor: '#f97316',
-              color: 'white',
-              border: 'none',
-              borderRadius: 8,
-              fontWeight: 'bold',
-              fontSize: 16,
-            }}
+            className="w-full cursor-pointer rounded-lg bg-orange-500 p-4 text-base font-semibold text-white hover:bg-orange-600"
           >
             🔥 Start Workout
           </button>
@@ -317,49 +287,19 @@ export default function Home() {
 
       {/* Workout Type Selector */}
       {showWorkoutSelector && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 50,
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: 'white',
-              borderRadius: 12,
-              padding: 24,
-              width: '90%',
-              maxWidth: 400,
-            }}
-          >
-            <h2 style={{ margin: '0 0 16px', fontSize: 18 }}>Choose Workout Type</h2>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: 8,
-                marginBottom: 16,
-              }}
-            >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-[90%] max-w-[400px] rounded-xl bg-white p-6">
+            <h2 className="mb-4 text-lg font-semibold">Choose Workout Type</h2>
+            <div className="mb-4 grid grid-cols-2 gap-2">
               {WORKOUT_TYPES.map((wt) => (
                 <button
                   key={wt}
                   onClick={() => setSelectedType(wt)}
-                  style={{
-                    padding: '12px 8px',
-                    cursor: 'pointer',
-                    border: selectedType === wt ? '2px solid #f97316' : '2px solid #e2e8f0',
-                    borderRadius: 6,
-                    backgroundColor: selectedType === wt ? '#fff7ed' : 'white',
-                    fontWeight: selectedType === wt ? 'bold' : 'normal',
-                    fontSize: 14,
-                    color: selectedType === wt ? '#c2410c' : '#374151',
-                  }}
+                  className={`cursor-pointer rounded-md border-2 px-2 py-3 text-sm ${
+                    selectedType === wt
+                      ? 'border-orange-500 bg-orange-50 font-bold text-orange-700'
+                      : 'border-slate-200 bg-white font-normal text-gray-700 hover:border-gray-300'
+                  }`}
                 >
                   {wt}
                 </button>
@@ -371,49 +311,24 @@ export default function Home() {
                 placeholder="Enter custom workout type"
                 value={customType}
                 onChange={(e) => setCustomType(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: 6,
-                  fontSize: 14,
-                  marginBottom: 16,
-                  boxSizing: 'border-box',
-                }}
+                className="mb-4 box-border w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none"
               />
             )}
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <div className="flex justify-end gap-2">
               <button
                 onClick={() => {
                   setShowWorkoutSelector(false);
                   setSelectedType('');
                   setCustomType('');
                 }}
-                style={{
-                  padding: '10px 20px',
-                  cursor: 'pointer',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: 6,
-                  backgroundColor: 'white',
-                  fontSize: 14,
-                }}
+                className="cursor-pointer rounded-md border border-slate-200 bg-white px-5 py-2.5 text-sm hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleStartWorkout}
                 disabled={!selectedType || (selectedType === 'Custom' && !customType.trim())}
-                style={{
-                  padding: '10px 20px',
-                  cursor: 'pointer',
-                  backgroundColor: '#f97316',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 6,
-                  fontWeight: 'bold',
-                  fontSize: 14,
-                  opacity: (!selectedType || (selectedType === 'Custom' && !customType.trim())) ? 0.5 : 1,
-                }}
+                className="cursor-pointer rounded-md bg-orange-500 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-600 disabled:opacity-50"
               >
                 Start Workout
               </button>
@@ -424,50 +339,24 @@ export default function Home() {
 
       {/* Pending Burn Buddy Requests */}
       {incomingBuddyRequests.length > 0 && (
-        <section style={{ marginBottom: 24 }}>
-          <h2 style={{ fontSize: 16, color: '#6b7280', marginBottom: 12 }}>
+        <section className="mb-6">
+          <h2 className="mb-3 text-base text-gray-500">
             Pending Burn Buddy Requests
           </h2>
           {incomingBuddyRequests.map((req) => (
             <div
               key={req.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '12px 14px',
-                marginBottom: 8,
-                borderRadius: 6,
-                border: '1px solid #fde68a',
-                backgroundColor: '#fffbeb',
-              }}
+              className="mb-2 flex items-center justify-between rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-3"
             >
               <div>
                 <strong>{req.displayName ?? req.fromUid}</strong>
-                <span
-                  style={{
-                    marginLeft: 8,
-                    fontSize: 12,
-                    color: '#92400e',
-                    backgroundColor: '#fef3c7',
-                    padding: '2px 8px',
-                    borderRadius: 12,
-                  }}
-                >
+                <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
                   wants to be your Burn Buddy
                 </span>
               </div>
               <button
                 onClick={() => handleAcceptBuddyRequest(req.id)}
-                style={{
-                  padding: '6px 14px',
-                  cursor: 'pointer',
-                  backgroundColor: '#f97316',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 4,
-                  fontSize: 13,
-                }}
+                className="cursor-pointer rounded bg-orange-500 px-3.5 py-1.5 text-[13px] text-white hover:bg-orange-600"
               >
                 Accept
               </button>
@@ -478,50 +367,24 @@ export default function Home() {
 
       {/* Pending Burn Squad Join Requests */}
       {incomingSquadRequests.length > 0 && (
-        <section style={{ marginBottom: 24 }}>
-          <h2 style={{ fontSize: 16, color: '#6b7280', marginBottom: 12 }}>
+        <section className="mb-6">
+          <h2 className="mb-3 text-base text-gray-500">
             Pending Squad Invitations
           </h2>
           {incomingSquadRequests.map((req) => (
             <div
               key={req.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '12px 14px',
-                marginBottom: 8,
-                borderRadius: 6,
-                border: '1px solid #bfdbfe',
-                backgroundColor: '#eff6ff',
-              }}
+              className="mb-2 flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-3"
             >
               <div>
                 <strong>{req.squadName}</strong>
-                <span
-                  style={{
-                    marginLeft: 8,
-                    fontSize: 12,
-                    color: '#1e40af',
-                    backgroundColor: '#dbeafe',
-                    padding: '2px 8px',
-                    borderRadius: 12,
-                  }}
-                >
+                <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800">
                   squad invitation
                 </span>
               </div>
               <button
                 onClick={() => handleAcceptSquadRequest(req.squadId, req.id)}
-                style={{
-                  padding: '6px 14px',
-                  cursor: 'pointer',
-                  backgroundColor: '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 4,
-                  fontSize: 13,
-                }}
+                className="cursor-pointer rounded bg-blue-500 px-3.5 py-1.5 text-[13px] text-white hover:bg-blue-600"
               >
                 Accept
               </button>
@@ -531,41 +394,18 @@ export default function Home() {
       )}
 
       {/* Header with create buttons */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 24,
-        }}
-      >
-        <h2 style={{ margin: 0, fontSize: 18 }}>Burn Buddies & Squads</h2>
-        <div style={{ display: 'flex', gap: 8 }}>
+      <div className="mb-6 flex items-center justify-between">
+        <h2 className="m-0 text-lg font-semibold">Burn Buddies &amp; Squads</h2>
+        <div className="flex gap-2">
           <Link
             href="/burn-buddies/new"
-            style={{
-              padding: '8px 14px',
-              fontSize: 13,
-              cursor: 'pointer',
-              backgroundColor: '#22c55e',
-              color: 'white',
-              borderRadius: 4,
-              textDecoration: 'none',
-            }}
+            className="rounded bg-green-500 px-3.5 py-2 text-[13px] text-white no-underline hover:bg-green-600"
           >
             + Burn Buddy
           </Link>
           <Link
             href="/burn-squads/new"
-            style={{
-              padding: '8px 14px',
-              fontSize: 13,
-              cursor: 'pointer',
-              backgroundColor: '#3b82f6',
-              color: 'white',
-              borderRadius: 4,
-              textDecoration: 'none',
-            }}
+            className="rounded bg-blue-500 px-3.5 py-2 text-[13px] text-white no-underline hover:bg-blue-600"
           >
             + Burn Squad
           </Link>
@@ -574,9 +414,9 @@ export default function Home() {
 
       {/* Combined list */}
       {dataLoading ? (
-        <p style={{ color: '#6b7280' }}>Loading...</p>
+        <p className="text-gray-500">Loading...</p>
       ) : items.length === 0 ? (
-        <p style={{ color: '#9ca3af' }}>
+        <p className="text-gray-400">
           No Burn Buddies or Burn Squads yet. Create one above!
         </p>
       ) : (
@@ -585,49 +425,31 @@ export default function Home() {
             <Link
               key={`${item.type}-${item.id}`}
               href={`/${item.type === 'buddy' ? 'burn-buddies' : 'burn-squads'}/${item.id}`}
-              style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
+              className="block no-underline text-inherit"
             >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '14px 0',
-                  borderBottom: '1px solid #f1f5f9',
-                  cursor: 'pointer',
-                }}
-              >
+              <div className="flex cursor-pointer items-center justify-between rounded-lg border border-slate-100 p-3.5 shadow-sm hover:bg-gray-50 mb-2">
                 <div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      marginBottom: 4,
-                    }}
-                  >
+                  <div className="mb-1 flex items-center gap-2">
                     <strong>{item.name}</strong>
                     <span
-                      style={{
-                        fontSize: 11,
-                        padding: '2px 7px',
-                        borderRadius: 12,
-                        backgroundColor: item.type === 'buddy' ? '#fef3c7' : '#dbeafe',
-                        color: item.type === 'buddy' ? '#92400e' : '#1e40af',
-                      }}
+                      className={`rounded-full px-2 py-0.5 text-[11px] ${
+                        item.type === 'buddy'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-blue-100 text-blue-800'
+                      }`}
                     >
                       {item.type === 'buddy' ? 'Buddy' : 'Squad'}
                     </span>
                   </div>
-                  <div style={{ fontSize: 13, color: '#6b7280' }}>
+                  <div className="text-[13px] text-gray-500">
                     {timeAgo(item.lastGroupWorkout)}
                   </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 22, fontWeight: 'bold', color: '#f97316' }}>
+                <div className="text-right">
+                  <div className="text-[22px] font-bold text-orange-500">
                     {item.burnStreak}
                   </div>
-                  <div style={{ fontSize: 11, color: '#9ca3af' }}>streak</div>
+                  <div className="text-[11px] text-gray-400">streak</div>
                 </div>
               </div>
             </Link>
