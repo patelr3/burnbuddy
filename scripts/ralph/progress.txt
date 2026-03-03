@@ -17,3 +17,14 @@
   - Branch needed `git pull` to get the latest files after checkout — infra directory wasn't present initially
 ---
 
+
+## 2026-03-03T05:12 - US-002
+- Updated no-friends message on Burn Squad creation page from "No friends yet. Add friends first" (with link) to "No friends to invite yet — you can add them later" (informational, non-blocking)
+- The Create button and API already supported zero-friend squad creation; only the UI message needed updating
+- Files changed:
+  - `apps/web/src/app/burn-squads/new/page.tsx` — updated empty friends message text, removed Link to /friends
+- **Learnings for future iterations:**
+  - The Burn Squad creation form only requires `squadName` to be non-empty for submission; friends and schedule are optional
+  - API `POST /burn-squads` only requires `name`; `inviteUids` is optional and validated per-friend (silently skips invalid)
+  - Button disabled state is controlled by `sending || !squadName.trim()` — no friend count check
+---
