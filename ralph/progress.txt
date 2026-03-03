@@ -39,3 +39,19 @@
   - initFirebase() in src/lib/firebase.ts handles three modes: emulator (FIREBASE_AUTH_EMULATOR_HOST), production (GOOGLE_APPLICATION_CREDENTIALS), and dev (no credentials) — all use the same `admin.initializeApp({ projectId })`
   - The Dockerfile uses workspace-aware builds: copies only packages/shared and services/api (not apps/) to avoid pulling in mobile deps
 ---
+
+## 2026-03-03T04:05Z - US-004
+- What was implemented: Verified existing OpenTelemetry and pino-opentelemetry-transport setup meets all acceptance criteria. No code changes needed — everything was scaffolded in previous iterations.
+- Files changed: None (all logging/tracing infrastructure already in place)
+- **Verification details:**
+  - services/api: pino v9.0.0, pino-opentelemetry-transport v3.0.0, @opentelemetry/sdk-node v0.212.0 installed
+  - services/api/src/instrumentation.ts: NodeSDK with ConsoleSpanExporter exports traces to stdout in dev
+  - services/api/src/index.ts: pino transport with dual targets (stdout + optional OTEL when OTEL_LOGS_ENABLED=true)
+  - apps/web/src/lib/logger.ts: pino with browser mode; used in API health route
+  - packages/shared/src/logger.ts: Logger interface + createMobileLogger() console wrapper exported
+  - Log output verified: `{"level":30,"time":...,"msg":"BurnBuddy API service started"}` — valid JSON with level, msg, time
+- **Learnings for future iterations:**
+  - OTEL_LOGS_ENABLED=true environment variable enables pino-opentelemetry-transport in services/api (disabled by default)
+  - instrumentation.ts must be imported first in index.ts to properly initialize OpenTelemetry before any other code runs
+  - apps/web uses pino with `browser: { asObject: true }` for server/client compatibility in Next.js
+---
