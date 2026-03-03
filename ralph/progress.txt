@@ -114,3 +114,24 @@
   - Friends query requires two separate queries (uid1 == currentUid OR uid2 == currentUid) since Firestore doesn't support OR
   - Friend enrichment fetches user profiles individually; may need batch optimization for large friend lists
 ---
+
+## 2026-03-03T04:15Z - US-008
+- What was implemented: Verified existing Firestore Burn Buddy schema and API meets all acceptance criteria. No code changes needed — everything was scaffolded in previous iterations.
+- Files changed: None (BurnBuddy/BurnBuddyRequest types, routes, and tests already in place)
+- **Verification details:**
+  - BurnBuddy type in packages/shared: { id, uid1, uid2, workoutSchedule?, createdAt }
+  - BurnBuddyRequest type: { id, fromUid, toUid, status: 'pending'|'accepted'|'declined', createdAt }
+  - POST /burn-buddies/requests sends request (validates friendship first via sorted uid pair doc ID)
+  - GET /burn-buddies/requests returns pending incoming and outgoing requests
+  - POST /burn-buddies/requests/:id/accept accepts request; creates BurnBuddy doc with sorted uid pair
+  - GET /burn-buddies returns all accepted Burn Buddies (queries uid1 and uid2)
+  - DELETE /burn-buddies/:id removes relationship (verifies membership first)
+  - Additional endpoints: GET /burn-buddies/:id, PUT /burn-buddies/:id (schedule update), GET /burn-buddies/:id/streaks
+  - 34 test cases in burn-buddies.test.ts cover all endpoints
+  - All 181 src/ tests pass, typecheck passes across all packages
+- **Learnings for future iterations:**
+  - Burn Buddy routes follow the same patterns as friends routes: sorted uid pair, doc ID, query by uid1/uid2
+  - BurnBuddy creation requires prior friendship (checked via friends collection doc)
+  - Streak calculation is delegated to services/streak-calculator.ts (shared between burn buddies and burn squads)
+  - The burn-buddies router includes extra endpoints beyond the AC: GET /:id, PUT /:id, GET /:id/streaks
+---
