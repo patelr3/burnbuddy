@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth-context';
 import { apiGet, apiPost } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { NavBar } from '@/components/NavBar';
 import type { WorkoutSchedule } from '@burnbuddy/shared';
 
 interface FriendWithProfile {
@@ -89,183 +90,129 @@ export default function NewBurnSquadPage() {
   if (loading) return null;
 
   return (
-    <main style={{ maxWidth: 600, margin: '0 auto', padding: '0 16px' }}>
-      {/* Nav */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          padding: '16px 0',
-          borderBottom: '1px solid #e2e8f0',
-          marginBottom: 24,
-        }}
-      >
-        <Link href="/" style={{ fontSize: 14, color: '#6b7280', textDecoration: 'none' }}>
-          ← Back
-        </Link>
-        <h1 style={{ margin: 0, fontSize: 20 }}>New Burn Squad</h1>
-      </div>
-
-      {error && (
-        <div
-          style={{
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fca5a5',
-            borderRadius: 4,
-            padding: '10px 14px',
-            marginBottom: 16,
-            color: '#dc2626',
-            fontSize: 14,
-          }}
-        >
-          {error}
+    <>
+      <NavBar />
+      <main className="mx-auto max-w-xl px-4">
+        {/* Header */}
+        <div className="flex items-center gap-3 border-b border-gray-200 py-4 mb-6">
+          <Link href="/" className="text-sm text-gray-500 no-underline hover:text-gray-700">
+            ← Back
+          </Link>
+          <h1 className="m-0 text-xl font-bold">New Burn Squad</h1>
         </div>
-      )}
 
-      {/* Squad Name */}
-      <div style={{ marginBottom: 24 }}>
-        <label style={{ display: 'block', fontWeight: 600, marginBottom: 6, fontSize: 14 }}>
-          Squad Name *
-        </label>
-        <input
-          type="text"
-          value={squadName}
-          onChange={(e) => setSquadName(e.target.value)}
-          placeholder="e.g. Morning Crew"
-          style={{
-            width: '100%',
-            padding: '8px 12px',
-            fontSize: 14,
-            border: '1px solid #e2e8f0',
-            borderRadius: 4,
-            boxSizing: 'border-box',
-          }}
-        />
-      </div>
+        {error && (
+          <div className="mb-4 rounded-md border border-red-300 bg-red-50 px-3.5 py-2.5 text-sm text-red-600">
+            {error}
+          </div>
+        )}
 
-      {/* Friend Selection */}
-      <div style={{ marginBottom: 24 }}>
-        <label style={{ display: 'block', fontWeight: 600, marginBottom: 6, fontSize: 14 }}>
-          Invite Friends
-        </label>
-        {dataLoading ? (
-          <p style={{ color: '#6b7280', fontSize: 14 }}>Loading friends…</p>
-        ) : friends.length === 0 ? (
-          <p style={{ color: '#9ca3af', fontSize: 14 }}>
-            No friends to invite yet — you can add them later
-          </p>
-        ) : (
-          <div>
-            {friends.map((friend) => {
-              const isSelected = selectedUids.has(friend.uid);
-              return (
-                <div
-                  key={friend.uid}
-                  onClick={() => toggleFriend(friend.uid)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '10px 14px',
-                    marginBottom: 8,
-                    borderRadius: 6,
-                    border: `2px solid ${isSelected ? '#3b82f6' : '#e2e8f0'}`,
-                    backgroundColor: isSelected ? '#eff6ff' : 'white',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>{friend.displayName}</div>
-                    <div style={{ fontSize: 12, color: '#6b7280' }}>{friend.email}</div>
+        {/* Squad Name */}
+        <div className="mb-6">
+          <label className="mb-1.5 block text-sm font-semibold">
+            Squad Name *
+          </label>
+          <input
+            type="text"
+            value={squadName}
+            onChange={(e) => setSquadName(e.target.value)}
+            placeholder="e.g. Morning Crew"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-secondary"
+          />
+        </div>
+
+        {/* Friend Selection */}
+        <div className="mb-6">
+          <label className="mb-1.5 block text-sm font-semibold">
+            Invite Friends
+          </label>
+          {dataLoading ? (
+            <p className="text-sm text-gray-500">Loading friends…</p>
+          ) : friends.length === 0 ? (
+            <p className="text-sm text-gray-400">
+              No friends to invite yet — you can add them later
+            </p>
+          ) : (
+            <div>
+              {friends.map((friend) => {
+                const isSelected = selectedUids.has(friend.uid);
+                return (
+                  <div
+                    key={friend.uid}
+                    onClick={() => toggleFriend(friend.uid)}
+                    className={`flex cursor-pointer items-center justify-between rounded-md border-2 p-3 mb-2 transition-colors ${
+                      isSelected
+                        ? 'border-secondary bg-blue-50'
+                        : 'border-gray-200 bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    <div>
+                      <div className="text-sm font-semibold">{friend.displayName}</div>
+                      <div className="text-xs text-gray-500">{friend.email}</div>
+                    </div>
+                    {isSelected && <span className="text-base text-secondary">✓</span>}
                   </div>
-                  {isSelected && <span style={{ color: '#3b82f6', fontSize: 16 }}>✓</span>}
-                </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Workout Schedule */}
+        <div className="mb-8">
+          <label className="mb-1.5 block text-sm font-semibold">
+            Workout Schedule (optional)
+          </label>
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {DAYS.map((day) => {
+              const isOn = scheduleDays.has(day);
+              return (
+                <button
+                  key={day}
+                  onClick={() => toggleDay(day)}
+                  className={`cursor-pointer rounded-md border px-3 py-1.5 text-[13px] transition-colors ${
+                    isOn
+                      ? 'border-secondary bg-secondary text-white'
+                      : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {day}
+                </button>
               );
             })}
           </div>
-        )}
-      </div>
-
-      {/* Workout Schedule */}
-      <div style={{ marginBottom: 32 }}>
-        <label style={{ display: 'block', fontWeight: 600, marginBottom: 6, fontSize: 14 }}>
-          Workout Schedule (optional)
-        </label>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-          {DAYS.map((day) => {
-            const isOn = scheduleDays.has(day);
-            return (
-              <button
-                key={day}
-                onClick={() => toggleDay(day)}
-                style={{
-                  padding: '6px 12px',
-                  fontSize: 13,
-                  border: `1px solid ${isOn ? '#3b82f6' : '#e2e8f0'}`,
-                  borderRadius: 4,
-                  backgroundColor: isOn ? '#3b82f6' : 'white',
-                  color: isOn ? 'white' : '#374151',
-                  cursor: 'pointer',
-                }}
-              >
-                {day}
-              </button>
-            );
-          })}
+          {scheduleDays.size > 0 && (
+            <div>
+              <label className="mb-1 block text-[13px] text-gray-500">
+                Time (optional)
+              </label>
+              <input
+                type="time"
+                value={scheduleTime}
+                onChange={(e) => setScheduleTime(e.target.value)}
+                className="rounded-md border border-gray-200 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-secondary"
+              />
+            </div>
+          )}
         </div>
-        {scheduleDays.size > 0 && (
-          <div>
-            <label style={{ display: 'block', fontSize: 13, color: '#6b7280', marginBottom: 4 }}>
-              Time (optional)
-            </label>
-            <input
-              type="time"
-              value={scheduleTime}
-              onChange={(e) => setScheduleTime(e.target.value)}
-              style={{
-                padding: '6px 10px',
-                fontSize: 14,
-                border: '1px solid #e2e8f0',
-                borderRadius: 4,
-              }}
-            />
-          </div>
-        )}
-      </div>
 
-      {/* Actions */}
-      <div style={{ display: 'flex', gap: 8 }}>
-        <Link
-          href="/"
-          style={{
-            padding: '10px 20px',
-            fontSize: 14,
-            border: '1px solid #e2e8f0',
-            borderRadius: 4,
-            textDecoration: 'none',
-            color: '#374151',
-          }}
-        >
-          Cancel
-        </Link>
-        <button
-          onClick={handleSubmit}
-          disabled={sending || !squadName.trim()}
-          style={{
-            padding: '10px 20px',
-            fontSize: 14,
-            cursor: 'pointer',
-            backgroundColor: '#3b82f6',
-            color: 'white',
-            border: 'none',
-            borderRadius: 4,
-            opacity: sending || !squadName.trim() ? 0.6 : 1,
-          }}
-        >
-          {sending ? 'Creating…' : 'Create Burn Squad'}
-        </button>
-      </div>
-    </main>
+        {/* Actions */}
+        <div className="flex gap-2">
+          <Link
+            href="/"
+            className="rounded-md border border-gray-200 px-5 py-2.5 text-sm text-gray-700 no-underline hover:bg-gray-50"
+          >
+            Cancel
+          </Link>
+          <button
+            onClick={handleSubmit}
+            disabled={sending || !squadName.trim()}
+            className="cursor-pointer rounded-md border-none bg-blue-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50"
+          >
+            {sending ? 'Creating…' : 'Create Burn Squad'}
+          </button>
+        </div>
+      </main>
+    </>
   );
 }
