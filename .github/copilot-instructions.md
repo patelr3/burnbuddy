@@ -24,3 +24,12 @@ This project uses a Dev Container. Open in VS Code with the Remote - Containers 
 - **Run API tests**: `cd services/api && yarn test`
 - **Dev web app**: `yarn dev:web`
 - **Dev API service**: `yarn dev:api`
+
+## Secrets & Security
+
+Store all secrets in Azure Key Vault (AKV). Avoid passwords and client secrets wherever possible; prefer managed identity and federated credentials.
+
+- **Beta**: `buddyburn-beta-kv`
+- **Production**: `buddyburn-prod-kv`
+
+Firebase configuration values such as `firebase-api-key` and `firebase-auth-domain` can be retrieved from AKV as needed.
