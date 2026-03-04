@@ -703,3 +703,13 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
   - `addInitScript` in Playwright can inject auth state into IndexedDB before page JS loads, but the middleware cookie must also be set
   - Burn buddy requests require users to be friends first (API validates friendship exists via sorted composite key)
 ---
+
+## 2026-03-04T17:55Z - US-010
+- **Verification**: Start workout flow works end-to-end in beta (no code changes needed — was blocked on Firestore API being disabled, fixed in US-007)
+- **Flow verified**: Click "🔥 Start Workout" → modal shows 8 workout types → select "Running" → click "Start Workout" → active workout banner with live timer → click "End Workout" → returns to idle state
+- **Files changed**: None (verification only)
+  - `scripts/ralph/prd.json` — updated US-010 passes to true
+- **Learnings for future iterations:**
+  - The workout type selector modal's grid can intercept pointer events on buttons below it — use `selectSnapshotRef()` instead of CSS text selectors when Playwright reports element interception
+  - Workout flow was fully implemented since US-007 iteration but couldn't be verified until Firestore API was enabled — always check blocker status before assuming code changes are needed
+---

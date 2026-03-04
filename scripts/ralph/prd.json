@@ -149,8 +149,8 @@
         "Verify in browser using dev-browser skill: navigate to Friends page in beta, click '+ Add Friend', start typing an email, confirm matching users appear in a dropdown, click a user, confirm 'Send Friend Request?' dialog appears"
       ],
       "priority": 10,
-      "passes": false,
-      "notes": "BLOCKED ON US-007: Code is fully implemented. Start Workout UI modal works in beta — shows 8 workout types (Weightlifting, Running, Cycling, Yoga, Barre, Swimming, HIIT, Custom), selecting a type enables the Start button. POST /workouts returns 500 because Firestore API is disabled. Auto-end, group workout detection, and push notifications are all coded. Needs Firestore API enabled in patelr3-site to verify."
+      "passes": true,
+      "notes": "VERIFIED (2026-03-04T17:55Z). Full start/end workout flow works in beta. Clicked '🔥 Start Workout' → 'Choose Workout Type' modal appeared with all 8 types (Weightlifting, Running, Cycling, Yoga, Barre, Swimming, HIIT, Custom). Selected 'Running' → clicked 'Start Workout' → active workout banner appeared showing '🔥 Active Workout: Running' with live elapsed timer (0:03). Clicked 'End Workout' → banner disappeared, 'Start Workout' button returned. Typecheck ✅, API tests 188/188 ✅. No code changes needed — implementation was complete, just needed Firestore API enabled (fixed in US-007)."
     },
     {
       "id": "US-011",
