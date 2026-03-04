@@ -12,7 +12,12 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
 - Both beta and production use the SAME Firebase project (`buddyburn-beta`) — confirmed via `firebase-service-account-json` in both KVs. Use `--env all` with setup script.
 - **CORRECTION**: The actual Firebase project is `patelr3-site`, NOT `buddyburn-beta` — confirmed via JWT audience claim from Firebase Web SDK tokens. The KV service account JSON has wrong project_id.
 - API's `services/api/src/lib/firebase.ts` defaults `FIREBASE_PROJECT_ID` to `burnbuddy-dev` — MUST be set to `patelr3-site` on the API container for auth to work
-- API container env var is `FIREBASE_SERVICE_ACCOUNT_JSON` but the code in firebase.ts checks `FIREBASE_SERVICE_ACCOUNT` (no `_JSON` suffix) — name mismatch
+- **FIXED**: firebase.ts now checks both `FIREBASE_SERVICE_ACCOUNT_JSON` and `FIREBASE_SERVICE_ACCOUNT` env vars — the Bicep/container uses the `_JSON` suffix
+- deploy-api.yml now fetches `firebase-web-project-id` from KV and sets `FIREBASE_PROJECT_ID` env var on the container during deploy
+- Bicep API container app template now includes `FIREBASE_PROJECT_ID` (from `firebase-web-project-id` KV secret) and already had `FIREBASE_SERVICE_ACCOUNT_JSON`
+- Firebase token verification (verifyIdToken) works WITHOUT real credentials — it only needs the correct projectId to validate the JWT `aud` claim
+- Firestore access REQUIRES real service account credentials (private_key + client_email) — without them, the Admin SDK tries ADC → metadata server → hangs on Azure
+- `az containerapp update --set-env-vars KEY=VALUE` can set env vars on running containers without redeploying the image
 - To inject Firebase auth state into browser for testing: write to IndexedDB `firebaseLocalStorageDb` → key `firebase:authUser:<apiKey>:[DEFAULT]`
 
 ---
@@ -353,4 +358,37 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
   - Firebase REST API signInWithPassword returns valid Firebase ID tokens (can be verified by Admin SDK)
   - To inject auth state into browser: write to IndexedDB key "firebase:authUser:<apiKey>:[DEFAULT]" in "firebaseLocalStorageDb"
   - FirebaseUI with email enumeration protection always shows "Create account" for existing users — known limitation
+---
+
+## 2026-03-04T07:50Z - US-006
+- **Status**: COMPLETED — all code/infrastructure fixes deployed; Firestore access blocked by missing service account credentials
+- **Issues fixed (3 of 4 from US-005)**:
+  1. ✅ **FIREBASE_PROJECT_ID not set**: Set to `patelr3-site` on both beta and prod API containers via `az containerapp update --set-env-vars`. Token verification now works — `/me` returns `{"uid":"fU9NS4lWYUSiTvDDz4eYiHXXLZG2"}` for alice.test@burnbuddy.dev
+  2. ✅ **firebase.ts env var name mismatch**: Code now checks both `FIREBASE_SERVICE_ACCOUNT_JSON` (container name) and `FIREBASE_SERVICE_ACCOUNT`. Properly parses JSON and uses `admin.credential.cert()` when private_key + client_email are present
+  3. ✅ **KV service account JSON wrong project_id**: Updated from `buddyburn-beta` to `patelr3-site` in both beta and prod KVs
+  4. ⚠️ **Firestore access hangs**: Still blocked — the service account JSON in KV is minimal `{"type":"service_account","project_id":"patelr3-site"}` with no private_key or client_email. Without real credentials, Firebase Admin SDK tries Application Default Credentials → Google metadata server → hangs on Azure
+- **Infrastructure changes**:
+  - `infra/modules/api-container-app.bicep`: Added `firebase-web-project-id` KV secret reference and `FIREBASE_PROJECT_ID` env var
+  - `.github/workflows/deploy-api.yml`: Both beta and prod deploy jobs now fetch `firebase-web-project-id` from KV and pass via `--set-env-vars FIREBASE_PROJECT_ID=...`
+- **Code changes**:
+  - `services/api/src/lib/firebase.ts`: Check both `FIREBASE_SERVICE_ACCOUNT_JSON` and `FIREBASE_SERVICE_ACCOUNT` env vars; parse JSON and use `cert()` when credentials are complete; graceful fallback when JSON is incomplete
+- **Quality checks**: Typecheck passes (all 4 workspaces), API tests pass (181/181 source tests)
+- **Deployed**: Workflow run 22660141828 — all 5 jobs passed (Quality → Beta Deploy → Beta Integration → Prod Deploy → Prod Integration)
+- **Browser verification**:
+  - Friends page loads with proper styling, "Failed to load friends" error (expected — Firestore blocked)
+  - `/me` endpoint returns uid (token verification works)
+  - `/friends` endpoint hangs (Firestore credential issue)
+- **Files changed**: `services/api/src/lib/firebase.ts`, `infra/modules/api-container-app.bicep`, `.github/workflows/deploy-api.yml`, `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`
+- **Remaining blocker for full friend flow**: A real Firebase service account key is needed:
+  1. Go to [Firebase Console](https://console.firebase.google.com/project/patelr3-site/settings/serviceaccounts/adminsdk)
+  2. Generate a new private key (JSON)
+  3. Store it: `az keyvault secret set --vault-name buddyburn-beta-kv --name firebase-service-account-json --value "$(cat serviceAccountKey.json)"`
+  4. Store it: `az keyvault secret set --vault-name buddyburn-prod-kv --name firebase-service-account-json --value "$(cat serviceAccountKey.json)"`
+  5. Redeploy API: `gh workflow run deploy-api.yml`
+- **Learnings for future iterations:**
+  - Firebase token verification (verifyIdToken) works without real credentials — only needs correct projectId to validate JWT `aud` claim
+  - Firestore access REQUIRES real service account credentials (private_key + client_email) — without them, SDK tries ADC → metadata server → hangs on Azure
+  - `az containerapp update --set-env-vars` can set env vars on running containers without redeploying the image, but creates a new revision that restarts containers
+  - deploy-api.yml now follows the same KV-fetch pattern as deploy-web.yml for Firebase config
+  - The Bicep API container app template uses `firebase-web-project-id` KV secret (shared with web) for the `FIREBASE_PROJECT_ID` env var
 ---
