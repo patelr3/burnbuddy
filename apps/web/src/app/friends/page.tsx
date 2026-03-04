@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { apiGet, apiPost, apiDelete } from '@/lib/api';
 import { NavBar } from '@/components/NavBar';
-import type { FriendRequest } from '@burnbuddy/shared';
+import type { FriendRequest, BurnBuddy, BurnBuddyRequest } from '@burnbuddy/shared';
 
 interface FriendWithProfile {
   uid: string;
@@ -22,6 +22,8 @@ interface UserSearchResult {
 interface EnrichedFriendRequest extends FriendRequest {
   displayName?: string;
 }
+
+type BurnBuddyStatus = 'none' | 'pending' | 'buddy';
 
 export default function FriendsPage() {
   const { user, loading } = useAuth();
@@ -42,16 +44,40 @@ export default function FriendsPage() {
   const [confirmUser, setConfirmUser] = useState<UserSearchResult | null>(null);
   const [sendingRequest, setSendingRequest] = useState(false);
 
+  // Burn buddy state
+  const [burnBuddies, setBurnBuddies] = useState<BurnBuddy[]>([]);
+  const [bbRequests, setBbRequests] = useState<{ incoming: BurnBuddyRequest[]; outgoing: BurnBuddyRequest[] }>({ incoming: [], outgoing: [] });
+  const [confirmBurnBuddy, setConfirmBurnBuddy] = useState<FriendWithProfile | null>(null);
+  const [sendingBbRequest, setSendingBbRequest] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
+
+  function getBurnBuddyStatus(friendUid: string): BurnBuddyStatus {
+    const isBuddy = burnBuddies.some(
+      (bb) => bb.uid1 === friendUid || bb.uid2 === friendUid,
+    );
+    if (isBuddy) return 'buddy';
+
+    const isPending =
+      bbRequests.outgoing.some((r) => r.toUid === friendUid) ||
+      bbRequests.incoming.some((r) => r.fromUid === friendUid);
+    if (isPending) return 'pending';
+
+    return 'none';
+  }
 
   async function loadData() {
     setError(null);
     try {
-      const [friendsList, requests] = await Promise.all([
+      const [friendsList, requests, buddies, bbReqs] = await Promise.all([
         apiGet<FriendWithProfile[]>('/friends'),
         apiGet<{ incoming: FriendRequest[]; outgoing: FriendRequest[] }>('/friends/requests'),
+        apiGet<BurnBuddy[]>('/burn-buddies').catch(() => [] as BurnBuddy[]),
+        apiGet<{ incoming: BurnBuddyRequest[]; outgoing: BurnBuddyRequest[] }>('/burn-buddies/requests').catch(() => ({ incoming: [] as BurnBuddyRequest[], outgoing: [] as BurnBuddyRequest[] })),
       ]);
       setFriends(friendsList);
+      setBurnBuddies(buddies);
+      setBbRequests(bbReqs);
 
       const enrichReq = async (
         req: FriendRequest,
@@ -158,6 +184,21 @@ export default function FriendsPage() {
     }
   };
 
+  const handleSendBurnBuddyRequest = async () => {
+    if (!confirmBurnBuddy) return;
+    setSendingBbRequest(true);
+    setError(null);
+    try {
+      await apiPost('/burn-buddies/requests', { toUid: confirmBurnBuddy.uid });
+      setConfirmBurnBuddy(null);
+      await loadData();
+    } catch {
+      setError('Failed to send Burn Buddy request. They may already have a pending request.');
+    } finally {
+      setSendingBbRequest(false);
+    }
+  };
+
   if (loading) return null;
 
   return (
@@ -218,7 +259,7 @@ export default function FriendsPage() {
           </div>
         )}
 
-        {/* Confirmation dialog */}
+        {/* Confirmation dialog — friend request */}
         {confirmUser && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             <div className="mx-4 w-full max-w-sm rounded-lg bg-white p-6">
@@ -240,6 +281,34 @@ export default function FriendsPage() {
                   className="cursor-pointer rounded-md bg-success px-4 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50"
                 >
                   {sendingRequest ? 'Sending…' : 'Send Request'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Confirmation dialog — burn buddy request */}
+        {confirmBurnBuddy && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="mx-4 w-full max-w-sm rounded-lg bg-white p-6">
+              <h3 className="mb-2 text-lg font-semibold text-gray-900">Send Burn Buddy Request?</h3>
+              <p className="mb-4 text-sm text-gray-600">
+                Send a Burn Buddy request to <strong>{confirmBurnBuddy.displayName}</strong>?
+                You&apos;ll be able to track workouts together and build streaks.
+              </p>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setConfirmBurnBuddy(null)}
+                  className="cursor-pointer rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSendBurnBuddyRequest}
+                  disabled={sendingBbRequest}
+                  className="cursor-pointer rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50"
+                >
+                  {sendingBbRequest ? 'Sending…' : '🔥 Send Request'}
                 </button>
               </div>
             </div>
@@ -311,23 +380,46 @@ export default function FriendsPage() {
               {friends.length === 0 ? (
                 <p className="text-center text-gray-400">No friends yet. Add your first friend above!</p>
               ) : (
-                friends.map((friend) => (
-                  <div
-                    key={friend.uid}
-                    className="flex items-center justify-between rounded-lg border border-gray-100 bg-white p-3 mb-2 shadow-sm hover:bg-gray-50"
-                  >
-                    <div>
-                      <strong className="text-gray-900">{friend.displayName}</strong>
-                      <div className="text-xs text-gray-500">{friend.email}</div>
-                    </div>
-                    <button
-                      onClick={() => handleRemoveFriend(friend.uid)}
-                      className="cursor-pointer rounded-md border border-red-200 bg-transparent px-3 py-1.5 text-xs text-danger hover:bg-red-50"
+                friends.map((friend) => {
+                  const bbStatus = getBurnBuddyStatus(friend.uid);
+                  return (
+                    <div
+                      key={friend.uid}
+                      className="flex items-center justify-between rounded-lg border border-gray-100 bg-white p-3 mb-2 shadow-sm hover:bg-gray-50"
                     >
-                      Remove
-                    </button>
-                  </div>
-                ))
+                      <div>
+                        <strong className="text-gray-900">{friend.displayName}</strong>
+                        <div className="text-xs text-gray-500">{friend.email}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {bbStatus === 'buddy' && (
+                          <span className="rounded-full bg-orange-50 px-2.5 py-1 text-xs font-medium text-primary">
+                            🔥 Burn Buddy
+                          </span>
+                        )}
+                        {bbStatus === 'pending' && (
+                          <span className="rounded-full bg-yellow-50 px-2.5 py-1 text-xs font-medium text-yellow-600">
+                            🔥 Pending
+                          </span>
+                        )}
+                        {bbStatus === 'none' && (
+                          <button
+                            onClick={() => setConfirmBurnBuddy(friend)}
+                            className="cursor-pointer rounded-md border border-orange-200 bg-transparent px-3 py-1.5 text-xs font-medium text-primary hover:bg-orange-50"
+                          >
+                            🔥 Burn Buddy
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleRemoveFriend(friend.uid)}
+                          className="cursor-pointer rounded-md border border-red-200 bg-transparent px-3 py-1.5 text-xs text-danger hover:bg-red-50"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </section>
           </>
