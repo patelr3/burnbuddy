@@ -12,7 +12,7 @@
 #
 # Usage:
 #   ./scripts/setup-firebase-web-config.sh --env beta
-#   ./scripts/setup-firebase-web-config.sh --env production
+#   ./scripts/setup-firebase-web-config.sh --env prod
 #
 # You can also pass values as environment variables:
 #   FIREBASE_API_KEY=AIza... FIREBASE_AUTH_DOMAIN=project.firebaseapp.com \
@@ -20,14 +20,14 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 --env <beta|production|all> [--vault <vault-name>] [--skip-github]"
+  echo "Usage: $0 --env <beta|prod|all> [--vault <vault-name>] [--skip-github]"
   echo ""
   echo "Options:"
-  echo "  --env          Target environment (beta, production, or all)"
+  echo "  --env          Target environment (beta, prod, or all)"
   echo "  --vault        Key Vault name (default: buddyburn-<env>-kv)"
   echo "  --skip-github  Skip setting GitHub environment secrets"
   echo ""
-  echo "NOTE: Both beta and production use the same Firebase project (buddyburn-beta)."
+  echo "NOTE: Both beta and prod use the same Firebase project (buddyburn-beta)."
   echo "Use '--env all' to set config for both environments at once."
   echo ""
   echo "Firebase config can be provided interactively or via env vars:"
@@ -55,8 +55,8 @@ if [[ -z "$ENV" ]]; then
   usage
 fi
 
-if [[ "$ENV" != "beta" && "$ENV" != "production" && "$ENV" != "all" ]]; then
-  echo "Error: --env must be 'beta', 'production', or 'all'"
+if [[ "$ENV" != "beta" && "$ENV" != "prod" && "$ENV" != "all" ]]; then
+  echo "Error: --env must be 'beta', 'prod', or 'all'"
   exit 1
 fi
 
@@ -122,7 +122,7 @@ store_for_env() {
 
 if [[ "$ENV" == "all" ]]; then
   store_for_env "beta"
-  store_for_env "production"
+  store_for_env "prod"
 else
   store_for_env "$ENV"
 fi
