@@ -93,6 +93,78 @@
       "priority": 6,
       "passes": true,
       "notes": "FIXED (3 of 4 issues resolved, 1 remaining infrastructure blocker). Issues fixed: (1) FIREBASE_PROJECT_ID set to 'patelr3-site' on both beta and prod API containers — token verification now works (/me returns uid). (2) firebase-service-account-json in both KVs updated from project_id:'buddyburn-beta' to 'patelr3-site'. (3) firebase.ts now checks FIREBASE_SERVICE_ACCOUNT_JSON env var (matching Bicep/container config) and properly parses credentials with cert() when private_key+client_email are present. (4) Bicep template updated to include FIREBASE_PROJECT_ID from KV. (5) deploy-api.yml updated to fetch firebase project ID from KV and pass via --set-env-vars. All deployed via workflow run 22660141828 — all 5 jobs passed. REMAINING BLOCKER: Firestore access hangs because firebase-service-account-json in KV is minimal (no private_key/client_email). A real Firebase service account key for project patelr3-site must be created in Firebase Console and stored in KV. Once provided, the code will automatically parse and use it."
+    },
+    {
+      "id": "US-007",
+      "title": "Verify firestore access",
+      "description": "As a developer, I want to verify that the API can access Firestore in the beta environment after the Firebase config fixes.",
+      "acceptanceCriteria": [
+        "Verify that the API can read/write to Firestore without hanging (this confirms the service account JSON is correct and has necessary permissions)",
+        "Typecheck passes",
+        "API tests pass (cd services/api && yarn test)",
+        "Verify in browser using dev-browser skill: navigate to Friends page in beta, click '+ Add Friend', start typing an email, confirm matching users appear in a dropdown, click a user, confirm 'Send Friend Request?' dialog appears"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Add friend search experience",
+      "description": "Update the search experience for adding friends to suggest users as you type, instead of requiring an exact email match and search button click.",
+      "acceptanceCriteria": [
+        "Implement a user search that queries the API as the user types in the add friend dialog",
+        "Display matching users in a dropdown below the input field",
+        "Allow clicking on a user in the dropdown to select them and show the 'Send Friend Request?' dialog",
+        "Typecheck passes",
+        "API tests pass (cd services/api && yarn test)",
+        "Verify in browser using dev-browser skill: navigate to Friends page in beta, click '+ Add Friend', start typing an email, confirm matching users appear in a dropdown, click a user, confirm 'Send Friend Request?' dialog appears"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Verify creating a burn buddy works in beta",
+      "description": "As a user, ensure that I can add a friend as a burn buddy",
+      "acceptanceCriteria": [
+        "Verify the ability to add a friend as a burn buddy from the Friends page",
+        "Typecheck passes",
+        "API tests pass (cd services/api && yarn test)",
+        "Verify in browser using dev-browser skill: navigate to Friends page in beta, click '+ Add Friend', start typing an email, confirm matching users appear in a dropdown, click a user, confirm 'Send Friend Request?' dialog appears"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Verify the start workout button can start a workout",
+      "description": "As a user, I want to verify that the start workout flow works correctly in the beta environment.",
+      "acceptanceCriteria": [
+        "Implement the start workout experience that allows users to select a workout and start it",
+        "Typecheck passes",
+        "API tests pass (cd services/api && yarn test)",
+        "Verify in browser using dev-browser skill: navigate to Friends page in beta, click '+ Add Friend', start typing an email, confirm matching users appear in a dropdown, click a user, confirm 'Send Friend Request?' dialog appears"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Verify the start workout experience notifies burn buddies and burn squads",
+      "description": "As a user, I want to verify that when I start a workout, my burn buddies and burn squads are notified in real-time in the beta environment.",
+      "acceptanceCriteria": [
+        "Verify real-time notifications for burn buddies and burn squads when a user starts a workout",
+        "Typecheck passes",
+        "API tests pass (cd services/api && yarn test)",
+        "Verify in browser using dev-browser skill: navigate to Friends page in beta, click '+ Add Friend', start typing an email, confirm matching users appear in a dropdown, click a user, confirm 'Send Friend Request?' dialog appears"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
     }
   ]
 }
