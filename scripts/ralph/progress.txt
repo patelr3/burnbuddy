@@ -29,6 +29,8 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
 - Express API needs `cors` middleware for cross-origin browser requests — without it, web app calls to the API are blocked by browser CORS policy
 - CORS defaults should include custom domain origins (buddyburn-beta.arayosun.com, buddyburn.arayosun.com) and localhost:3000
 - Test users need Firestore user profile documents (POST /users) before they appear in search — Firebase Auth users alone are not sufficient
+- Friends page fetches burn buddy data (`/burn-buddies` and `/burn-buddies/requests`) alongside friend data — use `.catch()` fallbacks for graceful degradation
+- Burn buddy requests require users to be friends first — API validates via sorted composite key `${uid1}_${uid2}` in `friends` collection
 
 ---
 
@@ -682,4 +684,22 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
   - Firebase Auth users don't automatically get Firestore user profile documents — need `POST /users` to create them
   - The `cors` package handles OPTIONS preflight requests automatically — no need for manual OPTIONS route handling
   - The web app's `NEXT_PUBLIC_API_URL` is set to the Azure FQDN, not the custom domain — but CORS works regardless since the origin check is against the web app's domain
+---
+
+## 2026-03-04T17:50Z - US-009
+- **What was implemented**: Added burn buddy button to the Friends page so users can create burn buddies directly from their friends list. Three states shown per friend: "🔥 Burn Buddy" button (no relationship), "🔥 Pending" badge (request sent), "🔥 Burn Buddy" badge (already buddies). Includes confirmation dialog before sending burn buddy requests.
+- **Files changed**:
+  - `apps/web/src/app/friends/page.tsx` — Added burn buddy state management, `getBurnBuddyStatus()` helper, confirmation dialog, and status-aware friend list items
+- **Browser verification in beta**:
+  - Added Bob Test as friend via typeahead search ✅
+  - Clicked "🔥 Burn Buddy" button → "Send Burn Buddy Request?" dialog appeared ✅
+  - Sent request → status changed to "🔥 Pending" ✅
+  - Accepted request as Bob via API → status changed to "🔥 Burn Buddy" badge ✅
+- **Quality checks**: Typecheck ✅, API tests 188/188 ✅, E2E Tests (Beta) ✅
+- **Deploy**: Workflow run 22681602267 — Quality Checks ✅, Deploy Beta ✅, E2E Beta ✅, Deploy Prod in progress
+- **Learnings for future iterations:**
+  - The Friends page fetches burn buddy data (`/burn-buddies` and `/burn-buddies/requests`) with `.catch()` fallbacks so it gracefully degrades if those endpoints fail
+  - FirebaseUI email enumeration protection prevents re-login from same browser — use Firebase REST API (`signInWithPassword`) to get tokens for API testing
+  - `addInitScript` in Playwright can inject auth state into IndexedDB before page JS loads, but the middleware cookie must also be set
+  - Burn buddy requests require users to be friends first (API validates friendship exists via sorted composite key)
 ---

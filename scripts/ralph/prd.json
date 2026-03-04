@@ -135,8 +135,8 @@
         "Verify in browser using dev-browser skill: navigate to Friends page in beta, click '+ Add Friend', start typing an email, confirm matching users appear in a dropdown, click a user, confirm 'Send Friend Request?' dialog appears"
       ],
       "priority": 9,
-      "passes": false,
-      "notes": "BLOCKED ON US-007: All Firestore-dependent endpoints return 500. Code is fully implemented: POST /burn-buddies/requests, GET /burn-buddies, accept/delete flows all exist. Web UI at /burn-buddies/new is complete. Needs Firestore API enabled in patelr3-site to verify."
+      "passes": true,
+      "notes": "VERIFIED (2026-03-04T17:50Z). Added burn buddy button directly to Friends page — each friend shows one of: '🔥 Burn Buddy' button (sends request), '🔥 Pending' badge (request sent), or '🔥 Burn Buddy' badge (already buddies). Full flow verified in beta: (1) Added Bob Test as friend via search ✅, (2) Clicked '🔥 Burn Buddy' button → 'Send Burn Buddy Request?' dialog appeared ✅, (3) Sent request → status changed to '🔥 Pending' ✅, (4) Accepted request as Bob via API → status changed to '🔥 Burn Buddy' badge ✅. Typecheck ✅, API tests 188/188 ✅. Deployed via workflow run 22681602267."
     },
     {
       "id": "US-010",
