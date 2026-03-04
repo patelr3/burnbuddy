@@ -3,13 +3,16 @@ import express from 'express';
 import request from 'supertest';
 
 // vi.hoisted ensures mock variables are created before the mock factory runs
-const { mockVerifyIdToken, mockGet, mockSet, mockUpdate, mockDocRef } = vi.hoisted(() => {
+const { mockVerifyIdToken, mockGet, mockSet, mockUpdate, mockDocRef, mockWhere, mockLimit, mockCollectionGet } = vi.hoisted(() => {
   const mockGet = vi.fn();
   const mockSet = vi.fn();
   const mockUpdate = vi.fn();
+  const mockCollectionGet = vi.fn();
+  const mockLimit = vi.fn();
+  const mockWhere = vi.fn();
   // mockDocRef is re-setup each beforeEach via resetAllMocks + mockReturnValue
   const mockDocRef = vi.fn();
-  return { mockVerifyIdToken: vi.fn(), mockGet, mockSet, mockUpdate, mockDocRef };
+  return { mockVerifyIdToken: vi.fn(), mockGet, mockSet, mockUpdate, mockDocRef, mockWhere, mockLimit, mockCollectionGet };
 });
 
 // Mock firebase-admin (used by requireAuth middleware)
@@ -20,10 +23,10 @@ vi.mock('../lib/firebase', () => ({
   initFirebase: vi.fn(),
 }));
 
-// Mock Firestore — getDb() returns a stub with collection → doc chain
+// Mock Firestore — getDb() returns a stub with collection → doc chain and collection → where chain
 vi.mock('../lib/firestore', () => ({
   getDb: () => ({
-    collection: () => ({ doc: mockDocRef }),
+    collection: () => ({ doc: mockDocRef, where: mockWhere }),
   }),
 }));
 
@@ -51,6 +54,9 @@ beforeEach(() => {
   // Re-setup defaults after reset
   mockVerifyIdToken.mockResolvedValue({ uid: TEST_UID });
   mockDocRef.mockReturnValue({ get: mockGet, set: mockSet, update: mockUpdate });
+  // where → where/limit → get chain for collection queries
+  mockWhere.mockReturnValue({ where: mockWhere, limit: mockLimit, get: mockCollectionGet });
+  mockLimit.mockReturnValue({ get: mockCollectionGet });
 });
 
 // ── POST /users ────────────────────────────────────────────────────────────────
@@ -253,5 +259,83 @@ describe('GET /users/:uid', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ uid: TEST_UID, displayName: 'Test User', email: 'test@example.com' });
+  });
+});
+
+// ── GET /users/search ──────────────────────────────────────────────────────────
+
+describe('GET /users/search', () => {
+  it('returns 401 when unauthenticated', async () => {
+    const res = await request(buildApp()).get('/users/search?q=test');
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 400 when q is less than 2 characters', async () => {
+    const res = await request(buildApp())
+      .get('/users/search?q=a')
+      .set('Authorization', VALID_TOKEN);
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: expect.stringContaining('2 characters') });
+  });
+
+  it('returns 400 when neither q nor email is provided', async () => {
+    const res = await request(buildApp())
+      .get('/users/search')
+      .set('Authorization', VALID_TOKEN);
+    expect(res.status).toBe(400);
+  });
+
+  it('returns matching users for q prefix search, excluding current user', async () => {
+    const OTHER_USER = { uid: 'other-uid', email: 'alice@example.com', displayName: 'Alice' };
+    mockCollectionGet.mockResolvedValueOnce({
+      docs: [
+        { data: () => ({ ...OTHER_USER }) },
+        { data: () => ({ uid: TEST_UID, email: 'test@example.com', displayName: 'Test User' }) },
+      ],
+    });
+
+    const res = await request(buildApp())
+      .get('/users/search?q=ali')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([{ uid: 'other-uid', displayName: 'Alice', email: 'alice@example.com' }]);
+    expect(mockWhere).toHaveBeenCalledWith('email', '>=', 'ali');
+  });
+
+  it('returns empty array when no users match', async () => {
+    mockCollectionGet.mockResolvedValueOnce({ docs: [] });
+
+    const res = await request(buildApp())
+      .get('/users/search?q=zzz')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+
+  // Legacy exact email search
+  it('returns single user for exact email search', async () => {
+    mockCollectionGet.mockResolvedValueOnce({
+      empty: false,
+      docs: [{ data: () => ({ uid: 'uid-1', email: 'bob@example.com', displayName: 'Bob' }) }],
+    });
+
+    const res = await request(buildApp())
+      .get('/users/search?email=bob@example.com')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ uid: 'uid-1', displayName: 'Bob', email: 'bob@example.com' });
+  });
+
+  it('returns 404 for exact email search with no match', async () => {
+    mockCollectionGet.mockResolvedValueOnce({ empty: true, docs: [] });
+
+    const res = await request(buildApp())
+      .get('/users/search?email=nonexistent@example.com')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(404);
   });
 });

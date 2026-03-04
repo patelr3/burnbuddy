@@ -33,8 +33,8 @@ export default function FriendsPage() {
 
   // Add friend state
   const [showSearch, setShowSearch] = useState(false);
-  const [searchEmail, setSearchEmail] = useState('');
-  const [searchResult, setSearchResult] = useState<UserSearchResult | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
 
@@ -85,22 +85,39 @@ export default function FriendsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const handleSearch = async () => {
-    if (!searchEmail.trim()) return;
+  // Debounced typeahead search
+  useEffect(() => {
+    if (!showSearch) return;
+    const trimmed = searchQuery.trim();
+    if (trimmed.length < 2) {
+      setSearchResults([]);
+      setSearchError(null);
+      return;
+    }
+
     setSearching(true);
     setSearchError(null);
-    setSearchResult(null);
-    try {
-      const result = await apiGet<UserSearchResult>(
-        `/users/search?email=${encodeURIComponent(searchEmail.trim())}`,
-      );
-      setSearchResult(result);
-    } catch {
-      setSearchError('No user found with that email address');
-    } finally {
-      setSearching(false);
-    }
-  };
+
+    const timer = setTimeout(async () => {
+      try {
+        const results = await apiGet<UserSearchResult[]>(
+          `/users/search?q=${encodeURIComponent(trimmed)}`,
+        );
+        setSearchResults(results);
+        if (results.length === 0) {
+          setSearchError('No users found');
+        }
+      } catch {
+        setSearchResults([]);
+        setSearchError('Search failed');
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, showSearch]);
 
   const handleSelectUser = (selected: UserSearchResult) => {
     setConfirmUser(selected);
@@ -113,8 +130,8 @@ export default function FriendsPage() {
       await apiPost('/friends/requests', { toUid: confirmUser.uid });
       setConfirmUser(null);
       setShowSearch(false);
-      setSearchEmail('');
-      setSearchResult(null);
+      setSearchQuery('');
+      setSearchResults([]);
       await loadData();
     } catch {
       setError('Failed to send friend request');
@@ -152,8 +169,8 @@ export default function FriendsPage() {
           <button
             onClick={() => {
               setShowSearch(!showSearch);
-              setSearchEmail('');
-              setSearchResult(null);
+              setSearchQuery('');
+              setSearchResults([]);
               setSearchError(null);
             }}
             className="cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
@@ -167,39 +184,36 @@ export default function FriendsPage() {
         {/* Add Friend search panel */}
         {showSearch && (
           <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
-            <h3 className="mb-3 text-base font-semibold text-gray-900">Search by Email</h3>
-            <div className="mb-3 flex gap-2">
+            <h3 className="mb-3 text-base font-semibold text-gray-900">Find a Friend</h3>
+            <div className="relative mb-1">
               <input
-                type="email"
-                value={searchEmail}
-                onChange={(e) => setSearchEmail(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleSearch();
-                }}
-                placeholder="friend@example.com"
-                className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Start typing an email…"
+                autoFocus
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
               />
-              <button
-                onClick={handleSearch}
-                disabled={searching}
-                className="cursor-pointer rounded-md bg-gray-800 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
-              >
-                {searching ? 'Searching…' : 'Search'}
-              </button>
+              {searching && (
+                <span className="absolute right-3 top-2.5 text-xs text-gray-400">Searching…</span>
+              )}
             </div>
-            {searchError && (
-              <p className="text-sm text-danger">{searchError}</p>
+            {searchError && searchQuery.trim().length >= 2 && (
+              <p className="mt-2 text-sm text-danger">{searchError}</p>
             )}
-            {searchResult && (
-              <div
-                onClick={() => handleSelectUser(searchResult)}
-                className="cursor-pointer rounded-md border border-gray-200 bg-white px-3 py-2.5 hover:bg-gray-50"
-              >
-                <strong className="text-gray-900">{searchResult.displayName}</strong>
-                <span className="ml-2 text-sm text-gray-500">
-                  {searchResult.email}
-                </span>
-              </div>
+            {searchResults.length > 0 && (
+              <ul className="mt-1 max-h-48 overflow-y-auto rounded-md border border-gray-200 bg-white">
+                {searchResults.map((u) => (
+                  <li
+                    key={u.uid}
+                    onClick={() => handleSelectUser(u)}
+                    className="cursor-pointer px-3 py-2.5 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                  >
+                    <strong className="text-gray-900">{u.displayName}</strong>
+                    <span className="ml-2 text-sm text-gray-500">{u.email}</span>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         )}

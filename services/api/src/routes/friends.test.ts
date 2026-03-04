@@ -175,10 +175,10 @@ describe('GET /users/search', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns 400 when email query param is missing', async () => {
+  it('returns 400 when neither q nor email query param is provided', async () => {
     const res = await request(buildApp()).get('/users/search').set('Authorization', VALID_TOKEN);
     expect(res.status).toBe(400);
-    expect(res.body).toMatchObject({ error: expect.stringContaining('email') });
+    expect(res.body).toMatchObject({ error: expect.stringContaining('2 characters') });
   });
 
   it('returns 404 when no user matches the email', async () => {
