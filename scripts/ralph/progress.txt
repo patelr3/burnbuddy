@@ -565,3 +565,25 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
   - The firebase-adminsdk SA truly cannot enable GCP APIs — no workaround exists; requires project Owner
   - All 5 remaining stories (US-007 through US-011) are blocked on the same Firestore API issue — no code changes can resolve this
 ---
+
+## 2026-03-04T09:38Z - US-007 (re-verification attempt #3)
+- **Status**: Still BLOCKED on infrastructure — Cloud Firestore API disabled in GCP project patelr3-site
+- **Quality checks**: Typecheck ✅ (all 4 workspaces pass), API tests ✅ (10 files, 188/188 tests pass)
+- **Verification performed**:
+  - Auth works: `GET /me` returns `{"uid":"fU9NS4lWYUSiTvDDz4eYiHXXLZG2"}` with Firebase ID token ✅
+  - Firestore still broken: `GET /friends` returns 500 (Internal server error) ❌
+  - Direct Firestore REST API test with SA access token: 403 "Cloud Firestore API has not been used in project patelr3-site before or it is disabled"
+  - Attempted enabling via Service Usage API: 403 "Permission denied to enable service [firestore.googleapis.com]"
+  - Attempted creating database via `firebase-tools firestore:databases:create`: same 403
+  - SA credentials confirmed valid (private_key + client_email present, can get OAuth tokens)
+- **All 4 remaining stories (US-007, US-009, US-010, US-011) are blocked on the same issue**
+- **TO UNBLOCK**: A GCP project OWNER must:
+  1. Visit https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=patelr3-site
+  2. Click "Enable"
+  3. Then visit https://console.firebase.google.com/project/patelr3-site/firestore → Create database → Native mode → nam5
+  4. No code changes needed after enabling
+- **Learnings for future iterations:**
+  - The firebase-adminsdk SA's OAuth token successfully authenticates to Google APIs but lacks `serviceusage.services.enable` IAM permission
+  - Firebase CLI (`firebase-tools`) also fails — it uses the same Firestore REST API which requires the API to be enabled first
+  - This is a chicken-and-egg problem: creating a Firestore database requires the Firestore API to be enabled, but the API can't be enabled by the SA
+---
