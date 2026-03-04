@@ -1,5 +1,6 @@
 import './instrumentation'; // must be first — initializes OpenTelemetry SDK
 
+import 'express-async-errors'; // patches Express to forward async errors to error handler
 import express from 'express';
 import pino from 'pino';
 import { initFirebase } from './lib/firebase';
@@ -55,6 +56,21 @@ app.get('/health', (_req, res) => {
 app.get('/me', requireAuth, (req, res) => {
   res.json({ uid: req.user?.uid });
 });
+
+// Global error handler — catches async errors forwarded by express-async-errors
+app.use(
+  (
+    err: Error,
+    _req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction,
+  ) => {
+    logger.error({ err }, 'Unhandled route error');
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  },
+);
 
 app.listen(PORT, () => {
   logger.info({ port: PORT }, 'BurnBuddy API service started');
