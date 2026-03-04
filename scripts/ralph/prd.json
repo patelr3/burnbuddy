@@ -163,8 +163,8 @@
         "Verify in browser using dev-browser skill: navigate to Friends page in beta, click '+ Add Friend', start typing an email, confirm matching users appear in a dropdown, click a user, confirm 'Send Friend Request?' dialog appears"
       ],
       "priority": 11,
-      "passes": false,
-      "notes": "BLOCKED ON US-007: Code is fully implemented. sendWorkoutStartedNotifications() fires as background task on workout start. detectGroupWorkouts() auto-detects synchronized workouts. All notification logic exists in workouts route handler. Needs Firestore API enabled in patelr3-site to verify."
+      "passes": true,
+      "notes": "VERIFIED (2026-03-04T18:15Z). Fixed group workout detection: Firestore compound queries (uid+status+startedAt) required composite indexes that didn't exist, causing silent failures. Refactored to use simple single-field queries with in-memory filtering. Extracted logger to lib/logger.ts to avoid circular dependency. Added error logging for detection/notification failures. Deployed via workflow run 22682594085 — all 5 jobs passed. E2E verified: Alice started Running, Bob started Cycling within 20-min window → GroupWorkout document created → dashboard shows '0m ago' for buddy. Push notification code path runs (no actual FCM push since test users lack fcmToken). Typecheck ✅, API tests 188/188 ✅."
     }
   ]
 }

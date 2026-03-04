@@ -24,6 +24,8 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
 - Azure Container Apps KV secret references resolve when a new revision is created — updating a KV secret value requires a new revision/redeployment to take effect
 - To inject Firebase auth state into browser for testing: write to IndexedDB `firebaseLocalStorageDb` → key `firebase:authUser:<apiKey>:[DEFAULT]`
 - Firestore prefix/typeahead search pattern: `where('field', '>=', q).where('field', '<', q + '\uf8ff')` — case-sensitive, works well for email
+- Firestore compound queries (multiple equality + range on different fields) require composite indexes — prefer single-field queries with in-memory filtering to avoid silent failures
+- Extract shared singletons (like pino logger) to `lib/` modules to avoid circular imports between index.ts and route files
 - Mock Firestore query chains in tests: `mockWhere` returns `{ where: mockWhere, limit: mockLimit, get: mockCollectionGet }` for chained where + limit + get
 - `friends.test.ts` also tests `GET /users/search` — changes to the search endpoint affect both `users.test.ts` and `friends.test.ts`
 - Express API needs `cors` middleware for cross-origin browser requests — without it, web app calls to the API are blocked by browser CORS policy
@@ -712,4 +714,26 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
 - **Learnings for future iterations:**
   - The workout type selector modal's grid can intercept pointer events on buttons below it — use `selectSnapshotRef()` instead of CSS text selectors when Playwright reports element interception
   - Workout flow was fully implemented since US-007 iteration but couldn't be verified until Firestore API was enabled — always check blocker status before assuming code changes are needed
+---
+
+## 2026-03-04T18:15Z - US-011
+- **Root cause**: Group workout detection silently failed because Firestore compound queries (uid+status+startedAt and type+referenceId+startedAt) require composite indexes that didn't exist. Errors were swallowed by `.catch(() => {})`.
+- **Fixes applied**:
+  1. Refactored `group-workout-detection.ts` to use simple single-field Firestore queries with in-memory filtering (avoids composite index requirement)
+  2. Extracted logger to `services/api/src/lib/logger.ts` to avoid circular dependency between index.ts and workouts.ts
+  3. Added proper error logging to workout route's background tasks (group workout detection + push notifications)
+  4. Updated dedup test data to include `startedAt` field for in-memory filtering
+- **Files changed**:
+  - `services/api/src/services/group-workout-detection.ts` — refactored queries
+  - `services/api/src/services/group-workout-detection.test.ts` — fixed dedup test data
+  - `services/api/src/lib/logger.ts` — new file, extracted from index.ts
+  - `services/api/src/index.ts` — imports logger from lib/logger.ts
+  - `services/api/src/routes/workouts.ts` — uses lib/logger, logs errors
+- **E2E verification**: Alice started Running → Bob started Cycling → GroupWorkout auto-created → dashboard shows "0m ago" ✅
+- **Deployed via workflow run 22682594085** — all 5 jobs passed
+- **Learnings for future iterations:**
+  - Firestore compound queries silently fail without composite indexes — always prefer single-field queries with in-memory filtering unless you've explicitly created the required index
+  - Background fire-and-forget tasks (`.catch(() => {})`) should log errors, not swallow them — silent failures are extremely hard to debug
+  - When refactoring query patterns, mock test data must match what the new in-memory filter expects (e.g., `startedAt` field needed for `gw.startedAt >= cutoff`)
+  - Logger must not live in index.ts if route files need it — extract to `lib/logger.ts` to avoid circular imports
 ---
