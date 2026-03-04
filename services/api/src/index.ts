@@ -3,8 +3,8 @@ import './instrumentation'; // must be first — initializes OpenTelemetry SDK
 import 'express-async-errors'; // patches Express to forward async errors to error handler
 import express from 'express';
 import cors from 'cors';
-import pino from 'pino';
 import { initFirebase } from './lib/firebase';
+import { logger } from './lib/logger';
 import { requireAuth } from './middleware/auth';
 import usersRouter from './routes/users';
 import friendsRouter from './routes/friends';
@@ -15,27 +15,6 @@ import groupWorkoutsRouter from './routes/group-workouts';
 
 // Initialize Firebase Admin on startup
 initFirebase();
-
-const transportTargets: pino.TransportTargetOptions[] = [
-  {
-    target: 'pino/file',
-    options: { destination: 1 }, // stdout
-    level: process.env.LOG_LEVEL ?? 'info',
-  },
-];
-
-// Enable OpenTelemetry log transport when OTEL_LOGS_ENABLED=true (e.g., production with collector)
-if (process.env.OTEL_LOGS_ENABLED === 'true') {
-  transportTargets.push({
-    target: 'pino-opentelemetry-transport',
-    options: {},
-    level: process.env.LOG_LEVEL ?? 'info',
-  });
-}
-
-const transport = pino.transport({ targets: transportTargets });
-
-const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' }, transport);
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;

@@ -5,6 +5,43 @@ import { getDb } from '../lib/firestore';
 const GROUP_WORKOUT_WINDOW_MS = 20 * 60 * 1000; // 20 minutes
 
 /**
+ * Finds active workouts for a user that started within the detection window.
+ * Uses a simple single-field query (uid) and filters status/startedAt in memory
+ * to avoid requiring Firestore composite indexes.
+ */
+async function findActiveWorkoutsInWindow(
+  uid: string,
+  cutoff: string,
+): Promise<Workout[]> {
+  const db = getDb();
+  const snap = await db.collection('workouts').where('uid', '==', uid).get();
+  return snap.docs
+    .map((d) => d.data() as Workout)
+    .filter((w) => w.status === 'active' && w.startedAt >= cutoff);
+}
+
+/**
+ * Checks if a GroupWorkout already exists for the given type and reference
+ * within the detection window. Uses a simple single-field query (referenceId)
+ * and filters type/startedAt in memory.
+ */
+async function hasExistingGroupWorkout(
+  type: 'buddy' | 'squad',
+  referenceId: string,
+  cutoff: string,
+): Promise<boolean> {
+  const db = getDb();
+  const snap = await db
+    .collection('groupWorkouts')
+    .where('referenceId', '==', referenceId)
+    .get();
+  return snap.docs.some((d) => {
+    const gw = d.data() as GroupWorkout;
+    return gw.type === type && gw.startedAt >= cutoff;
+  });
+}
+
+/**
  * After a user starts a workout, detects whether any Burn Buddy or Burn Squad
  * group workout conditions are met. Creates GroupWorkout documents for each
  * qualifying group.
@@ -37,27 +74,12 @@ export async function detectGroupWorkouts(uid: string, workout: Workout): Promis
   for (const buddy of burnBuddies) {
     const partnerUid = buddy.uid1 === uid ? buddy.uid2 : buddy.uid1;
 
-    // Check if partner has an active workout started within the 20-min window
-    const partnerWorkoutSnap = await db
-      .collection('workouts')
-      .where('uid', '==', partnerUid)
-      .where('status', '==', 'active')
-      .where('startedAt', '>=', cutoff)
-      .get();
+    const partnerWorkouts = await findActiveWorkoutsInWindow(partnerUid, cutoff);
+    if (partnerWorkouts.length === 0) continue;
 
-    if (partnerWorkoutSnap.empty) continue;
+    const partnerWorkout = partnerWorkouts[0];
 
-    const partnerWorkout = partnerWorkoutSnap.docs[0].data() as Workout;
-
-    // Dedup: skip if a GroupWorkout for this buddy pair was already created in the window
-    const existingSnap = await db
-      .collection('groupWorkouts')
-      .where('type', '==', 'buddy')
-      .where('referenceId', '==', buddy.id)
-      .where('startedAt', '>=', cutoff)
-      .get();
-
-    if (!existingSnap.empty) continue;
+    if (await hasExistingGroupWorkout('buddy', buddy.id, cutoff)) continue;
 
     const id = randomUUID();
     const groupWorkout: GroupWorkout = {
@@ -87,37 +109,23 @@ export async function detectGroupWorkouts(uid: string, workout: Workout): Promis
 
     if (otherMemberUids.length === 0) continue;
 
-    // Check if ALL other members have active workouts within the window
     const memberWorkouts: Workout[] = [workout];
     let allActive = true;
 
     for (const memberUid of otherMemberUids) {
-      const memberWorkoutSnap = await db
-        .collection('workouts')
-        .where('uid', '==', memberUid)
-        .where('status', '==', 'active')
-        .where('startedAt', '>=', cutoff)
-        .get();
+      const memberActiveWorkouts = await findActiveWorkoutsInWindow(memberUid, cutoff);
 
-      if (memberWorkoutSnap.empty) {
+      if (memberActiveWorkouts.length === 0) {
         allActive = false;
         break;
       }
 
-      memberWorkouts.push(memberWorkoutSnap.docs[0].data() as Workout);
+      memberWorkouts.push(memberActiveWorkouts[0]);
     }
 
     if (!allActive) continue;
 
-    // Dedup: skip if a GroupWorkout for this squad was already created in the window
-    const existingSnap = await db
-      .collection('groupWorkouts')
-      .where('type', '==', 'squad')
-      .where('referenceId', '==', squad.id)
-      .where('startedAt', '>=', cutoff)
-      .get();
-
-    if (!existingSnap.empty) continue;
+    if (await hasExistingGroupWorkout('squad', squad.id, cutoff)) continue;
 
     const id = randomUUID();
     const groupWorkout: GroupWorkout = {

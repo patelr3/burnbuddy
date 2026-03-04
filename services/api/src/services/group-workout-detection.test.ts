@@ -210,7 +210,7 @@ describe('burn buddy detection', () => {
 
   it('skips creating a group workout when one already exists for the buddy pair (dedup)', async () => {
     const buddy = { id: BUDDY_ID, uid1: UID, uid2: PARTNER_UID, createdAt: '' };
-    const existingGroupWorkout = { id: 'gw-existing', type: 'buddy', referenceId: BUDDY_ID };
+    const existingGroupWorkout = { id: 'gw-existing', type: 'buddy', referenceId: BUDDY_ID, startedAt: new Date().toISOString() };
 
     mockBuddiesQueryGet.mockResolvedValueOnce(snapOf(buddy));
     mockBuddiesQueryGet.mockResolvedValueOnce(emptySnap());
@@ -312,7 +312,7 @@ describe('burn squad detection', () => {
       settings: { onlyAdminsCanAddMembers: false },
       createdAt: '',
     };
-    const existingGroupWorkout = { id: 'gw-existing', type: 'squad', referenceId: SQUAD_ID };
+    const existingGroupWorkout = { id: 'gw-existing', type: 'squad', referenceId: SQUAD_ID, startedAt: new Date().toISOString() };
 
     mockBuddiesQueryGet.mockResolvedValueOnce(emptySnap());
     mockBuddiesQueryGet.mockResolvedValueOnce(emptySnap());
