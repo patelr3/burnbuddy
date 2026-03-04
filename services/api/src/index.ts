@@ -2,6 +2,7 @@ import './instrumentation'; // must be first — initializes OpenTelemetry SDK
 
 import 'express-async-errors'; // patches Express to forward async errors to error handler
 import express from 'express';
+import cors from 'cors';
 import pino from 'pino';
 import { initFirebase } from './lib/firebase';
 import { requireAuth } from './middleware/auth';
@@ -40,6 +41,16 @@ const app = express();
 const PORT = process.env.PORT ?? 3001;
 
 app.use(express.json());
+
+// CORS — allow web origins to call the API from the browser
+const corsOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
+  : [
+      'https://buddyburn-beta.arayosun.com',
+      'https://buddyburn.arayosun.com',
+      'http://localhost:3000',
+    ];
+app.use(cors({ origin: corsOrigins, credentials: true }));
 
 app.use('/users', usersRouter);
 app.use('/friends', friendsRouter);
