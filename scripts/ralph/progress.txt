@@ -587,3 +587,25 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
   - Firebase CLI (`firebase-tools`) also fails — it uses the same Firestore REST API which requires the API to be enabled first
   - This is a chicken-and-egg problem: creating a Firestore database requires the Firestore API to be enabled, but the API can't be enabled by the SA
 ---
+
+## 2026-03-04T09:45Z - US-007 (attempt #4)
+- **Status**: Still BLOCKED on infrastructure — Cloud Firestore API disabled in GCP project patelr3-site
+- **Quality checks**: Typecheck ✅, API tests ✅ (10/10 files, 188/188 tests), Auth ✅ (/me returns 200)
+- **New approaches tried this iteration**:
+  1. Service Usage REST API with SA access token — 403 (SA lacks serviceusage.services.enable)
+  2. Firebase Management REST API `defaultLocation:finalize` — 400 (invalid argument)
+  3. AppEngine API `apps:create` — 403 (SA lacks appengine.applications.create)
+  4. Firebase CLI `firestore:databases:create` — 403 (Firestore API disabled)
+  5. Datastore API — IS accessible (returns 404 "database doesn't exist" not 403), but can't create database
+  6. SA testIamPermissions — only has `firebase.projects.update`, nothing else
+  7. Realtime Database CLI — failed to list instances
+- **Verified**: All Firestore-dependent endpoints (/friends, /workouts) return 500 "Internal server error". Auth-only endpoint (/me) returns 200. Deployed API code doesn't have US-008 typeahead changes (branch not merged to main yet).
+- **Created**: `scripts/setup-firestore.sh` — automated setup script for project owner to enable Firestore API and create database
+- **Files changed**: scripts/setup-firestore.sh (new), scripts/ralph/prd.json, scripts/ralph/progress.txt
+- **Learnings for future iterations:**
+  - Datastore API (datastore.googleapis.com) IS enabled in patelr3-site — only Firestore API (firestore.googleapis.com) is disabled. They're separate GCP APIs.
+  - SA permissions are extremely limited: only `firebase.projects.update`. Cannot enable APIs, list services, create databases, or manage IAM.
+  - The Firebase CLI's `firebase init firestore` tries to use Service Usage API under the hood — same permission blocker as direct REST calls.
+  - All 4 remaining stories (US-007, US-009, US-010, US-011) share the same infrastructure blocker. No code changes can resolve this.
+  - A GCP project Owner must: (1) Enable Firestore API, (2) Create default database in native mode at nam5
+---
