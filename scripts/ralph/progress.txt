@@ -18,6 +18,9 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
 - Firebase token verification (verifyIdToken) works WITHOUT real credentials — it only needs the correct projectId to validate the JWT `aud` claim
 - Firestore access REQUIRES real service account credentials (private_key + client_email) — without them, the Admin SDK tries ADC → metadata server → hangs on Azure
 - `az containerapp update --set-env-vars KEY=VALUE` can set env vars on running containers without redeploying the image
+- Express 4 async route handlers MUST have try-catch or use `express-async-errors` — unhandled rejections crash Node 15+ with exit code 1
+- Cloud Firestore API must be ENABLED in the GCP project before Firestore SDK works — the firebase-adminsdk service account cannot enable APIs (lacks serviceusage.services.enable permission)
+- Azure Container Apps KV secret references resolve when a new revision is created — updating a KV secret value requires a new revision/redeployment to take effect
 - To inject Firebase auth state into browser for testing: write to IndexedDB `firebaseLocalStorageDb` → key `firebase:authUser:<apiKey>:[DEFAULT]`
 
 ---
@@ -391,4 +394,39 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
   - `az containerapp update --set-env-vars` can set env vars on running containers without redeploying the image, but creates a new revision that restarts containers
   - deploy-api.yml now follows the same KV-fetch pattern as deploy-web.yml for Firebase config
   - The Bicep API container app template uses `firebase-web-project-id` KV secret (shared with web) for the `FIREBASE_PROJECT_ID` env var
+---
+
+## 2026-03-04T08:35Z - US-007 (partial — blocked on Firestore API enablement)
+- **Status**: PARTIALLY COMPLETE — code fixes deployed, but Firestore API disabled in GCP project
+- **Code changes committed and deployed**:
+  1. Installed `express-async-errors` — patches Express to forward async handler errors to error middleware
+  2. Added global error handler middleware in `services/api/src/index.ts` — catches unhandled route errors, logs them, returns 500 JSON response
+  3. API no longer crash-loops when Firestore errors occur (was crashing with exit code 1 due to unhandled promise rejections)
+- **Deployment**: Workflow run 22661175024 — all 5 jobs passed (Quality → Beta Deploy → Beta Integration → Prod Deploy → Prod Integration)
+- **Verification results**:
+  - `/health` → `{"status":"ok"}` ✅
+  - `/me` → `{"uid":"fU9NS4lWYUSiTvDDz4eYiHXXLZG2"}` ✅ (auth works with real service account)
+  - `/friends` → `{"error":"Internal server error"}` ❌ (Firestore API disabled)
+  - `/friends/requests` → `{"error":"Internal server error"}` ❌ (same)
+  - Container logs show: `PERMISSION_DENIED: Cloud Firestore API has not been used in project patelr3-site before or it is disabled`
+- **KV secret verified**: `firebase-service-account-json` in `buddyburn-beta-kv` now has real credentials (private_key: true, client_email: firebase-adminsdk-fbsvc@patelr3-site.iam.gserviceaccount.com)
+- **Root cause**: Cloud Firestore API was never enabled for GCP project `patelr3-site` (created 2026-02-22). The firebase-adminsdk service account lacks `serviceusage.services.enable` permission to enable it programmatically.
+- **Attempts to enable API programmatically**:
+  - Service Usage REST API (project ID and project number) → 403 PERMISSION_DENIED
+  - gcloud CLI with service account auth → PERMISSION_DENIED
+  - Tried granting serviceusage.admin role to SA → can't modify IAM policy
+  - Firebase Management API → can access project info but not enable APIs
+- **Files changed**: `services/api/src/index.ts`, `services/api/package.json`, `yarn.lock`, `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`
+- **TO UNBLOCK** (requires human with GCP project Owner/Editor access):
+  1. Go to https://console.firebase.google.com/project/patelr3-site/firestore
+  2. Click "Create database"
+  3. Select Native mode, choose location (e.g., nam5 for US multi-region)
+  4. OR: Go to https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=patelr3-site and click "Enable"
+  5. After enabling, API will automatically work — no code changes or redeployment needed
+- **Learnings for future iterations:**
+  - The Firestore API must be explicitly enabled in the GCP project — it's not auto-enabled when Firebase is set up
+  - The firebase-adminsdk service account is intentionally limited — it can use Firebase services but cannot manage GCP project settings
+  - Azure Container Apps KV secret references are resolved at revision creation time, not at container start time — updating a KV secret requires a new revision
+  - `express-async-errors` is the standard way to handle async errors in Express 4 without wrapping every handler
+  - The global error handler MUST have 4 parameters (err, req, res, next) to be recognized as an error handler by Express
 ---

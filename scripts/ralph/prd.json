@@ -106,7 +106,7 @@
       ],
       "priority": 7,
       "passes": false,
-      "notes": ""
+      "notes": "PARTIAL PROGRESS: (1) Added express-async-errors + global error handler — API no longer crash-loops on Firestore errors, returns 500 instead. (2) Redeployed API (workflow run 22661175024, all 5 jobs passed) — container now has correct service account credentials from KV (private_key + client_email present). (3) Auth verification works: /me returns uid. BLOCKER: Cloud Firestore API is DISABLED in GCP project patelr3-site. Error: 'Cloud Firestore API has not been used in project patelr3-site before or it is disabled'. The firebase-adminsdk service account cannot enable APIs (lacks serviceusage.services.enable permission). TO UNBLOCK: A project owner must either (a) go to https://console.firebase.google.com/project/patelr3-site/firestore and create a database, or (b) go to https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=patelr3-site and click Enable."
     },
     {
       "id": "US-008",
