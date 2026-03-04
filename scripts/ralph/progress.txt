@@ -10,6 +10,10 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
 - Firebase Admin SDK in the API container works with the minimal service account JSON (`{"type":"service_account","project_id":"buddyburn-beta"}`) — it successfully rejects invalid tokens
 - Use custom domain URLs (buddyburn.arayosun.com) for browser testing — direct Azure FQDN URLs can timeout
 - Both beta and production use the SAME Firebase project (`buddyburn-beta`) — confirmed via `firebase-service-account-json` in both KVs. Use `--env all` with setup script.
+- **CORRECTION**: The actual Firebase project is `patelr3-site`, NOT `buddyburn-beta` — confirmed via JWT audience claim from Firebase Web SDK tokens. The KV service account JSON has wrong project_id.
+- API's `services/api/src/lib/firebase.ts` defaults `FIREBASE_PROJECT_ID` to `burnbuddy-dev` — MUST be set to `patelr3-site` on the API container for auth to work
+- API container env var is `FIREBASE_SERVICE_ACCOUNT_JSON` but the code in firebase.ts checks `FIREBASE_SERVICE_ACCOUNT` (no `_JSON` suffix) — name mismatch
+- To inject Firebase auth state into browser for testing: write to IndexedDB `firebaseLocalStorageDb` → key `firebase:authUser:<apiKey>:[DEFAULT]`
 
 ---
 
@@ -320,4 +324,33 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
   - The deploy-web.yml workflow runs all 5 stages in sequence: quality → beta deploy → beta E2E → prod deploy → prod E2E
   - workflow_dispatch is needed when changed files don't match path filters (e.g., workflow file changes don't trigger `apps/web/**` path filter)
   - Merging feature branch to main before triggering workflow_dispatch ensures the latest workflow definition is used
+---
+
+## 2026-03-04T07:40Z - US-005
+- **Status**: VERIFIED — friend flow is broken, issues documented for US-006
+- **Test users created**: alice.test@burnbuddy.dev and bob.test@burnbuddy.dev (password: BurnBuddy2026!) via FirebaseUI on buddyburn-beta.arayosun.com
+- **Browser verification performed**:
+  - Navigated to Friends page as Alice: shows "Failed to load friends" (API auth failure)
+  - Clicked "+ Add Friend": search panel appears correctly
+  - Searched for bob.test@burnbuddy.dev: returns "No user found with that email address" (API auth failure)
+  - All API calls return 401 "Invalid or expired token"
+- **Root cause identified**: Firebase project ID mismatch between web and API
+  - Web app uses Firebase project `patelr3-site` (from firebase-web-project-id KV secret)
+  - API container defaults to `projectId: 'burnbuddy-dev'` (no FIREBASE_PROJECT_ID env var set)
+  - Service account JSON in KV has `project_id: buddyburn-beta` (yet another mismatch)
+  - JWT tokens have `aud: patelr3-site` — API's `verifyIdToken()` rejects them because project ID doesn't match
+- **Additional issue**: FirebaseUI + email enumeration protection
+  - After sign-out, trying to sign in with existing email shows "Create account" form
+  - Attempting to "create" shows "email already exists without any means of sign-in"
+  - Workaround: inject auth state into IndexedDB using REST API sign-in
+- **Also discovered**: API code checks `FIREBASE_SERVICE_ACCOUNT` env var but container has `FIREBASE_SERVICE_ACCOUNT_JSON` (name mismatch)
+- **Typecheck passes**: All 4 workspaces pass
+- **Files changed**: scripts/ralph/prd.json, scripts/ralph/progress.txt
+- **Learnings for future iterations:**
+  - The actual Firebase project is `patelr3-site`, NOT `buddyburn-beta` — confirmed via JWT audience claim
+  - API's firebase.ts defaults projectId to 'burnbuddy-dev' if FIREBASE_PROJECT_ID env var is not set
+  - The env var in the API container is FIREBASE_SERVICE_ACCOUNT_JSON but the code checks FIREBASE_SERVICE_ACCOUNT (no _JSON suffix)
+  - Firebase REST API signInWithPassword returns valid Firebase ID tokens (can be verified by Admin SDK)
+  - To inject auth state into browser: write to IndexedDB key "firebase:authUser:<apiKey>:[DEFAULT]" in "firebaseLocalStorageDb"
+  - FirebaseUI with email enumeration protection always shows "Create account" for existing users — known limitation
 ---

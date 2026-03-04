@@ -77,8 +77,8 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": "Depends on US-001 (CSS working) and US-002 (auth working). Requires two authenticated test users. The friend flow hits the API at buddyburn-beta-api.gentletree-d517e76a.eastus.azurecontainerapps.io. If TEST_USER_EMAIL/PASSWORD are set in the beta GitHub environment, use those credentials."
+      "passes": true,
+      "notes": "VERIFIED (with issues found — proceed to US-006). Two test users created: alice.test@burnbuddy.dev and bob.test@burnbuddy.dev (password: BurnBuddy2026!). Issues found: (1) API auth broken — FIREBASE_PROJECT_ID not set on API container, defaults to 'burnbuddy-dev' but actual Firebase project is 'patelr3-site' (confirmed via JWT aud claim). All API calls return 401 'Invalid or expired token'. (2) Friends page shows 'Failed to load friends' due to auth failure. (3) User search returns 'No user found' due to auth failure. (4) FirebaseUI email enumeration protection prevents re-login — shows 'Create account' for existing users and 'email already exists without any means of sign-in' when trying. (5) firebase-service-account-json in KV has project_id:'buddyburn-beta' which doesn't match actual project 'patelr3-site'. Fix in US-006: set FIREBASE_PROJECT_ID=patelr3-site on API container and update service account JSON."
     },
     {
       "id": "US-006",
@@ -92,7 +92,7 @@
       ],
       "priority": 6,
       "passes": false,
-      "notes": "Depends on US-005. This story is conditional — only execute if US-005 found issues. Check US-005 notes for the list of issues to fix. Friend-related API routes are in services/api/src/routes/friends.ts. Friend-related web pages are in apps/web/src/app/friends/page.tsx."
+      "notes": "Depends on US-005. Issues to fix from US-005: (1) CRITICAL: API container missing FIREBASE_PROJECT_ID env var — defaults to 'burnbuddy-dev' but must be 'patelr3-site' (the actual Firebase project). Fix: add FIREBASE_PROJECT_ID to API container env vars via Bicep/deploy workflow. (2) firebase-service-account-json in KV has wrong project_id 'buddyburn-beta' — should be 'patelr3-site'. (3) FirebaseUI email enumeration protection causes re-login issues. (4) API firebase.ts code checks for FIREBASE_SERVICE_ACCOUNT env var but container has FIREBASE_SERVICE_ACCOUNT_JSON. Friend-related API routes are in services/api/src/routes/friends.ts. Friend-related web pages are in apps/web/src/app/friends/page.tsx."
     }
   ]
 }
