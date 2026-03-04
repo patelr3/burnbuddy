@@ -12,14 +12,32 @@ export function initFirebase(): void {
 
   const projectId = process.env.FIREBASE_PROJECT_ID ?? 'burnbuddy-dev';
 
+  // Parse service account JSON from env var if available
+  const serviceAccountJson =
+    process.env.FIREBASE_SERVICE_ACCOUNT_JSON ?? process.env.FIREBASE_SERVICE_ACCOUNT;
+  let credential: admin.credential.Credential | undefined;
+  if (serviceAccountJson) {
+    try {
+      const parsed = JSON.parse(serviceAccountJson);
+      if (parsed.private_key && parsed.client_email) {
+        credential = admin.credential.cert(parsed);
+      }
+    } catch {
+      // Invalid JSON — fall through to default initialization
+    }
+  }
+
   if (process.env.FIREBASE_AUTH_EMULATOR_HOST) {
     // Emulator mode — no service account required
     admin.initializeApp({ projectId });
-  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.FIREBASE_SERVICE_ACCOUNT) {
-    // Production mode — Application Default Credentials
+  } else if (credential) {
+    // Production mode — explicit service account credentials
+    admin.initializeApp({ projectId, credential });
+  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    // Production mode — Application Default Credentials (file-based)
     admin.initializeApp({ projectId });
   } else {
-    // Dev mode without credentials — auth middleware will return 401 for all requests
+    // Minimal mode — token verification still works (uses Google public keys)
     admin.initializeApp({ projectId });
   }
 

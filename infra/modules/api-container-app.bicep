@@ -53,6 +53,11 @@ resource apiApp 'Microsoft.App/containerApps@2023-05-01' = {
           identity: 'system'
         }
         {
+          name: 'firebase-web-project-id'
+          keyVaultUrl: '${keyVaultUri}/secrets/firebase-web-project-id'
+          identity: 'system'
+        }
+        {
           name: 'otel-collector-endpoint'
           keyVaultUrl: '${keyVaultUri}/secrets/otel-collector-endpoint'
           identity: 'system'
@@ -76,6 +81,10 @@ resource apiApp 'Microsoft.App/containerApps@2023-05-01' = {
             {
               name: 'PORT'
               value: '3001'
+            }
+            {
+              name: 'FIREBASE_PROJECT_ID'
+              secretRef: 'firebase-web-project-id'
             }
             {
               name: 'FIREBASE_SERVICE_ACCOUNT_JSON'

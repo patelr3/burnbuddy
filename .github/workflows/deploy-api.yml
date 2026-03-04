@@ -49,6 +49,7 @@ jobs:
     env:
       AZURE_RESOURCE_GROUP: buddyburn-beta
       API_APP_NAME: buddyburn-beta-api
+      KEY_VAULT_NAME: buddyburn-beta-kv
     steps:
       - uses: actions/checkout@v4
 
@@ -61,6 +62,15 @@ jobs:
 
       - name: Log in to Azure Container Registry
         run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: Fetch Firebase config from Key Vault
+        id: firebase
+        run: |
+          FIREBASE_PROJECT_ID=$(az keyvault secret show \
+            --vault-name ${{ env.KEY_VAULT_NAME }} \
+            --name firebase-web-project-id \
+            --query value --output tsv 2>/dev/null || echo "")
+          echo "PROJECT_ID=${FIREBASE_PROJECT_ID}" >> "$GITHUB_OUTPUT"
 
       - name: Set image tag
         id: vars
@@ -79,7 +89,9 @@ jobs:
           az containerapp update \
             --name ${{ env.API_APP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/burnbuddy/api:${{ steps.vars.outputs.TAG }}
+            --image ${{ env.ACR_LOGIN_SERVER }}/burnbuddy/api:${{ steps.vars.outputs.TAG }} \
+            --set-env-vars \
+              FIREBASE_PROJECT_ID=${{ steps.firebase.outputs.PROJECT_ID }}
 
   test-beta:
     name: Integration Tests (Beta)
@@ -132,6 +144,7 @@ jobs:
     env:
       AZURE_RESOURCE_GROUP: buddyburn-prod
       API_APP_NAME: buddyburn-prod-api
+      KEY_VAULT_NAME: buddyburn-prod-kv
     steps:
       - uses: actions/checkout@v4
 
@@ -144,6 +157,15 @@ jobs:
 
       - name: Log in to Azure Container Registry
         run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: Fetch Firebase config from Key Vault
+        id: firebase
+        run: |
+          FIREBASE_PROJECT_ID=$(az keyvault secret show \
+            --vault-name ${{ env.KEY_VAULT_NAME }} \
+            --name firebase-web-project-id \
+            --query value --output tsv 2>/dev/null || echo "")
+          echo "PROJECT_ID=${FIREBASE_PROJECT_ID}" >> "$GITHUB_OUTPUT"
 
       - name: Set image tag
         id: vars
@@ -162,7 +184,9 @@ jobs:
           az containerapp update \
             --name ${{ env.API_APP_NAME }} \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/burnbuddy/api:${{ steps.vars.outputs.TAG }}
+            --image ${{ env.ACR_LOGIN_SERVER }}/burnbuddy/api:${{ steps.vars.outputs.TAG }} \
+            --set-env-vars \
+              FIREBASE_PROJECT_ID=${{ steps.firebase.outputs.PROJECT_ID }}
 
   test-prod:
     name: Integration Tests (Production)
