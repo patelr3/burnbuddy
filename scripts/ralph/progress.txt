@@ -26,6 +26,9 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
 - Firestore prefix/typeahead search pattern: `where('field', '>=', q).where('field', '<', q + '\uf8ff')` — case-sensitive, works well for email
 - Mock Firestore query chains in tests: `mockWhere` returns `{ where: mockWhere, limit: mockLimit, get: mockCollectionGet }` for chained where + limit + get
 - `friends.test.ts` also tests `GET /users/search` — changes to the search endpoint affect both `users.test.ts` and `friends.test.ts`
+- Express API needs `cors` middleware for cross-origin browser requests — without it, web app calls to the API are blocked by browser CORS policy
+- CORS defaults should include custom domain origins (buddyburn-beta.arayosun.com, buddyburn.arayosun.com) and localhost:3000
+- Test users need Firestore user profile documents (POST /users) before they appear in search — Firebase Auth users alone are not sufficient
 
 ---
 
@@ -650,4 +653,33 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
   - Installed and tried gcloud CLI — same result as REST API approaches
   - Datastore API IS enabled (responds with 404 "no database" not 403 "disabled") but cannot create databases programmatically
   - The `defaultLocation:finalize` API returns 400 not 403, suggesting a dependency on Firestore API being enabled first
+---
+
+## 2026-03-04T17:25Z - US-007
+- **Status**: VERIFIED ✅ — Firestore access works, full friend flow verified in beta
+- **Root cause of browser failure**: API had no CORS middleware. The web app at `https://buddyburn-beta.arayosun.com` was making cross-origin requests to the API, but without `Access-Control-Allow-Origin` headers, the browser blocked them.
+- **What was implemented**:
+  - Added `cors` package to services/api
+  - Configured CORS middleware in `services/api/src/index.ts` with allowed origins (custom domains + localhost)
+  - Supports `CORS_ORIGINS` env var for flexibility
+  - Created Firestore user profile documents for test users (alice.test, bob.test) via `POST /users`
+  - Deployed CORS fix to both beta and production via `az containerapp update`
+- **Files changed**: `services/api/src/index.ts`, `services/api/package.json`, `yarn.lock`
+- **Verification results**:
+  - Typecheck ✅ (all 4 workspaces)
+  - API tests ✅ (10/10 files, 188/188 tests)
+  - Auth works: `/me` returns uid ✅
+  - Firestore works: `/friends` returns `[]` (not 500) ✅
+  - User profiles created: alice.test@burnbuddy.dev, bob.test@burnbuddy.dev ✅
+  - Browser: Friends page loads without errors ✅
+  - Browser: Search for bob.test@burnbuddy.dev finds "Bob Test" ✅
+  - Browser: Clicking Bob Test shows "Send Friend Request?" dialog ✅
+  - CORS on beta: `access-control-allow-origin: https://buddyburn-beta.arayosun.com` ✅
+  - CORS on production: `access-control-allow-origin: https://buddyburn.arayosun.com` ✅
+- **Learnings for future iterations:**
+  - The Firestore API was enabled by the project owner between 10:10Z and 17:12Z — all previous code was already correct
+  - Express APIs serving browser clients MUST have CORS middleware — without it, all cross-origin requests fail silently
+  - Firebase Auth users don't automatically get Firestore user profile documents — need `POST /users` to create them
+  - The `cors` package handles OPTIONS preflight requests automatically — no need for manual OPTIONS route handling
+  - The web app's `NEXT_PUBLIC_API_URL` is set to the Azure FQDN, not the custom domain — but CORS works regardless since the origin check is against the web app's domain
 ---
