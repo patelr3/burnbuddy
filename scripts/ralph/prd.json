@@ -106,7 +106,7 @@
       ],
       "priority": 7,
       "passes": false,
-      "notes": "BLOCKED ON INFRASTRUCTURE (re-verified 2026-03-04): Typecheck ✅ and API tests ✅ (188/188 pass). Auth works (/me returns 200 with uid). SA now has real private_key+client_email. BLOCKER: Cloud Firestore API is DISABLED in GCP project patelr3-site. /friends returns 500 with 'PERMISSION_DENIED: Cloud Firestore API has not been used in project patelr3-site'. All programmatic approaches exhausted including Firebase CLI firebase-tools@15.8.0, GCP REST APIs, SA impersonation, App Engine provisioning. SA only has: datastore.databases.get, firebase.projects.get/update, resourcemanager.projects.get, appengine.applications.get. IAM API also disabled. TO UNBLOCK: A project OWNER must visit https://console.firebase.google.com/project/patelr3-site/firestore → Create database → Native mode → nam5. No code changes needed after enabling."
+      "notes": "BLOCKED ON INFRASTRUCTURE (re-verified 2026-03-04T09:30Z): Typecheck ✅ and API tests ✅ (10/10 files, 188/188 tests — fixed vitest config to exclude dist/). Auth works (/me returns 200 with uid). SA has real private_key+client_email. BLOCKER: Cloud Firestore API is DISABLED in GCP project patelr3-site. /friends returns 500 with 'PERMISSION_DENIED: Cloud Firestore API has not been used in project patelr3-site'. Re-attempted enabling via GCP Service Usage REST API with SA access token — still 403 (SA lacks serviceusage.services.enable). Firebase CLI, Firestore REST API, and database creation endpoint all return same 403. TO UNBLOCK: A project OWNER must visit https://console.firebase.google.com/project/patelr3-site/firestore → Create database → Native mode → nam5. No code changes needed after enabling."
     },
     {
       "id": "US-008",

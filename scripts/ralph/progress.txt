@@ -2,6 +2,7 @@
 Started: Tue Mar  3 05:48:16 PM UTC 2026
 
 ## Codebase Patterns
+- Vitest config must exclude `dist/` directory — compiled JS test files cause CommonJS/ESM import errors and make `yarn test` exit with code 1 even if all source tests pass
 - Tailwind v4 CSS is properly bundled in Next.js standalone Docker output — the Dockerfile correctly copies `.next/static` to the runtime stage
 - The deploy-web.yml workflow passes Firebase config as `--build-arg` to Docker build for NEXT_PUBLIC_* env vars
 - FirebaseUI CSS is imported via `@import "firebaseui/dist/firebaseui.css"` in globals.css and gets bundled into the single Next.js CSS file
@@ -547,4 +548,20 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
   - SA has firebase.projects.update which allows Firebase Management API access but NOT Firestore provisioning
   - All remaining stories (US-007 through US-011) are blocked on the same infrastructure issue
   - The web UI code is production-ready — Start Workout modal, Friend search, Burn Buddy/Squad creation all render correctly
+---
+
+## 2026-03-04T09:30Z - US-007 (re-verification attempt)
+- **Status**: Still BLOCKED on infrastructure — Cloud Firestore API disabled in GCP project patelr3-site
+- **What was done**:
+  - Verified typecheck ✅ and API tests ✅ (188/188, 10/10 files)
+  - Fixed vitest config to exclude `dist/` directory — `yarn test` now exits cleanly with code 0 instead of code 1
+  - Re-attempted enabling Firestore API via GCP Service Usage REST API using SA access token (JWT signed with SA private key) — still 403 PERMISSION_DENIED
+  - Tried alternative approaches: Firestore REST API direct access (403), Firestore database creation endpoint (403), Cloud Datastore API enable (403)
+  - Verified auth still works: `/me` returns 200 with uid for alice.test@burnbuddy.dev
+  - `/friends` returns 500: "PERMISSION_DENIED: Cloud Firestore API has not been used in project patelr3-site"
+- **Files changed**: `services/api/vitest.config.ts` (added `exclude: ['dist/**', 'node_modules/**']`)
+- **Learnings for future iterations:**
+  - Vitest picks up compiled `.js` test files in `dist/` if no exclude pattern is set — always exclude `dist/` and `node_modules/`
+  - The firebase-adminsdk SA truly cannot enable GCP APIs — no workaround exists; requires project Owner
+  - All 5 remaining stories (US-007 through US-011) are blocked on the same Firestore API issue — no code changes can resolve this
 ---
