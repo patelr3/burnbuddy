@@ -22,6 +22,9 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
 - Cloud Firestore API must be ENABLED in the GCP project before Firestore SDK works — the firebase-adminsdk service account cannot enable APIs (lacks serviceusage.services.enable permission)
 - Azure Container Apps KV secret references resolve when a new revision is created — updating a KV secret value requires a new revision/redeployment to take effect
 - To inject Firebase auth state into browser for testing: write to IndexedDB `firebaseLocalStorageDb` → key `firebase:authUser:<apiKey>:[DEFAULT]`
+- Firestore prefix/typeahead search pattern: `where('field', '>=', q).where('field', '<', q + '\uf8ff')` — case-sensitive, works well for email
+- Mock Firestore query chains in tests: `mockWhere` returns `{ where: mockWhere, limit: mockLimit, get: mockCollectionGet }` for chained where + limit + get
+- `friends.test.ts` also tests `GET /users/search` — changes to the search endpoint affect both `users.test.ts` and `friends.test.ts`
 
 ---
 
@@ -429,4 +432,49 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
   - Azure Container Apps KV secret references are resolved at revision creation time, not at container start time — updating a KV secret requires a new revision
   - `express-async-errors` is the standard way to handle async errors in Express 4 without wrapping every handler
   - The global error handler MUST have 4 parameters (err, req, res, next) to be recognized as an error handler by Express
+---
+
+## 2026-03-04T08:44Z - US-007 (still blocked on Firestore API enablement)
+- **Status**: BLOCKED — Cloud Firestore API is still disabled in GCP project `patelr3-site`
+- **Verification performed**:
+  - `/health` → `{"status":"ok"}` ✅
+  - `/me` → `{"uid":"fU9NS4lWYUSiTvDDz4eYiHXXLZG2"}` ✅ (auth works with real SA credentials)
+  - `/friends` → `{"error":"Internal server error"}` ❌ (Firestore API disabled)
+  - Container logs confirm: `PERMISSION_DENIED: Cloud Firestore API has not been used in project patelr3-site before or it is disabled`
+- **Programmatic enable attempts (all failed)**:
+  - Service Usage REST API → 403 PERMISSION_DENIED (SA lacks `serviceusage.services.enable`)
+  - Firebase CLI (firebase-tools) → 403 same error
+  - Firebase Management API (defaultLocation, finalizeDefaultLocation, availableProducts) → 404 Not Found
+  - Firestore REST API via client API key → 403 SERVICE_DISABLED
+  - Note: Datastore API IS accessible (returns 404 "database doesn't exist", not 403) but no database exists
+- **Quality checks**:
+  - Typecheck: ✅ passes (all 4 workspaces)
+  - API tests: ✅ 181/181 source tests pass (10 dist/ failures are pre-existing CommonJS artifact issue)
+- **TO UNBLOCK** (requires human with GCP project Owner/Editor access):
+  1. Go to https://console.firebase.google.com/project/patelr3-site/firestore → Create database → Native mode → nam5
+  2. OR: Go to https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=patelr3-site → Click Enable
+  3. After enabling, API will work automatically — no code changes or redeployment needed
+- **Files changed**: scripts/ralph/progress.txt only
+- **Learnings for future iterations:**
+  - The Datastore API (datastore.googleapis.com) IS accessible for project patelr3-site, but Firestore API (firestore.googleapis.com) is not — they're separate API enablements
+  - Firebase Management REST API v1beta1 endpoints (defaultLocation, finalizeDefaultLocation) return 404 — these may be internal-only or deprecated
+  - The firebase-adminsdk service account is intentionally scoped: it can use Firebase services but cannot manage GCP project settings (API enablement, IAM, billing)
+---
+
+## 2026-03-04T08:55Z - US-008
+- **Status**: COMPLETE (code implemented, tests pass, browser verification blocked on Firestore)
+- **Changes implemented**:
+  1. **API** (`services/api/src/routes/users.ts`): Added `GET /users/search?q=<query>` — prefix search on email using Firestore range query (`>=` and `< query+\uf8ff`). Returns array of `{uid, displayName, email}`, excludes current user, min 2 chars, limit 10. Backward-compatible: `?email=` exact match still works.
+  2. **API tests** (`services/api/src/routes/users.test.ts`): Added 7 new tests for search endpoint — auth required, min length validation, prefix matching with self-exclusion, empty results, legacy email search, and 404 for no match. Added `mockWhere`, `mockLimit`, `mockCollectionGet` to mock chain.
+  3. **Friends test fix** (`services/api/src/routes/friends.test.ts`): Updated test assertion for new error message when no params provided.
+  4. **Web** (`apps/web/src/app/friends/page.tsx`): Replaced button-based exact-email search with typeahead. Input auto-focuses, debounces at 300ms, calls `?q=` API as user types. Results shown in dropdown list below input. Click result → confirmation dialog. Removed Search button entirely.
+- **Quality checks**: Typecheck ✅ (all 4 workspaces), API tests ✅ (188/188 source tests pass, 10 dist/ failures are pre-existing)
+- **Files changed**: `services/api/src/routes/users.ts`, `services/api/src/routes/users.test.ts`, `services/api/src/routes/friends.test.ts`, `apps/web/src/app/friends/page.tsx`
+- **Browser verification**: Not performed — Firestore API is still disabled in GCP project patelr3-site, so API returns 500 on all Firestore queries
+- **Learnings for future iterations:**
+  - Firestore prefix/typeahead search uses range query: `where('field', '>=', q).where('field', '<', q + '\uf8ff')` where `\uf8ff` is a high Unicode code point
+  - Firestore range queries are case-sensitive — emails are typically lowercase so this works well for email prefix search
+  - React `useEffect` with `setTimeout` is a clean pattern for debounced search — no external library needed
+  - The `friends.test.ts` file also has tests for `GET /users/search` (the search route is mounted under users router), so changes to the search endpoint affect both test files
+  - Mock chain for Firestore queries: `mockWhere` returns `{ where: mockWhere, limit: mockLimit, get: mockCollectionGet }` to support both chained wheres and limit
 ---
