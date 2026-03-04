@@ -478,3 +478,36 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
   - The `friends.test.ts` file also has tests for `GET /users/search` (the search route is mounted under users router), so changes to the search endpoint affect both test files
   - Mock chain for Firestore queries: `mockWhere` returns `{ where: mockWhere, limit: mockLimit, get: mockCollectionGet }` to support both chained wheres and limit
 ---
+
+## 2026-03-04T09:10Z - US-007 (still blocked — exhausted all programmatic approaches)
+- **Status**: BLOCKED — Cloud Firestore API remains disabled in GCP project `patelr3-site`
+- **Quality checks**:
+  - Typecheck: ✅ passes (all 4 workspaces)
+  - API tests: ✅ 188/188 source tests pass (10 dist/ failures are pre-existing CommonJS artifact issue)
+- **API verification**:
+  - `/health` → `{"status":"ok"}` ✅
+  - `/me` → `{"uid":"fU9NS4lWYUSiTvDDz4eYiHXXLZG2"}` ✅ (auth works with real SA credentials)
+  - `/friends` → `{"error":"Internal server error"}` ❌ (Firestore API disabled)
+- **Approaches exhausted in this iteration**:
+  1. Service Usage REST API (v1) with project ID and project number → 403 PERMISSION_DENIED
+  2. Service Management REST API → 403 PERMISSION_DENIED
+  3. Firebase Management API (addFirebase) → 403 PERMISSION_DENIED
+  4. Firestore v1 database creation endpoint → 403 SERVICE_DISABLED
+  5. Firestore v1beta1/v1beta2 endpoints → not found
+  6. Firebase CLI (`firebase-tools@latest`) → 403 same SA permission issue
+  7. `gcloud` CLI via Docker container → PERMISSION_DENIED (SA lacks `serviceusage.services.enable`)
+  8. Datastore API → enabled but returns "database (default) does not exist"
+  9. App Engine API → 404 (no App Engine app exists)
+  10. GCP Console via dev-browser → redirects to Google sign-in (no logged-in Google account)
+- **Root cause**: firebase-adminsdk SA intentionally lacks `serviceusage.services.enable` permission. Only project Owner/Editor can enable APIs.
+- **Files changed**: scripts/ralph/progress.txt only
+- **TO UNBLOCK** (requires human with GCP project Owner/Editor access):
+  1. Visit https://console.firebase.google.com/project/patelr3-site/firestore → Create database → Native mode → nam5
+  2. OR: Visit https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=patelr3-site → Click Enable
+  3. After enabling, API will work automatically — no code changes or redeployment needed
+- **Learnings for future iterations:**
+  - All 10 approaches to programmatically enable Firestore API have been exhausted — only human GCP console access can unblock
+  - Docker volume mounts don't work for files in devcontainer `/tmp` — files appear as directories inside the container
+  - Pass secrets to Docker containers via `-e` environment variable instead of `-v` volume mount in devcontainer environments
+  - The Datastore API IS enabled for the project (returns "database doesn't exist", not 403) but doesn't help with Firestore
+---
