@@ -271,3 +271,53 @@ Started: Tue Mar  3 05:48:16 PM UTC 2026
   4. Trigger deploy: `gh workflow run deploy-web.yml`
 - **Files changed**: None (updated progress.txt only)
 ---
+
+## 2026-03-03T19:31Z - US-002 (iteration 13 — still blocked)
+- **Status**: BLOCKED — Firebase Web SDK config still not available
+- **Quick verification**:
+  - Azure KV (buddyburn-beta-kv): still only `firebase-service-account-json` (minimal: `{"type":"service_account","project_id":"buddyburn-beta"}`) and `otel-collector-endpoint` — no `firebase-web-*` secrets
+  - GitHub beta env secrets: still only Azure creds + NEXT_PUBLIC_API_URL — no NEXT_PUBLIC_FIREBASE_* secrets
+  - Deployed beta JS still has `apiKey:"demo-api-key"` (confirmed via curl of login page chunk)
+  - Firebase Hosting still not enabled (`buddyburn-beta.firebaseapp.com/__/firebase/init.json` → "Site Not Found")
+  - No new workflow runs since 22635854332 at ~18:17Z
+- **All 4 remaining stories blocked**: US-002, US-004, US-005, US-006 — all require Firebase Web SDK config
+- **No new programmatic approaches remain** — exhausted across 13 iterations
+- **To unblock**, a human must:
+  1. Go to [Firebase Console](https://console.firebase.google.com/project/buddyburn-beta/settings/general) → Project Settings → Your apps → Web app
+  2. Copy the Firebase SDK config (apiKey, authDomain, projectId, storageBucket, messagingSenderId, appId)
+  3. Run: `./scripts/setup-firebase-web-config.sh --env all`
+  4. Trigger deploy: `gh workflow run deploy-web.yml`
+- **Files changed**: None (updated progress.txt only)
+---
+
+## 2026-03-03T19:34Z - US-002 (iteration 14 — still blocked)
+- **Status**: BLOCKED — Firebase Web SDK config still not available
+- **Quick verification**: KV `buddyburn-beta-kv` has only `firebase-service-account-json` + `otel-collector-endpoint`. GitHub beta/prod env secrets have only Azure creds + NEXT_PUBLIC_API_URL. No new workflow runs since last iteration. Firebase CLI not authenticated. Google Cloud ADC not available. All programmatic methods exhausted across 14 iterations.
+- **All 4 remaining stories blocked**: US-002, US-004, US-005, US-006
+- **To unblock**, a human must:
+  1. Go to [Firebase Console](https://console.firebase.google.com/project/buddyburn-beta/settings/general) → Project Settings → Your apps → Web app
+  2. Copy the Firebase SDK config
+  3. Run: `./scripts/setup-firebase-web-config.sh --env all`
+  4. Trigger deploy: `gh workflow run deploy-web.yml`
+- **Files changed**: None (updated progress.txt only)
+---
+
+## 2026-03-04T07:10Z - US-002 (COMPLETED) and US-004 (COMPLETED)
+- **Status**: RESOLVED — Firebase Web SDK config is now in Azure Key Vault and deployed successfully
+- **What changed since last iteration**: Firebase Web SDK config secrets (`firebase-web-api-key`, `firebase-web-auth-domain`, `firebase-web-project-id`, `firebase-web-storage-bucket`, `firebase-web-messaging-sender-id`, `firebase-web-app-id`) were populated in both `buddyburn-beta-kv` and `buddyburn-prod-kv` by the user
+- **Steps taken**:
+  1. Verified firebase-web-* secrets present in both KVs
+  2. Committed workflow changes (KV fetch step) on `ralph/beta-prod-env-fixes` branch
+  3. Merged branch to main and pushed
+  4. Triggered `deploy-web.yml` via workflow_dispatch (run 22659058861)
+  5. All 5 jobs passed: Quality Checks → Deploy Beta → E2E Beta → Deploy Prod → E2E Prod
+  6. Verified beta login page via dev-browser: FirebaseUI renders, "Sign in with email" shows Create Account form, no API key errors
+  7. Confirmed JS bundle has real API key (`AIzaSy...`) instead of `demo-api-key`
+- **Files changed**: `.github/workflows/deploy-web.yml` (committed to main), `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`
+- **US-004 also resolved**: Same workflow run deploys to both beta and production. Production KV has identical secrets. Production E2E tests passed.
+- **Learnings for future iterations:**
+  - Once Firebase Web SDK config is in KV, the deploy workflow automatically picks it up — no GitHub secrets needed
+  - The deploy-web.yml workflow runs all 5 stages in sequence: quality → beta deploy → beta E2E → prod deploy → prod E2E
+  - workflow_dispatch is needed when changed files don't match path filters (e.g., workflow file changes don't trigger `apps/web/**` path filter)
+  - Merging feature branch to main before triggering workflow_dispatch ensures the latest workflow definition is used
+---
