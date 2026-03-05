@@ -17,7 +17,7 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "Refactor streak-calculator.ts to walk through GroupWorkout documents. The existing group workout detection (20-min window) already captures overlapping workouts — use those as the data source."
     },
     {
@@ -36,7 +36,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Builds on the streak-calculator refactor from US-001. The calculator should allow gaps of up to 6 days between group workouts without resetting."
     },
     {
@@ -52,7 +52,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Frontend-only change. Move username editing UI from /settings to /account, delete the settings page, and update navigation."
     },
     {

@@ -1,2 +1,64 @@
 # Ralph Progress Log
+Started: Thu Mar  5 07:32:41 AM UTC 2026
+
+## Codebase Patterns
+- Streak calculator now uses `GroupWorkout[]` as the sole input — no more per-member individual workout queries
+- Streak reset uses a 7-day inactivity window — gaps of 1-6 days are tolerated, 7+ resets to 0
+- Route test files use `vi.hoisted` + `vi.mock` pattern with collection-keyed mock routing in `getDb().collection(name)`
+- When adding a new Firestore collection to route tests, add the mock query chain in `vi.hoisted`, add the collection routing in `vi.mock`, and add `mockReturnThis()` for `.where()` in `beforeEach`
+- `calculateStreaks(groupWorkouts)` returns `{ burnStreak, supernovaStreak }` — both values are always equal since GroupWorkout implies all members participated
+- Web app uses `apiGet`/`apiPut`/`apiPost`/`apiPatch` from `@/lib/api` for all authenticated API calls — avoid raw `fetch`
+- Next.js `redirect()` from `next/navigation` provides server-side redirects for removed pages
+
+---
+
+## 2026-03-05T07:38:00Z - US-001
+- Refactored `calculateStreaks` to accept `GroupWorkout[]` instead of `memberUids[] + Workout[]`
+- A streak day = any calendar day with a GroupWorkout for the reference
+- Updated burn-buddies and burn-squads routes to query `groupWorkouts` collection by `referenceId`
+- Rewrote all streak calculator tests for new signature
+- Added tests: "streak increments on unscheduled workout days" and "streak increments when workouts overlap within 20 min but outside schedule"
+- Updated burn-buddies and burn-squads route tests for new GroupWorkout-based streak queries
+- Files changed:
+  - `services/api/src/services/streak-calculator.ts`
+  - `services/api/src/services/streak-calculator.test.ts`
+  - `services/api/src/routes/burn-buddies.ts`
+  - `services/api/src/routes/burn-buddies.test.ts`
+  - `services/api/src/routes/burn-squads.ts`
+  - `services/api/src/routes/burn-squads.test.ts`
+- **Learnings for future iterations:**
+  - GroupWorkout documents already enforce the "all members overlapping within 20 min" constraint — streak logic just counts days with GroupWorkouts
+  - When refactoring streak calc, route handlers also need updating since they pass different data now
+  - Route test mock structure: add new collection mock in `vi.hoisted`, wire it in `vi.mock`'s `collection()` switch, and reset `.where.mockReturnThis()` in `beforeEach`
+  - The `Workout` import can be removed from routes that only used it for streak queries
+---
+
+## 2026-03-05T07:41:00Z - US-002
+- Updated `calculateStreaks` to tolerate gaps of up to 6 consecutive days; 7+ day gap resets streak
+- Updated existing tests whose expectations changed (gap of 2 days no longer resets, gap of 2 days between workout days still counts both)
+- Added 4 new tests: streak survives 6-day gap, streak resets on 7-day gap, streak survives multiple short gaps, streak resets when no workout in last 7 days
+- Files changed:
+  - `services/api/src/services/streak-calculator.ts`
+  - `services/api/src/services/streak-calculator.test.ts`
+- **Learnings for future iterations:**
+  - The streak algorithm uses a simple `gapDays` counter that resets on each workout day — clean and testable
+  - Leading gap (from today backwards to first workout) also follows the 7-day rule
+  - When changing streak behavior, update both the algorithm tests AND verify route tests still pass (they use the real calculator indirectly through mocked Firestore data)
+---
+
+## 2026-03-05T07:44:00Z - US-003
+- Merged username editing from /settings into /account page
+- Account page now has: Profile info, Username editing, Onboarding toggle, Sign Out
+- Replaced /settings page content with `redirect('/account')` server-side redirect
+- Removed Settings link from NavBar (only Account link remains)
+- Switched username save from raw `fetch` to `apiPut` helper for consistency
+- Files changed:
+  - `apps/web/src/app/account/page.tsx` — added username editing section with validation
+  - `apps/web/src/app/settings/page.tsx` — replaced with redirect to /account
+  - `apps/web/src/components/NavBar.tsx` — removed Settings link
+- **Learnings for future iterations:**
+  - Use `redirect()` from `next/navigation` for server-side redirects on removed pages (keeps the URL path for bookmarks/links working)
+  - The settings page used raw `fetch` instead of `apiPut` — always prefer the shared API helpers in `@/lib/api`
+  - NavBar auth check: middleware handles redirect to /login for unauthenticated users, so NavBar only renders on protected pages
+  - Browser testing for auth-gated pages requires login first — unauthenticated requests redirect to /login via middleware
 ---
