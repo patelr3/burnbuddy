@@ -7,6 +7,8 @@ Started: Thu Mar  5 01:57:49 AM UTC 2026
 - `yarn build` builds shared → web → api in order; `yarn typecheck` checks all three
 - API tests use vitest with `vi.mock`/`vi.hoisted` pattern, no emulators needed
 - For pure utility/lib tests, a simple `buildFakeDb()` stub is sufficient — no need for the full vi.hoisted/vi.mock pattern
+- Firestore batch writes: mock with `mockBatch.mockReturnValue({ set: mockBatchSet, commit: mockBatchCommit })` and add `batch: mockBatch` to the `getDb()` stub
+- When adding new mock functions to `vi.hoisted`, also add them to the destructured return AND to `beforeEach` reset defaults
 
 ## 2026-03-05T01:58Z - US-001
 - Added `username?: string` and `usernameLower?: string` to UserProfile interface
@@ -25,4 +27,15 @@ Started: Thu Mar  5 01:57:49 AM UTC 2026
   - The function preserves original casing in `username` but uses lowercase for `usernameLower` and for the Firestore doc ID
   - For pure lib/utility functions, a simple inline `buildFakeDb()` stub works well — no need for the full `vi.hoisted`/`vi.mock` module-level pattern
   - All 196 tests pass, typecheck clean across all workspaces
+---
+
+## 2026-03-05T02:02Z - US-003
+- Modified `POST /users` to call `generateUniqueUsername` and include `username`/`usernameLower` in the created profile
+- Changed from `docRef.set()` to Firestore batch write: atomically creates user profile doc + username reservation doc in `usernames` collection
+- Updated existing tests and added 4 new tests: username in response, reservation doc creation, batch write verification, generateUniqueUsername call args
+- Files changed: `services/api/src/routes/users.ts`, `services/api/src/routes/users.test.ts`
+- **Learnings for future iterations:**
+  - Batch write mocking pattern: add `mockBatch`, `mockBatchSet`, `mockBatchCommit` to `vi.hoisted`, mock `getDb` with `batch: mockBatch`, and set defaults in `beforeEach`
+  - `mockBatchSet.mock.calls[N]` lets you verify both the profile doc and username reservation doc separately
+  - All 198 tests pass, typecheck clean across all workspaces
 ---
