@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { Router, type Request, type Response } from 'express';
-import type { BurnBuddy, BurnBuddyRequest, Workout, WorkoutSchedule } from '@burnbuddy/shared';
+import type { BurnBuddy, BurnBuddyRequest, GroupWorkout, WorkoutSchedule } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
 import { getDb } from '../lib/firestore';
 import { calculateStreaks } from '../services/streak-calculator';
@@ -175,17 +175,14 @@ router.get('/:id/streaks', requireAuth, async (req: Request, res: Response): Pro
     return;
   }
 
-  const memberUids = [burnBuddy.uid1, burnBuddy.uid2];
+  // Fetch all GroupWorkouts for this burn buddy relationship
+  const groupWorkoutSnap = await db
+    .collection('groupWorkouts')
+    .where('referenceId', '==', id)
+    .get();
 
-  // Fetch all completed workouts for both members in parallel
-  const workoutSnaps = await Promise.all(
-    memberUids.map((memberUid) =>
-      db.collection('workouts').where('uid', '==', memberUid).where('status', '==', 'completed').get(),
-    ),
-  );
-
-  const allWorkouts = workoutSnaps.flatMap((snap) => snap.docs.map((doc) => doc.data() as Workout));
-  const streaks = calculateStreaks(memberUids, allWorkouts);
+  const groupWorkouts = groupWorkoutSnap.docs.map((doc) => doc.data() as GroupWorkout);
+  const streaks = calculateStreaks(groupWorkouts);
 
   res.json(streaks);
 });

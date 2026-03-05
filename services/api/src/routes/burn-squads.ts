@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { Router, type Request, type Response } from 'express';
-import type { BurnSquad, BurnSquadJoinRequest, Workout } from '@burnbuddy/shared';
+import type { BurnSquad, BurnSquadJoinRequest, GroupWorkout } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
 import { getDb } from '../lib/firestore';
 import { calculateStreaks } from '../services/streak-calculator';
@@ -346,17 +346,14 @@ router.get(
       return;
     }
 
-    const memberUids = squad.memberUids;
+    // Fetch all GroupWorkouts for this squad
+    const groupWorkoutSnap = await db
+      .collection('groupWorkouts')
+      .where('referenceId', '==', squadId)
+      .get();
 
-    // Fetch all completed workouts for each member in parallel
-    const workoutSnaps = await Promise.all(
-      memberUids.map((memberUid) =>
-        db.collection('workouts').where('uid', '==', memberUid).where('status', '==', 'completed').get(),
-      ),
-    );
-
-    const allWorkouts = workoutSnaps.flatMap((snap) => snap.docs.map((doc) => doc.data() as Workout));
-    const streaks = calculateStreaks(memberUids, allWorkouts);
+    const groupWorkouts = groupWorkoutSnap.docs.map((doc) => doc.data() as GroupWorkout);
+    const streaks = calculateStreaks(groupWorkouts);
 
     res.json(streaks);
   },
