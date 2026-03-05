@@ -7,6 +7,7 @@ Started: Thu Mar  5 05:06:44 PM UTC 2026
 - Firestore queries: use simple single-field queries with in-memory filtering to avoid composite index requirements
 - API tests: vi.hoisted + vi.mock + supertest + buildApp() pattern, run with `cd services/api && yarn test`
 - Express route ordering: place named routes (e.g., `/partner-active`) BEFORE parameterized routes (e.g., `/:id`) to avoid conflicts
+- Buttons inside Next.js `<Link>` need `e.stopPropagation()` + `e.preventDefault()` to prevent navigation
 
 ---
 
@@ -46,4 +47,49 @@ Started: Thu Mar  5 05:06:44 PM UTC 2026
   - Use `mockResolvedValueOnce` chaining for ordered Firestore queries (e.g., uid1 query then uid2 query on burnBuddies)
   - `mockWorkoutsQueryGet` is shared across buddy/squad partner workout lookups — set up `mockResolvedValueOnce` in the order the endpoint calls them
   - All 255 tests pass after adding the 6 new partner-active tests
+---
+
+## 2026-03-05T17:15 - US-004
+- Added partner-active API fetch to loadData() Promise.all in apps/web/src/app/page.tsx
+- Added groupWorkoutWindowMs state variable to track the window duration
+- Built activePartnerMap (referenceId → earliestStartedAt) from API response
+- Extended CombinedItem interface with optional activePartnerStartedAt field
+- Populated activePartnerStartedAt on each buddy/squad item during construction
+- Added 30-second polling useEffect that updates items state with fresh partner data
+- Polling skips when user has active workout, cleans up interval on unmount
+- Graceful .catch() fallback prevents partner-active failure from blocking page load
+- Files changed: `apps/web/src/app/page.tsx`
+- **Learnings for future iterations:**
+  - Import `ActivePartnerWorkout` type from `@burnbuddy/shared` for the API response shape
+  - The polling useEffect should depend on `[user, activeWorkout]` to stop/restart polling correctly
+  - Use `setItems((prev) => prev.map(...))` to merge poll results into existing items without full reload
+  - The `groupWorkoutWindowMs` from API response is needed by US-005 for countdown calculation
+---
+
+## 2026-03-05T17:17 - US-005
+- Added Join Workout button with live countdown timer on buddy/squad cards
+- Added `formatCountdown()` helper for MM:SS display
+- Added `countdowns` state (Record<string, number>) tracking remaining ms per item
+- Added 1-second interval useEffect that computes remaining time from `activePartnerStartedAt + groupWorkoutWindowMs - now`
+- Button only shows when: activePartnerStartedAt is set, countdown > 0, user has no active workout
+- Countdown text switches to `text-red-600` when under 5 minutes (300000ms)
+- Button click uses `e.stopPropagation()` + `e.preventDefault()` to prevent Link navigation, opens workout type selector
+- Files changed: `apps/web/src/app/page.tsx`
+- **Learnings for future iterations:**
+  - Use `e.stopPropagation()` + `e.preventDefault()` on buttons inside Next.js `<Link>` to prevent navigation
+  - Countdown useEffect depends on `[items, groupWorkoutWindowMs]` — re-creates interval when items change (from polling)
+  - `countdowns` state keyed by item id avoids per-item state hooks — single useEffect handles all countdowns
+  - Browser verification requires authentication — both local and beta redirect to /login without session cookie
+---
+
+## 2026-03-05T17:23 - US-006
+- Pushed ralph/join-workout-button branch to origin
+- Created PR #7 against main with descriptive title and summary listing all user stories
+- No CI checks configured on the repo — merged immediately
+- PR merged into main via `gh pr merge --merge --delete-branch`
+- Files changed: `scripts/ralph/prd.json`, `scripts/ralph/progress.txt`
+- **Learnings for future iterations:**
+  - `gh pr checks --watch` returns immediately with exit 0 if no checks are configured
+  - Stash local changes before `gh pr merge --delete-branch` since it tries to switch branches locally
+  - All 6 user stories (US-001 through US-006) completed in this feature branch
 ---

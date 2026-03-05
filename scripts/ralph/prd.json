@@ -78,7 +78,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Add the partner-active fetch to the existing Promise.all in loadData(). For polling, add a separate useEffect with setInterval(30000). When poll returns new data, update items state by merging activePartnerStartedAt values."
     },
     {
@@ -101,7 +101,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "The countdown timer needs its own useEffect with a 1-second interval. Track countdown values in a state object keyed by item id. The Join Workout click handler should just call setShowWorkoutSelector(true) — the existing handleStartWorkout function already handles POST /workouts and refreshing state. Make sure to prevent the Link navigation when clicking the Join button (e.stopPropagation + e.preventDefault)."
     },
     {
@@ -117,7 +117,7 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Final story. Push the branch, create a PR using gh CLI, wait for CI checks to pass, then merge. Use 'gh pr create' and 'gh pr merge' commands."
     }
   ]
