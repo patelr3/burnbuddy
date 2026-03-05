@@ -17,7 +17,7 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "Small change: add constant + interface to shared types, update one import. Verify group-workout-detection.ts still compiles after the import change."
     },
     {
@@ -38,7 +38,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Add the new route handler BEFORE the existing /:id routes to avoid Express route parameter conflicts. Follow the existing Firestore query pattern: simple single-field queries with in-memory filtering to avoid composite index requirements."
     },
     {
@@ -58,7 +58,7 @@
         "All tests pass (cd services/api && yarn test)"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Follow the exact mock pattern in the existing workouts.test.ts file. The hoisted mocks need new mock functions for burnBuddies and burnSquads collection queries. Each test should set up mock return values for the relevant collections."
     },
     {

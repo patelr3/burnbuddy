@@ -6,7 +6,7 @@ import { apiGet, apiPost, apiPut, apiPatch } from '@/lib/api';
 import { GettingStartedCard } from '@/components/GettingStartedCard';
 import { NavBar } from '@/components/NavBar';
 import Link from 'next/link';
-import type { UserProfile, BurnBuddy, BurnSquad, GroupWorkout, BurnBuddyRequest, BurnSquadJoinRequest, Workout, WorkoutType, WorkoutSchedule } from '@burnbuddy/shared';
+import type { UserProfile, BurnBuddy, BurnSquad, GroupWorkout, BurnBuddyRequest, BurnSquadJoinRequest, Workout, WorkoutType, WorkoutSchedule, ActivePartnerWorkout } from '@burnbuddy/shared';
 
 const WORKOUT_TYPES: WorkoutType[] = [
   'Weightlifting', 'Running', 'Cycling', 'Yoga', 'Barre', 'Swimming', 'HIIT', 'Custom',
@@ -32,6 +32,7 @@ interface CombinedItem {
   burnStreak: number;
   lastGroupWorkout: string | null;
   workoutSchedule?: WorkoutSchedule;
+  activePartnerStartedAt?: string;
 }
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
@@ -106,12 +107,13 @@ export default function Home() {
   const [selectedType, setSelectedType] = useState<WorkoutType | ''>('');
   const [customType, setCustomType] = useState('');
   const [elapsed, setElapsed] = useState(0);
+  const [groupWorkoutWindowMs, setGroupWorkoutWindowMs] = useState(0);
 
   const loadData = useCallback(async () => {
     if (!user) return;
     setDataLoading(true);
     try {
-      const [userProfile, buddies, squads, groupWorkouts, buddyRequests, squadRequests, workouts] = await Promise.all([
+      const [userProfile, buddies, squads, groupWorkouts, buddyRequests, squadRequests, workouts, partnerActiveData] = await Promise.all([
         apiGet<UserProfile>('/users/me').catch(() => null),
         apiGet<BurnBuddy[]>('/burn-buddies').catch(() => [] as BurnBuddy[]),
         apiGet<BurnSquad[]>('/burn-squads').catch(() => [] as BurnSquad[]),
@@ -123,7 +125,16 @@ export default function Home() {
           '/burn-squads/join-requests',
         ).catch(() => ({ incoming: [], outgoing: [] })),
         apiGet<Workout[]>('/workouts').catch(() => [] as Workout[]),
+        apiGet<{ groupWorkoutWindowMs: number; activePartnerWorkouts: ActivePartnerWorkout[] }>(
+          '/workouts/partner-active',
+        ).catch(() => ({ groupWorkoutWindowMs: 0, activePartnerWorkouts: [] as ActivePartnerWorkout[] })),
       ]);
+
+      setGroupWorkoutWindowMs(partnerActiveData.groupWorkoutWindowMs);
+      const activePartnerMap = new Map<string, string>();
+      for (const apw of partnerActiveData.activePartnerWorkouts) {
+        activePartnerMap.set(apw.referenceId, apw.earliestStartedAt);
+      }
 
       const active = workouts.find((w) => w.status === 'active') ?? null;
       setActiveWorkout(active);
@@ -179,6 +190,7 @@ export default function Home() {
           burnStreak: streaks.burnStreak,
           lastGroupWorkout: lastWorkoutMap.get(b.id) ?? null,
           workoutSchedule: b.workoutSchedule,
+          activePartnerStartedAt: activePartnerMap.get(b.id),
         };
       });
 
@@ -195,6 +207,7 @@ export default function Home() {
           burnStreak: streaks.burnStreak,
           lastGroupWorkout: lastWorkoutMap.get(s.id) ?? null,
           workoutSchedule: s.settings?.workoutSchedule,
+          activePartnerStartedAt: activePartnerMap.get(s.id),
         };
       });
 
@@ -234,6 +247,33 @@ export default function Home() {
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, [activeWorkout]);
+
+  // Poll partner-active every 30 seconds (skip while user has an active workout)
+  useEffect(() => {
+    if (!user || activeWorkout) return;
+    const poll = async () => {
+      try {
+        const data = await apiGet<{ groupWorkoutWindowMs: number; activePartnerWorkouts: ActivePartnerWorkout[] }>(
+          '/workouts/partner-active',
+        );
+        setGroupWorkoutWindowMs(data.groupWorkoutWindowMs);
+        const newMap = new Map<string, string>();
+        for (const apw of data.activePartnerWorkouts) {
+          newMap.set(apw.referenceId, apw.earliestStartedAt);
+        }
+        setItems((prev) =>
+          prev.map((item) => ({
+            ...item,
+            activePartnerStartedAt: newMap.get(item.id),
+          })),
+        );
+      } catch {
+        // Non-fatal — keep existing state
+      }
+    };
+    const interval = setInterval(poll, 30000);
+    return () => clearInterval(interval);
+  }, [user, activeWorkout]);
 
   const handleDismiss = async () => {
     setShowCard(false);
