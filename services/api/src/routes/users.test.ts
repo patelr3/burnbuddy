@@ -216,11 +216,12 @@ describe('PUT /users/me', () => {
     expect(res.status).toBe(401);
   });
 
-  it('updates and returns the profile when it exists', async () => {
-    const updatedProfile = { ...TEST_PROFILE, displayName: 'Updated Name' };
+  it('updates and returns the profile when it exists (with username already set)', async () => {
+    const existingProfile = { ...TEST_PROFILE, username: 'test', usernameLower: 'test' };
+    const updatedProfile = { ...existingProfile, displayName: 'Updated Name' };
     // 1st get (exists check), 2nd get (fresh data after update)
     mockGet
-      .mockResolvedValueOnce({ exists: true })
+      .mockResolvedValueOnce({ exists: true, data: () => existingProfile })
       .mockResolvedValueOnce({ exists: true, data: () => updatedProfile });
     mockUpdate.mockResolvedValueOnce(undefined);
 
@@ -232,20 +233,45 @@ describe('PUT /users/me', () => {
     expect(res.status).toBe(200);
     expect(res.body.displayName).toBe('Updated Name');
     expect(mockUpdate).toHaveBeenCalledOnce();
+    // Should NOT generate a username since it already has one
+    expect(mockGenerateUniqueUsername).not.toHaveBeenCalled();
   });
 
-  it('creates a profile with 201 when it does not exist and required fields are provided', async () => {
+  it('creates a profile with 201 and generated username when it does not exist', async () => {
     mockGet.mockResolvedValueOnce({ exists: false });
-    mockSet.mockResolvedValueOnce(undefined);
+    mockGenerateUniqueUsername.mockResolvedValueOnce({ username: 'newuser', usernameLower: 'newuser' });
 
     const res = await request(buildApp())
       .put('/users/me')
       .set('Authorization', VALID_TOKEN)
-      .send({ email: 'new@example.com', displayName: 'New User' });
+      .send({ email: 'newuser@example.com', displayName: 'New User' });
 
     expect(res.status).toBe(201);
-    expect(res.body).toMatchObject({ email: 'new@example.com', displayName: 'New User' });
-    expect(mockSet).toHaveBeenCalledOnce();
+    expect(res.body).toMatchObject({
+      email: 'newuser@example.com',
+      displayName: 'New User',
+      username: 'newuser',
+      usernameLower: 'newuser',
+    });
+    expect(mockBatchSet).toHaveBeenCalledTimes(2);
+    expect(mockBatchCommit).toHaveBeenCalledOnce();
+    expect(mockGenerateUniqueUsername).toHaveBeenCalledWith('newuser@example.com', expect.anything());
+  });
+
+  it('creates username reservation atomically on create path', async () => {
+    mockGet.mockResolvedValueOnce({ exists: false });
+    mockGenerateUniqueUsername.mockResolvedValueOnce({ username: 'alice', usernameLower: 'alice' });
+
+    const res = await request(buildApp())
+      .put('/users/me')
+      .set('Authorization', VALID_TOKEN)
+      .send({ email: 'alice@example.com', displayName: 'Alice' });
+
+    expect(res.status).toBe(201);
+    // Second batch.set is the username reservation
+    const secondCallArgs = mockBatchSet.mock.calls[1];
+    expect(secondCallArgs[1]).toEqual({ uid: TEST_UID });
+    expect(mockBatchCommit).toHaveBeenCalledOnce();
   });
 
   it('returns 400 when profile does not exist and required fields are missing', async () => {
@@ -260,10 +286,11 @@ describe('PUT /users/me', () => {
     expect(res.body).toMatchObject({ error: expect.stringContaining('email') });
   });
 
-  it('updates gettingStartedDismissed when profile exists', async () => {
-    const updatedProfile = { ...TEST_PROFILE, gettingStartedDismissed: true };
+  it('updates gettingStartedDismissed when profile exists (with username)', async () => {
+    const existingProfile = { ...TEST_PROFILE, username: 'test', usernameLower: 'test' };
+    const updatedProfile = { ...existingProfile, gettingStartedDismissed: true };
     mockGet
-      .mockResolvedValueOnce({ exists: true })
+      .mockResolvedValueOnce({ exists: true, data: () => existingProfile })
       .mockResolvedValueOnce({ exists: true, data: () => updatedProfile });
     mockUpdate.mockResolvedValueOnce(undefined);
 
@@ -275,6 +302,69 @@ describe('PUT /users/me', () => {
     expect(res.status).toBe(200);
     expect(res.body.gettingStartedDismissed).toBe(true);
     expect(mockUpdate).toHaveBeenCalledWith({ gettingStartedDismissed: true });
+  });
+
+  // Lazy migration tests
+  it('auto-generates username for existing user without one (lazy migration)', async () => {
+    // Existing profile without username
+    const existingProfile = { ...TEST_PROFILE };
+    const migratedProfile = { ...TEST_PROFILE, username: 'test', usernameLower: 'test', displayName: 'Updated' };
+    mockGet
+      .mockResolvedValueOnce({ exists: true, data: () => existingProfile })
+      .mockResolvedValueOnce({ exists: true, data: () => migratedProfile });
+    mockGenerateUniqueUsername.mockResolvedValueOnce({ username: 'test', usernameLower: 'test' });
+
+    const res = await request(buildApp())
+      .put('/users/me')
+      .set('Authorization', VALID_TOKEN)
+      .send({ displayName: 'Updated' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.username).toBe('test');
+    expect(res.body.usernameLower).toBe('test');
+    expect(mockGenerateUniqueUsername).toHaveBeenCalledWith('test@example.com', expect.anything());
+    // Should use batch write for atomic username reservation
+    expect(mockBatchSet).toHaveBeenCalledTimes(2);
+    expect(mockBatchCommit).toHaveBeenCalledOnce();
+  });
+
+  it('lazy migration uses provided email over existing email', async () => {
+    const existingProfile = { ...TEST_PROFILE };
+    const migratedProfile = { ...TEST_PROFILE, email: 'new@example.com', username: 'new', usernameLower: 'new' };
+    mockGet
+      .mockResolvedValueOnce({ exists: true, data: () => existingProfile })
+      .mockResolvedValueOnce({ exists: true, data: () => migratedProfile });
+    mockGenerateUniqueUsername.mockResolvedValueOnce({ username: 'new', usernameLower: 'new' });
+
+    const res = await request(buildApp())
+      .put('/users/me')
+      .set('Authorization', VALID_TOKEN)
+      .send({ email: 'new@example.com' });
+
+    expect(res.status).toBe(200);
+    expect(mockGenerateUniqueUsername).toHaveBeenCalledWith('new@example.com', expect.anything());
+  });
+
+  it('lazy migration creates username reservation atomically', async () => {
+    const existingProfile = { ...TEST_PROFILE };
+    const migratedProfile = { ...TEST_PROFILE, username: 'test', usernameLower: 'test' };
+    mockGet
+      .mockResolvedValueOnce({ exists: true, data: () => existingProfile })
+      .mockResolvedValueOnce({ exists: true, data: () => migratedProfile });
+    mockGenerateUniqueUsername.mockResolvedValueOnce({ username: 'test', usernameLower: 'test' });
+
+    await request(buildApp())
+      .put('/users/me')
+      .set('Authorization', VALID_TOKEN)
+      .send({ displayName: 'Updated' });
+
+    // Verify batch write: first set is profile update (merge), second is username reservation
+    expect(mockBatchSet).toHaveBeenCalledTimes(2);
+    const reservationArgs = mockBatchSet.mock.calls[1];
+    expect(reservationArgs[1]).toEqual({ uid: TEST_UID });
+    expect(mockBatchCommit).toHaveBeenCalledOnce();
+    // Should NOT use docRef.update — uses batch.set with merge instead
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 });
 

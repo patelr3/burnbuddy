@@ -139,6 +139,25 @@ router.put('/me', requireAuth, async (req: Request, res: Response): Promise<void
     if (fcmToken !== undefined) updates.fcmToken = fcmToken;
     if (gettingStartedDismissed !== undefined) updates.gettingStartedDismissed = gettingStartedDismissed;
 
+    // Lazy migration: generate username for existing users that don't have one
+    const existingData = existing.data() as UserProfile;
+    if (!existingData.username) {
+      const migrationEmail = email ?? existingData.email;
+      if (migrationEmail) {
+        const { username, usernameLower } = await generateUniqueUsername(migrationEmail, db);
+        updates.username = username;
+        updates.usernameLower = usernameLower;
+
+        const batch = db.batch();
+        batch.set(docRef, updates, { merge: true });
+        batch.set(db.collection('usernames').doc(usernameLower), { uid });
+        await batch.commit();
+        const updated = await docRef.get();
+        res.json(updated.data() as UserProfile);
+        return;
+      }
+    }
+
     await docRef.update(updates);
     const updated = await docRef.get();
     res.json(updated.data() as UserProfile);
@@ -148,15 +167,22 @@ router.put('/me', requireAuth, async (req: Request, res: Response): Promise<void
       return;
     }
 
+    const { username, usernameLower } = await generateUniqueUsername(email, db);
+
     const profile: UserProfile = {
       uid,
       email,
       displayName,
+      username,
+      usernameLower,
       createdAt: new Date().toISOString(),
       ...(fcmToken !== undefined ? { fcmToken } : {}),
     };
 
-    await docRef.set(profile);
+    const batch = db.batch();
+    batch.set(docRef, profile);
+    batch.set(db.collection('usernames').doc(usernameLower), { uid });
+    await batch.commit();
     res.status(201).json(profile);
   }
 });
