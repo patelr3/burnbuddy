@@ -142,11 +142,11 @@ router.get('/', requireAuth, async (req: Request, res: Response): Promise<void> 
       const userDoc = await db.collection('users').doc(otherUid).get();
       if (!userDoc.exists) return null;
       const profile = userDoc.data() as UserProfile;
-      return { uid: otherUid, displayName: profile.displayName, email: profile.email, createdAt: friend.createdAt };
+      return { uid: otherUid, displayName: profile.displayName, email: profile.email, username: profile.username, createdAt: friend.createdAt };
     }),
   );
 
-  res.json(enriched.filter((f): f is { uid: string; displayName: string; email: string; createdAt: string } => f !== null));
+  res.json(enriched.filter((f) => f !== null));
 });
 
 /**

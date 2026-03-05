@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import type { UserProfile } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
 import { getDb } from '../lib/firestore';
+import { generateUniqueUsername, validateUsername } from '../lib/username';
 
 /**
  * GET /users/search?q=<query>   — typeahead prefix search (returns array)
@@ -25,7 +26,7 @@ router.get('/search', requireAuth, async (req: Request, res: Response): Promise<
     }
 
     const user = snapshot.docs[0].data() as UserProfile;
-    res.json({ uid: user.uid, displayName: user.displayName, email: user.email });
+    res.json({ uid: user.uid, displayName: user.displayName, email: user.email, username: user.username });
     return;
   }
 
@@ -36,23 +37,35 @@ router.get('/search', requireAuth, async (req: Request, res: Response): Promise<
   }
 
   const query = q.trim();
+  const queryLower = query.toLowerCase();
   const currentUid = req.user!.uid;
   const db = getDb();
 
-  // Prefix search on email using Firestore range query
-  const snapshot = await db
-    .collection('users')
-    .where('email', '>=', query)
-    .where('email', '<', query + '\uf8ff')
-    .limit(10)
-    .get();
+  // Run email and username prefix searches in parallel
+  const [emailSnapshot, usernameSnapshot] = await Promise.all([
+    db.collection('users')
+      .where('email', '>=', query)
+      .where('email', '<', query + '\uf8ff')
+      .limit(10)
+      .get(),
+    db.collection('users')
+      .where('usernameLower', '>=', queryLower)
+      .where('usernameLower', '<', queryLower + '\uf8ff')
+      .limit(10)
+      .get(),
+  ]);
 
-  const results = snapshot.docs
-    .map((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
-      const u = doc.data() as UserProfile;
-      return { uid: u.uid, displayName: u.displayName, email: u.email };
-    })
-    .filter((u: { uid: string }) => u.uid !== currentUid);
+  // Merge and deduplicate by uid
+  const seen = new Set<string>();
+  const results: Array<{ uid: string; displayName: string; email: string; username?: string }> = [];
+
+  for (const doc of [...emailSnapshot.docs, ...usernameSnapshot.docs]) {
+    const u = doc.data() as UserProfile;
+    if (u.uid === currentUid || seen.has(u.uid)) continue;
+    seen.add(u.uid);
+    results.push({ uid: u.uid, displayName: u.displayName, email: u.email, username: u.username });
+    if (results.length >= 10) break;
+  }
 
   res.json(results);
 });
@@ -80,15 +93,23 @@ router.post('/', requireAuth, async (req: Request, res: Response): Promise<void>
     return;
   }
 
+  const { username, usernameLower } = await generateUniqueUsername(email, db);
+
   const profile: UserProfile = {
     uid,
     email,
     displayName,
+    username,
+    usernameLower,
     createdAt: new Date().toISOString(),
     ...(fcmToken !== undefined ? { fcmToken } : {}),
   };
 
-  await docRef.set(profile);
+  const batch = db.batch();
+  batch.set(docRef, profile);
+  batch.set(db.collection('usernames').doc(usernameLower), { uid });
+  await batch.commit();
+
   res.status(201).json(profile);
 });
 
@@ -123,12 +144,70 @@ router.put('/me', requireAuth, async (req: Request, res: Response): Promise<void
   const existing = await docRef.get();
 
   if (existing.exists) {
-    const { gettingStartedDismissed } = req.body as Partial<UserProfile>;
+    const { gettingStartedDismissed, username: requestedUsername } = req.body as Partial<UserProfile>;
     const updates: Partial<UserProfile> = {};
     if (email !== undefined) updates.email = email;
     if (displayName !== undefined) updates.displayName = displayName;
     if (fcmToken !== undefined) updates.fcmToken = fcmToken;
     if (gettingStartedDismissed !== undefined) updates.gettingStartedDismissed = gettingStartedDismissed;
+
+    const existingData = existing.data() as UserProfile;
+
+    // Username update: validate format and uniqueness
+    if (requestedUsername !== undefined) {
+      const validationError = validateUsername(requestedUsername);
+      if (validationError) {
+        res.status(400).json({ error: validationError });
+        return;
+      }
+
+      const newLower = requestedUsername.toLowerCase();
+      const oldLower = existingData.usernameLower;
+
+      if (newLower !== oldLower) {
+        const existingReservation = await db.collection('usernames').doc(newLower).get();
+        if (existingReservation.exists) {
+          res.status(409).json({ error: 'Username already taken' });
+          return;
+        }
+
+        updates.username = requestedUsername;
+        updates.usernameLower = newLower;
+
+        const batch = db.batch();
+        batch.set(docRef, updates, { merge: true });
+        batch.set(db.collection('usernames').doc(newLower), { uid });
+        if (oldLower) {
+          batch.delete(db.collection('usernames').doc(oldLower));
+        }
+        await batch.commit();
+        const updated = await docRef.get();
+        res.json(updated.data() as UserProfile);
+        return;
+      }
+      // Same username (case-insensitive) — allow casing change
+      if (requestedUsername !== existingData.username) {
+        updates.username = requestedUsername;
+      }
+    }
+
+    // Lazy migration: generate username for existing users that don't have one
+    if (!existingData.username && !updates.username) {
+      const migrationEmail = email ?? existingData.email;
+      if (migrationEmail) {
+        const { username, usernameLower } = await generateUniqueUsername(migrationEmail, db);
+        updates.username = username;
+        updates.usernameLower = usernameLower;
+
+        const batch = db.batch();
+        batch.set(docRef, updates, { merge: true });
+        batch.set(db.collection('usernames').doc(usernameLower), { uid });
+        await batch.commit();
+        const updated = await docRef.get();
+        res.json(updated.data() as UserProfile);
+        return;
+      }
+    }
 
     await docRef.update(updates);
     const updated = await docRef.get();
@@ -139,15 +218,22 @@ router.put('/me', requireAuth, async (req: Request, res: Response): Promise<void
       return;
     }
 
+    const { username, usernameLower } = await generateUniqueUsername(email, db);
+
     const profile: UserProfile = {
       uid,
       email,
       displayName,
+      username,
+      usernameLower,
       createdAt: new Date().toISOString(),
       ...(fcmToken !== undefined ? { fcmToken } : {}),
     };
 
-    await docRef.set(profile);
+    const batch = db.batch();
+    batch.set(docRef, profile);
+    batch.set(db.collection('usernames').doc(usernameLower), { uid });
+    await batch.commit();
     res.status(201).json(profile);
   }
 });

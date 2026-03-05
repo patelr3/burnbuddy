@@ -2,6 +2,8 @@ export interface UserProfile {
   uid: string;
   email: string;
   displayName: string;
+  username?: string;
+  usernameLower?: string;
   fcmToken?: string;
   gettingStartedDismissed?: boolean;
   createdAt: string;

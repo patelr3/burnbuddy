@@ -10,6 +10,7 @@ interface FriendWithProfile {
   uid: string;
   displayName: string;
   email: string;
+  username?: string;
   createdAt: string;
 }
 
@@ -17,6 +18,7 @@ interface UserSearchResult {
   uid: string;
   displayName: string;
   email: string;
+  username?: string;
 }
 
 interface EnrichedFriendRequest extends FriendRequest {
@@ -231,7 +233,7 @@ export default function FriendsPage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Start typing an email…"
+                placeholder="Search by username or email"
                 autoFocus
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
               />
@@ -250,8 +252,13 @@ export default function FriendsPage() {
                     onClick={() => handleSelectUser(u)}
                     className="cursor-pointer px-3 py-2.5 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
                   >
-                    <strong className="text-gray-900">{u.displayName}</strong>
-                    <span className="ml-2 text-sm text-gray-500">{u.email}</span>
+                    <div>
+                      <strong className="text-gray-900">{u.displayName}</strong>
+                      <span className="ml-2 text-sm text-gray-500">{u.email}</span>
+                    </div>
+                    {u.username && (
+                      <div className="text-xs text-gray-400">@{u.username}</div>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -389,6 +396,9 @@ export default function FriendsPage() {
                     >
                       <div>
                         <strong className="text-gray-900">{friend.displayName}</strong>
+                        {friend.username && (
+                          <span className="ml-1.5 text-sm text-gray-400">@{friend.username}</span>
+                        )}
                         <div className="text-xs text-gray-500">{friend.email}</div>
                       </div>
                       <div className="flex items-center gap-2">
