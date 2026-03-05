@@ -13,6 +13,7 @@ Started: Thu Mar  5 01:57:49 AM UTC 2026
 - For username uniqueness checks in tests, chain mockGet responses: 1st for profile exists, 2nd for username doc exists, 3rd for fresh data after update
 - For parallel Firestore queries (e.g., `Promise.all`), stack `mockCollectionGet.mockResolvedValueOnce()` — first call consumes first value, second call consumes second
 - GET /friends enriches profiles from the `users` collection — add any new UserProfile fields to the return object in `services/api/src/routes/friends.ts`
+- For dev-browser testing, bind Next.js to `0.0.0.0` (`--hostname 0.0.0.0`) — Chromium can't reach `localhost` from its sandboxed process
 
 ## 2026-03-05T01:58Z - US-001
 - Added `username?: string` and `usernameLower?: string` to UserProfile interface
@@ -124,4 +125,15 @@ Started: Thu Mar  5 01:57:49 AM UTC 2026
   - The settings page follows the same layout pattern as `/account`: `NavBar` + `max-w-xl` main + sections with `rounded-lg border`
   - All 220 tests pass, typecheck clean across all workspaces
   - Browser verification needed — page requires auth session
+---
+
+## 2026-03-05T02:22Z - US-010
+- Added "Settings" link to NavBar component pointing to `/settings`
+- Link uses the same `linkClass` helper for active/inactive styling, matching Friends and Account links
+- Files changed: `apps/web/src/components/NavBar.tsx`
+- **Learnings for future iterations:**
+  - NavBar uses a `linkClass` helper that takes the href and applies active state styling via `usePathname()` comparison
+  - The NavBar is only rendered on authenticated pages — login/signup pages don't include it
+  - The dev-browser skill needs `0.0.0.0` binding (not `localhost`) when the Chromium process runs in a separate context
+  - All 220 tests pass, typecheck clean across all workspaces
 ---
