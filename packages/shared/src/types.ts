@@ -100,6 +100,14 @@ export interface GroupStats {
   groupWorkoutsThisMonth: number;
 }
 
+export const GROUP_WORKOUT_WINDOW_MS = 20 * 60 * 1000; // 20 minutes
+
+export interface ActivePartnerWorkout {
+  type: 'buddy' | 'squad';
+  referenceId: string;
+  earliestStartedAt: string; // ISO 8601
+}
+
 export interface ProfileStats {
   displayName: string;
   username?: string;

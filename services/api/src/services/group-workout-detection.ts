@@ -1,8 +1,7 @@
 import { randomUUID } from 'crypto';
+import { GROUP_WORKOUT_WINDOW_MS } from '@burnbuddy/shared';
 import type { BurnBuddy, BurnSquad, GroupWorkout, Workout } from '@burnbuddy/shared';
 import { getDb } from '../lib/firestore';
-
-const GROUP_WORKOUT_WINDOW_MS = 20 * 60 * 1000; // 20 minutes
 
 /**
  * Finds active workouts for a user that started within the detection window.
