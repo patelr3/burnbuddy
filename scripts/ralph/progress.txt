@@ -7,8 +7,11 @@ Started: Thu Mar  5 01:57:49 AM UTC 2026
 - `yarn build` builds shared → web → api in order; `yarn typecheck` checks all three
 - API tests use vitest with `vi.mock`/`vi.hoisted` pattern, no emulators needed
 - For pure utility/lib tests, a simple `buildFakeDb()` stub is sufficient — no need for the full vi.hoisted/vi.mock pattern
-- Firestore batch writes: mock with `mockBatch.mockReturnValue({ set: mockBatchSet, commit: mockBatchCommit })` and add `batch: mockBatch` to the `getDb()` stub
+- Firestore batch writes: mock with `mockBatch.mockReturnValue({ set: mockBatchSet, delete: mockBatchDelete, commit: mockBatchCommit })` and add `batch: mockBatch` to the `getDb()` stub
 - When adding new mock functions to `vi.hoisted`, also add them to the destructured return AND to `beforeEach` reset defaults
+- When existing profile data is needed in tests (e.g., for field checks), mock `exists: true` WITH `data: () => profileObj` — not just `exists: true`
+- For username uniqueness checks in tests, chain mockGet responses: 1st for profile exists, 2nd for username doc exists, 3rd for fresh data after update
+- For parallel Firestore queries (e.g., `Promise.all`), stack `mockCollectionGet.mockResolvedValueOnce()` — first call consumes first value, second call consumes second
 
 ## 2026-03-05T01:58Z - US-001
 - Added `username?: string` and `usernameLower?: string` to UserProfile interface
@@ -38,4 +41,46 @@ Started: Thu Mar  5 01:57:49 AM UTC 2026
   - Batch write mocking pattern: add `mockBatch`, `mockBatchSet`, `mockBatchCommit` to `vi.hoisted`, mock `getDb` with `batch: mockBatch`, and set defaults in `beforeEach`
   - `mockBatchSet.mock.calls[N]` lets you verify both the profile doc and username reservation doc separately
   - All 198 tests pass, typecheck clean across all workspaces
+---
+
+## 2026-03-05T02:04Z - US-004
+- Modified PUT /users/me create path to generate username via `generateUniqueUsername` and use batch write for atomic profile + username reservation
+- Modified PUT /users/me update path to detect existing users without `username` field and auto-generate one (lazy migration) using batch write with `{ merge: true }`
+- Updated 2 existing tests (need `data()` mock on existing profile now) and added 7 new tests: create-path username generation, atomic reservation, lazy migration, email precedence, reservation verification
+- Files changed: `services/api/src/routes/users.ts`, `services/api/src/routes/users.test.ts`
+- **Learnings for future iterations:**
+  - When checking existing profile fields (e.g., `existingData.username`), the `exists: true` mock in tests must also include `data: () => profileObj` — otherwise `existing.data()` fails
+  - For lazy migration, use `batch.set(docRef, updates, { merge: true })` instead of `docRef.update()` to keep the operation atomic with the username reservation
+  - The lazy migration path uses `email ?? existingData.email` to prefer provided email over stored email for username derivation
+  - All 202 tests pass, typecheck clean across all workspaces
+---
+
+## 2026-03-05T02:08Z - US-005
+- Added `validateUsername()` to `services/api/src/lib/username.ts` with regex validation (alphanumeric + underscores, 3-30 chars)
+- Modified PUT /users/me to accept `username` in request body: validates format (400), checks uniqueness (409), atomically releases old reservation + creates new one via batch write
+- Case-only changes (e.g., "myname" → "MyName") skip uniqueness check and use regular update
+- Added 8 unit tests for validateUsername in `username.test.ts`
+- Added 6 integration tests in `users.test.ts`: valid update, validation errors (too short, invalid chars), 409 conflict, atomic reservation release, case-only change
+- Added `mockBatchDelete` and `mockValidateUsername` to the vi.hoisted mock pattern
+- Files changed: `services/api/src/lib/username.ts`, `services/api/src/lib/username.test.ts`, `services/api/src/routes/users.ts`, `services/api/src/routes/users.test.ts`
+- **Learnings for future iterations:**
+  - When username update changes the lowercase form, use batch write with 3 operations: set profile (merge), set new reservation, delete old reservation
+  - When username update is case-only (same lowercase), skip uniqueness check and use regular `docRef.update`
+  - The `mockGet` mock for username update tests needs 3 chained values: profile exists check, username reservation exists check, and fresh data after update
+  - `mockBatchDelete` must be included in the batch mock return value alongside `set` and `commit`
+  - All 216 tests pass (14 new: 8 validateUsername + 6 route tests), typecheck clean
+---
+
+## 2026-03-05T02:10Z - US-006
+- Modified `GET /users/search?q=` to run two parallel Firestore queries: email prefix (existing) and usernameLower prefix (new)
+- Results merged and deduplicated by uid, limited to 10 combined
+- Response objects now include `username` field alongside uid, displayName, email
+- Legacy exact email search also includes `username` in response
+- Username query uses `queryLower` (lowercase) for case-insensitive matching
+- Updated 2 existing tests and added 4 new tests: username prefix search, deduplication, lowercase query, combined limit
+- Files changed: `services/api/src/routes/users.ts`, `services/api/src/routes/users.test.ts`
+- **Learnings for future iterations:**
+  - For parallel Firestore queries via `Promise.all`, chain `mockCollectionGet.mockResolvedValueOnce()` twice — first call returns email results, second returns username results
+  - The mock chain `mockWhere → mockWhere/mockLimit → mockCollectionGet` supports multiple `.get()` calls via stacked `mockResolvedValueOnce`
+  - All 220 tests pass (4 new search tests), typecheck clean across all workspaces
 ---
