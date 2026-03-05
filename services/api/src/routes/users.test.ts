@@ -532,24 +532,29 @@ describe('GET /users/search', () => {
   });
 
   it('returns matching users for q prefix search, excluding current user', async () => {
-    const OTHER_USER = { uid: 'other-uid', email: 'alice@example.com', displayName: 'Alice' };
+    const OTHER_USER = { uid: 'other-uid', email: 'alice@example.com', displayName: 'Alice', username: 'alice' };
+    // Email query results
     mockCollectionGet.mockResolvedValueOnce({
       docs: [
         { data: () => ({ ...OTHER_USER }) },
         { data: () => ({ uid: TEST_UID, email: 'test@example.com', displayName: 'Test User' }) },
       ],
     });
+    // Username query results (empty)
+    mockCollectionGet.mockResolvedValueOnce({ docs: [] });
 
     const res = await request(buildApp())
       .get('/users/search?q=ali')
       .set('Authorization', VALID_TOKEN);
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual([{ uid: 'other-uid', displayName: 'Alice', email: 'alice@example.com' }]);
+    expect(res.body).toEqual([{ uid: 'other-uid', displayName: 'Alice', email: 'alice@example.com', username: 'alice' }]);
     expect(mockWhere).toHaveBeenCalledWith('email', '>=', 'ali');
+    expect(mockWhere).toHaveBeenCalledWith('usernameLower', '>=', 'ali');
   });
 
   it('returns empty array when no users match', async () => {
+    mockCollectionGet.mockResolvedValueOnce({ docs: [] });
     mockCollectionGet.mockResolvedValueOnce({ docs: [] });
 
     const res = await request(buildApp())
@@ -560,11 +565,84 @@ describe('GET /users/search', () => {
     expect(res.body).toEqual([]);
   });
 
+  it('returns matching users for username prefix search', async () => {
+    const USER = { uid: 'uid-2', email: 'bob@example.com', displayName: 'Bob', username: 'bobster', usernameLower: 'bobster' };
+    // Email query results (empty)
+    mockCollectionGet.mockResolvedValueOnce({ docs: [] });
+    // Username query results
+    mockCollectionGet.mockResolvedValueOnce({
+      docs: [{ data: () => ({ ...USER }) }],
+    });
+
+    const res = await request(buildApp())
+      .get('/users/search?q=bob')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([{ uid: 'uid-2', displayName: 'Bob', email: 'bob@example.com', username: 'bobster' }]);
+    expect(mockWhere).toHaveBeenCalledWith('usernameLower', '>=', 'bob');
+  });
+
+  it('deduplicates results found by both email and username', async () => {
+    const USER = { uid: 'uid-3', email: 'charlie@example.com', displayName: 'Charlie', username: 'charlie', usernameLower: 'charlie' };
+    // Email query returns the user
+    mockCollectionGet.mockResolvedValueOnce({
+      docs: [{ data: () => ({ ...USER }) }],
+    });
+    // Username query also returns the same user
+    mockCollectionGet.mockResolvedValueOnce({
+      docs: [{ data: () => ({ ...USER }) }],
+    });
+
+    const res = await request(buildApp())
+      .get('/users/search?q=charlie')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].uid).toBe('uid-3');
+  });
+
+  it('uses lowercase query for username prefix search', async () => {
+    mockCollectionGet.mockResolvedValueOnce({ docs: [] });
+    mockCollectionGet.mockResolvedValueOnce({ docs: [] });
+
+    await request(buildApp())
+      .get('/users/search?q=AlIcE')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(mockWhere).toHaveBeenCalledWith('email', '>=', 'AlIcE');
+    expect(mockWhere).toHaveBeenCalledWith('usernameLower', '>=', 'alice');
+  });
+
+  it('limits combined results to 10', async () => {
+    const makeUsers = (prefix: string, count: number) =>
+      Array.from({ length: count }, (_, i) => ({
+        data: () => ({
+          uid: `${prefix}-${i}`,
+          email: `${prefix}${i}@example.com`,
+          displayName: `User ${prefix}${i}`,
+          username: `${prefix}${i}`,
+        }),
+      }));
+    // Email query returns 8 users
+    mockCollectionGet.mockResolvedValueOnce({ docs: makeUsers('email', 8) });
+    // Username query returns 5 users
+    mockCollectionGet.mockResolvedValueOnce({ docs: makeUsers('uname', 5) });
+
+    const res = await request(buildApp())
+      .get('/users/search?q=te')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.length).toBeLessThanOrEqual(10);
+  });
+
   // Legacy exact email search
   it('returns single user for exact email search', async () => {
     mockCollectionGet.mockResolvedValueOnce({
       empty: false,
-      docs: [{ data: () => ({ uid: 'uid-1', email: 'bob@example.com', displayName: 'Bob' }) }],
+      docs: [{ data: () => ({ uid: 'uid-1', email: 'bob@example.com', displayName: 'Bob', username: 'bob' }) }],
     });
 
     const res = await request(buildApp())
@@ -572,7 +650,7 @@ describe('GET /users/search', () => {
       .set('Authorization', VALID_TOKEN);
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ uid: 'uid-1', displayName: 'Bob', email: 'bob@example.com' });
+    expect(res.body).toEqual({ uid: 'uid-1', displayName: 'Bob', email: 'bob@example.com', username: 'bob' });
   });
 
   it('returns 404 for exact email search with no match', async () => {
