@@ -170,6 +170,7 @@ export default function FriendsScreen() {
         <TouchableOpacity
           onPress={() => (showSearch ? closeSearch() : setShowSearch(true))}
           style={styles.addButton}
+          testID="friends-add-friend-button"
         >
           <Text style={styles.addButtonText}>{showSearch ? 'Cancel' : '+ Add Friend'}</Text>
         </TouchableOpacity>
@@ -198,6 +199,7 @@ export default function FriendsScreen() {
                 onPress={handleSearch}
                 disabled={searching}
                 style={[styles.searchButton, searching && styles.disabledButton]}
+                testID="friends-search-button"
               >
                 <Text style={styles.searchButtonText}>{searching ? '…' : 'Search'}</Text>
               </TouchableOpacity>
@@ -207,6 +209,7 @@ export default function FriendsScreen() {
               <TouchableOpacity
                 onPress={() => setConfirmUser(searchResult)}
                 style={styles.searchResultCard}
+                testID="friends-search-result"
               >
                 <Text style={styles.searchResultName}>{searchResult.displayName}</Text>
                 <Text style={styles.searchResultEmail}>{searchResult.email}</Text>
@@ -299,6 +302,7 @@ export default function FriendsScreen() {
               <TouchableOpacity
                 onPress={() => setConfirmUser(null)}
                 style={styles.cancelButton}
+                testID="friends-modal-cancel-button"
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
@@ -306,6 +310,7 @@ export default function FriendsScreen() {
                 onPress={handleConfirmRequest}
                 disabled={sendingRequest}
                 style={[styles.confirmButton, sendingRequest && styles.disabledButton]}
+                testID="friends-modal-send-button"
               >
                 <Text style={styles.confirmButtonText}>
                   {sendingRequest ? 'Sending…' : 'Send Request'}

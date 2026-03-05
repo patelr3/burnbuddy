@@ -102,6 +102,8 @@ maestro test -e TEST_USER_EMAIL=myuser@test.com -e TEST_USER_PASSWORD=secret .ma
 |---|---|---|---|
 | Login | `login.yaml` | smoke, auth | Enters email/password, taps Sign In, verifies Home screen appears |
 | Sign Up | `signup.yaml` | auth | Fills signup form, creates account, verifies Home screen appears |
+| Home Navigation | `home-navigation.yaml` | smoke, navigation | Navigates between Home, Friends, and Account tabs, verifies each loads |
+| Add Friend | `add-friend.yaml` | friends | Opens Friends tab, searches for a user by email, sends friend request |
 
 **Running individual flows:**
 
@@ -112,8 +114,20 @@ maestro test .maestro/login.yaml
 # Run signup flow with custom credentials
 maestro test -e SIGNUP_EMAIL=custom@test.com -e SIGNUP_PASSWORD=secret123 .maestro/signup.yaml
 
+# Run home navigation flow
+maestro test .maestro/home-navigation.yaml
+
+# Run add friend flow with a specific friend email
+maestro test -e FRIEND_EMAIL=buddy@example.com .maestro/add-friend.yaml
+
 # Run all auth-tagged flows
 maestro test --include-tags=auth .maestro/
+
+# Run all navigation-tagged flows
+maestro test --include-tags=navigation .maestro/
+
+# Run all friends-tagged flows
+maestro test --include-tags=friends .maestro/
 ```
 
 ### Writing New Flows

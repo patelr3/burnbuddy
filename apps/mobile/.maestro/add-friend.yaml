@@ -1,0 +1,65 @@
+appId: host.exp.exponent
+tags:
+  - friends
+---
+# Flow: Add a friend via email search
+# Verifies a user can navigate to the Friends tab, search for a user
+# by email, and send a friend request.
+# Prerequisites: API running at localhost:3001, test user account exists,
+#                FRIEND_EMAIL must be a valid registered user.
+
+env:
+  FRIEND_EMAIL: "friend@example.com"
+
+# Step 1 — Launch the app (state cleared via config.yaml onFlowStart)
+- launchApp
+
+# Step 2 — Log in with test credentials
+- assertVisible: "Sign in to your account"
+- tapOn:
+    id: "login-email-input"
+- inputText: "${TEST_USER_EMAIL}"
+- tapOn:
+    id: "login-password-input"
+- inputText: "${TEST_USER_PASSWORD}"
+- tapOn:
+    id: "login-sign-in-button"
+
+# Step 3 — Wait for Home screen and navigate to Friends tab
+- assertVisible:
+    id: "tab-friends"
+    timeout: 10000
+- tapOn:
+    id: "tab-friends"
+
+# Step 4 — Open the Add Friend search panel
+- assertVisible:
+    text: "Friends"
+    timeout: 5000
+- tapOn:
+    id: "friends-add-friend-button"
+
+# Step 5 — Search for a user by email
+- assertVisible: "Search by Email"
+- tapOn:
+    id: "friends-search-input"
+- inputText: "${FRIEND_EMAIL}"
+- tapOn:
+    id: "friends-search-button"
+
+# Step 6 — Tap on the search result to open confirmation modal
+- assertVisible:
+    id: "friends-search-result"
+    timeout: 5000
+- tapOn:
+    id: "friends-search-result"
+
+# Step 7 — Confirm sending the friend request
+- assertVisible: "Send Friend Request?"
+- tapOn:
+    id: "friends-modal-send-button"
+
+# Step 8 — Verify search panel closes and pending request appears
+- assertVisible:
+    text: "Pending Requests"
+    timeout: 5000

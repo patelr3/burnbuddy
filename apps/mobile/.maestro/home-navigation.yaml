@@ -1,0 +1,53 @@
+appId: host.exp.exponent
+tags:
+  - smoke
+  - navigation
+---
+# Flow: Home screen tab navigation
+# Verifies a user can navigate between Home, Friends, and Account tabs
+# and that each screen loads successfully.
+# Prerequisites: API running at localhost:3001, test user account exists.
+
+# Step 1 — Launch the app (state cleared via config.yaml onFlowStart)
+- launchApp
+
+# Step 2 — Log in with test credentials
+- assertVisible: "Sign in to your account"
+- tapOn:
+    id: "login-email-input"
+- inputText: "${TEST_USER_EMAIL}"
+- tapOn:
+    id: "login-password-input"
+- inputText: "${TEST_USER_PASSWORD}"
+- tapOn:
+    id: "login-sign-in-button"
+
+# Step 3 — Verify Home screen loads (tab bar visible)
+- assertVisible:
+    id: "tab-home"
+    timeout: 10000
+- assertVisible:
+    id: "tab-friends"
+- assertVisible:
+    id: "tab-account"
+
+# Step 4 — Navigate to Friends tab
+- tapOn:
+    id: "tab-friends"
+- assertVisible:
+    text: "Friends"
+    timeout: 5000
+
+# Step 5 — Navigate to Account tab
+- tapOn:
+    id: "tab-account"
+- assertVisible:
+    id: "account-sign-out-button"
+    timeout: 5000
+
+# Step 6 — Navigate back to Home tab
+- tapOn:
+    id: "tab-home"
+- assertVisible:
+    id: "home-start-workout-button"
+    timeout: 5000
