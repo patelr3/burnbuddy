@@ -71,6 +71,7 @@ export default function LoginScreen({ onNavigateToSignup }: Props) {
         keyboardType="email-address"
         autoCapitalize="none"
         autoComplete="email"
+        testID="login-email-input"
       />
       <TextInput
         style={styles.input}
@@ -79,12 +80,14 @@ export default function LoginScreen({ onNavigateToSignup }: Props) {
         onChangeText={setPassword}
         secureTextEntry
         autoComplete="password"
+        testID="login-password-input"
       />
 
       <TouchableOpacity
         style={[styles.button, loading && styles.buttonDisabled]}
         onPress={handleLogin}
         disabled={loading}
+        testID="login-sign-in-button"
       >
         {loading ? (
           <ActivityIndicator color="#fff" />
@@ -101,7 +104,7 @@ export default function LoginScreen({ onNavigateToSignup }: Props) {
         <Text style={styles.googleButtonText}>Sign in with Google</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={onNavigateToSignup} style={styles.link}>
+      <TouchableOpacity onPress={onNavigateToSignup} style={styles.link} testID="login-sign-up-link">
         <Text style={styles.linkText}>Don&apos;t have an account? Sign up</Text>
       </TouchableOpacity>
     </View>

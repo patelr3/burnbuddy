@@ -328,7 +328,7 @@ function HomeListView({
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>buddyburn 🔥</Text>
-        <TouchableOpacity onPress={handleSignOut}>
+        <TouchableOpacity onPress={handleSignOut} testID="home-sign-out-button">
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
       </View>
@@ -356,6 +356,7 @@ function HomeListView({
           <TouchableOpacity
             style={styles.startWorkoutButton}
             onPress={() => setShowWorkoutSelector(true)}
+            testID="home-start-workout-button"
           >
             <Text style={styles.startWorkoutButtonText}>🏃 Start Workout</Text>
           </TouchableOpacity>
@@ -380,7 +381,7 @@ function HomeListView({
           <>
             {/* Incoming Burn Buddy Requests */}
             {incomingBuddyRequests.length > 0 && (
-              <View style={styles.section}>
+              <View style={styles.section} testID="home-buddy-requests">
                 <Text style={styles.sectionLabel}>Burn Buddy Requests</Text>
                 {incomingBuddyRequests.map((req) => (
                   <View key={req.id} style={styles.requestRow}>
@@ -401,7 +402,7 @@ function HomeListView({
 
             {/* Incoming Squad Join Requests */}
             {incomingSquadRequests.length > 0 && (
-              <View style={styles.section}>
+              <View style={styles.section} testID="home-squad-requests">
                 <Text style={styles.sectionLabel}>Squad Invitations</Text>
                 {incomingSquadRequests.map((req) => (
                   <View key={req.id} style={styles.requestRow}>
@@ -421,7 +422,7 @@ function HomeListView({
             )}
 
             {/* Combined Sorted List */}
-            <View style={styles.section}>
+            <View style={styles.section} testID="home-buddies-squads-list">
               <Text style={styles.sectionLabel}>
                 {combined.length === 0
                   ? 'No buddies or squads yet'
@@ -440,6 +441,7 @@ function HomeListView({
                         key={buddy.id}
                         style={styles.listCard}
                         onPress={() => onNavigateToBuddyDetail(buddy.id)}
+                        testID={`home-buddy-item-${buddy.id}`}
                       >
                         <View style={styles.listCardLeft}>
                           <Text style={styles.listCardName}>{buddy.partnerDisplayName}</Text>
@@ -464,6 +466,7 @@ function HomeListView({
                       key={squad.id}
                       style={styles.listCard}
                       onPress={() => onNavigateToSquadDetail(squad.id)}
+                      testID={`home-squad-item-${squad.id}`}
                     >
                       <View style={styles.listCardLeft}>
                         <Text style={styles.listCardName}>{squad.name}</Text>

@@ -21,6 +21,7 @@ function TabBar({ activeTab, onTabPress }: { activeTab: AppTab; onTabPress: (tab
         onPress={() => onTabPress('home')}
         accessibilityRole="tab"
         accessibilityState={{ selected: activeTab === 'home' }}
+        testID="tab-home"
       >
         <Text style={[tabStyles.tabText, activeTab === 'home' && tabStyles.activeTabText]}>
           🏠 Home
@@ -31,6 +32,7 @@ function TabBar({ activeTab, onTabPress }: { activeTab: AppTab; onTabPress: (tab
         onPress={() => onTabPress('friends')}
         accessibilityRole="tab"
         accessibilityState={{ selected: activeTab === 'friends' }}
+        testID="tab-friends"
       >
         <Text style={[tabStyles.tabText, activeTab === 'friends' && tabStyles.activeTabText]}>
           👥 Friends
@@ -41,6 +43,7 @@ function TabBar({ activeTab, onTabPress }: { activeTab: AppTab; onTabPress: (tab
         onPress={() => onTabPress('account')}
         accessibilityRole="tab"
         accessibilityState={{ selected: activeTab === 'account' }}
+        testID="tab-account"
       >
         <Text style={[tabStyles.tabText, activeTab === 'account' && tabStyles.activeTabText]}>
           👤 Account

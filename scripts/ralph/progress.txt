@@ -4,6 +4,8 @@ Started: Thu Mar  5 06:11:08 AM UTC 2026
 
 ## Codebase Patterns
 - jest-expo 55 requires jest ^29 (not 30) — check `node_modules/jest-expo/package.json` dependencies for version compatibility
+- Maestro E2E flows live in `apps/mobile/.maestro/` — use `testID` props with convention `screen-name-element` for element selection
+- Maestro config uses `appId: host.exp.exponent` for Expo Go; update for custom dev builds
 - For complex screens with many API calls, use `apiGet.mockImplementation()` with path matching to route different endpoints to different responses
 - Use `UNSAFE_queryByType(ActivityIndicator)` from @testing-library/react-native to assert loading spinners
 - Use `setupFiles` (not `setupFilesAfterSetup`) in jest.config.js for setup scripts
@@ -153,4 +155,17 @@ Started: Thu Mar  5 06:11:08 AM UTC 2026
   - Follow the existing deploy-api.yml pattern: actions/checkout@v4, actions/setup-node@v4 with node-version '24' and cache 'yarn'
   - Must build shared package (`yarn workspace @burnbuddy/shared build`) before running mobile tests since mobile depends on it
   - Use `--ci` flag with Jest for deterministic CI behavior (no interactive prompts, fail on missing snapshots)
+---
+
+## 2026-03-05T06:35Z - US-009
+- Configured Maestro E2E testing framework for the mobile app
+- Created `apps/mobile/.maestro/config.yaml` with Expo Go app identifier, env vars for local API (localhost:3001), test credentials, tags, and clearState on flow start
+- Added `test:e2e` script to `apps/mobile/package.json` running `maestro test .maestro/`
+- Created `docs/mobile-testing.md` with comprehensive instructions: Maestro CLI installation, prerequisites (local API, simulator, Expo dev server), running flows, writing new flows, configuration reference, custom dev build guide, and troubleshooting
+- Files changed: apps/mobile/.maestro/config.yaml, apps/mobile/package.json, docs/mobile-testing.md
+- **Learnings for future iterations:**
+  - Maestro config.yaml uses `appId: host.exp.exponent` for Expo Go testing — update to custom bundle ID for dev builds
+  - Maestro env vars can be overridden via CLI with `-e KEY=value` — useful for different test credentials per environment
+  - The `onFlowStart: [clearState]` directive ensures clean app state between flows
+  - Maestro flows select elements via `testID` props — the convention for this project is `screen-name-element` (e.g., `login-email-input`)
 ---
