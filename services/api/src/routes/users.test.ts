@@ -3,7 +3,7 @@ import express from 'express';
 import request from 'supertest';
 
 // vi.hoisted ensures mock variables are created before the mock factory runs
-const { mockVerifyIdToken, mockGet, mockSet, mockUpdate, mockDocRef, mockWhere, mockLimit, mockCollectionGet } = vi.hoisted(() => {
+const { mockVerifyIdToken, mockGet, mockSet, mockUpdate, mockDocRef, mockWhere, mockLimit, mockCollectionGet, mockBatchSet, mockBatchCommit, mockBatch, mockGenerateUniqueUsername } = vi.hoisted(() => {
   const mockGet = vi.fn();
   const mockSet = vi.fn();
   const mockUpdate = vi.fn();
@@ -12,7 +12,11 @@ const { mockVerifyIdToken, mockGet, mockSet, mockUpdate, mockDocRef, mockWhere, 
   const mockWhere = vi.fn();
   // mockDocRef is re-setup each beforeEach via resetAllMocks + mockReturnValue
   const mockDocRef = vi.fn();
-  return { mockVerifyIdToken: vi.fn(), mockGet, mockSet, mockUpdate, mockDocRef, mockWhere, mockLimit, mockCollectionGet };
+  const mockBatchSet = vi.fn();
+  const mockBatchCommit = vi.fn();
+  const mockBatch = vi.fn();
+  const mockGenerateUniqueUsername = vi.fn();
+  return { mockVerifyIdToken: vi.fn(), mockGet, mockSet, mockUpdate, mockDocRef, mockWhere, mockLimit, mockCollectionGet, mockBatchSet, mockBatchCommit, mockBatch, mockGenerateUniqueUsername };
 });
 
 // Mock firebase-admin (used by requireAuth middleware)
@@ -23,11 +27,17 @@ vi.mock('../lib/firebase', () => ({
   initFirebase: vi.fn(),
 }));
 
-// Mock Firestore — getDb() returns a stub with collection → doc chain and collection → where chain
+// Mock Firestore — getDb() returns a stub with collection → doc chain, collection → where chain, and batch()
 vi.mock('../lib/firestore', () => ({
   getDb: () => ({
     collection: () => ({ doc: mockDocRef, where: mockWhere }),
+    batch: mockBatch,
   }),
+}));
+
+// Mock username generation helper
+vi.mock('../lib/username', () => ({
+  generateUniqueUsername: mockGenerateUniqueUsername,
 }));
 
 import usersRouter from './users';
@@ -57,6 +67,11 @@ beforeEach(() => {
   // where → where/limit → get chain for collection queries
   mockWhere.mockReturnValue({ where: mockWhere, limit: mockLimit, get: mockCollectionGet });
   mockLimit.mockReturnValue({ get: mockCollectionGet });
+  // Batch write defaults
+  mockBatch.mockReturnValue({ set: mockBatchSet, commit: mockBatchCommit });
+  mockBatchCommit.mockResolvedValue(undefined);
+  // Username generation default
+  mockGenerateUniqueUsername.mockResolvedValue({ username: 'test', usernameLower: 'test' });
 });
 
 // ── POST /users ────────────────────────────────────────────────────────────────
@@ -97,9 +112,9 @@ describe('POST /users', () => {
     expect(res.body).toMatchObject({ error: expect.stringContaining('already exists') });
   });
 
-  it('creates and returns the user profile with 201', async () => {
+  it('creates and returns the user profile with 201 including generated username', async () => {
     mockGet.mockResolvedValueOnce({ exists: false });
-    mockSet.mockResolvedValueOnce(undefined);
+    mockGenerateUniqueUsername.mockResolvedValueOnce({ username: 'test', usernameLower: 'test' });
 
     const res = await request(buildApp())
       .post('/users')
@@ -111,14 +126,17 @@ describe('POST /users', () => {
       uid: TEST_UID,
       email: 'test@example.com',
       displayName: 'Test User',
+      username: 'test',
+      usernameLower: 'test',
     });
     expect(res.body.createdAt).toBeDefined();
-    expect(mockSet).toHaveBeenCalledOnce();
+    expect(mockBatchSet).toHaveBeenCalledTimes(2);
+    expect(mockBatchCommit).toHaveBeenCalledOnce();
   });
 
   it('includes fcmToken in the created profile when provided', async () => {
     mockGet.mockResolvedValueOnce({ exists: false });
-    mockSet.mockResolvedValueOnce(undefined);
+    mockGenerateUniqueUsername.mockResolvedValueOnce({ username: 'test', usernameLower: 'test' });
 
     const res = await request(buildApp())
       .post('/users')
@@ -127,6 +145,35 @@ describe('POST /users', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.fcmToken).toBe('tkn123');
+  });
+
+  it('creates a username reservation document in the usernames collection', async () => {
+    mockGet.mockResolvedValueOnce({ exists: false });
+    mockGenerateUniqueUsername.mockResolvedValueOnce({ username: 'alice', usernameLower: 'alice' });
+
+    const res = await request(buildApp())
+      .post('/users')
+      .set('Authorization', VALID_TOKEN)
+      .send({ email: 'alice@example.com', displayName: 'Alice' });
+
+    expect(res.status).toBe(201);
+    // First batch.set is the user profile, second is the username reservation
+    expect(mockBatchSet).toHaveBeenCalledTimes(2);
+    // Verify username reservation: batch.set(usernameDocRef, { uid })
+    const secondCallArgs = mockBatchSet.mock.calls[1];
+    expect(secondCallArgs[1]).toEqual({ uid: TEST_UID });
+    expect(mockBatchCommit).toHaveBeenCalledOnce();
+  });
+
+  it('calls generateUniqueUsername with the email', async () => {
+    mockGet.mockResolvedValueOnce({ exists: false });
+
+    await request(buildApp())
+      .post('/users')
+      .set('Authorization', VALID_TOKEN)
+      .send({ email: 'bob@test.com', displayName: 'Bob' });
+
+    expect(mockGenerateUniqueUsername).toHaveBeenCalledWith('bob@test.com', expect.anything());
   });
 });
 

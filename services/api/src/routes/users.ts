@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import type { UserProfile } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
 import { getDb } from '../lib/firestore';
+import { generateUniqueUsername } from '../lib/username';
 
 /**
  * GET /users/search?q=<query>   — typeahead prefix search (returns array)
@@ -80,15 +81,23 @@ router.post('/', requireAuth, async (req: Request, res: Response): Promise<void>
     return;
   }
 
+  const { username, usernameLower } = await generateUniqueUsername(email, db);
+
   const profile: UserProfile = {
     uid,
     email,
     displayName,
+    username,
+    usernameLower,
     createdAt: new Date().toISOString(),
     ...(fcmToken !== undefined ? { fcmToken } : {}),
   };
 
-  await docRef.set(profile);
+  const batch = db.batch();
+  batch.set(docRef, profile);
+  batch.set(db.collection('usernames').doc(usernameLower), { uid });
+  await batch.commit();
+
   res.status(201).json(profile);
 });
 
