@@ -137,7 +137,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "Next planned workout derived from WorkoutSchedule on the buddy/squad. Calculate next occurrence from the schedule's day/time fields."
     },
     {

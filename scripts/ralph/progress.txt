@@ -125,6 +125,9 @@ Started: Thu Mar  5 07:32:41 AM UTC 2026
   - Detail pages fetch stats in parallel with streaks and group workouts using `Promise.all` with `.catch(() => null)` for graceful degradation
   - `StatCard` component uses optional `unit` and `colorClass` props — pass `colorClass` for themed values, omit `unit` for date-only cards
   - Browser verification requires auth — unauthenticated requests redirect to /login
+- `getNextWorkout(schedule)` calculates the next upcoming workout from a `WorkoutSchedule` — returns `null` if no schedule or no upcoming day within the week
+- Listing cards on home page use `CombinedItem` interface — extend it when adding new fields to cards
+
 ---
 
 ## 2026-03-05T08:03:00Z - US-007
@@ -143,4 +146,20 @@ Started: Thu Mar  5 07:32:41 AM UTC 2026
   - `buddyRelationshipStatus` from the profile API drives the burn buddy button visibility — no extra API calls needed
   - Friends page friend items wrap the info area in `<Link>` while keeping action buttons outside the link to prevent navigation on button clicks
   - Error messages from API use status code in the error message string (e.g. `msg.includes('403')`) — matches the `apiGet` helper's error format
+---
+
+## 2026-03-05T08:05:00Z - US-008
+- Enhanced burn buddy and squad listing cards with fire emoji streak display (🔥12)
+- Added next planned workout display derived from WorkoutSchedule (e.g., Next: Mon 7:00 AM)
+- Next workout field hidden entirely when no upcoming scheduled workout exists
+- Created `getNextWorkout()` helper to calculate next occurrence from schedule day/time
+- Removed "streak" label text under the number (replaced by fire emoji for cleaner look)
+- Files changed:
+  - `apps/web/src/app/page.tsx` — added WorkoutSchedule import, getNextWorkout helper, extended CombinedItem, updated card rendering
+- **Learnings for future iterations:**
+  - `WorkoutSchedule.days` uses 3-letter day names ('Mon', 'Tue', etc.) matching JS `toLocaleDateString` short names
+  - `WorkoutSchedule.time` is optional and in "HH:MM" 24-hour format when present
+  - BurnBuddy has `workoutSchedule` directly; BurnSquad has it nested in `settings.workoutSchedule`
+  - The `CombinedItem` interface is the centralized shape for listing cards — add any new card fields there
+  - Fire emoji is rendered as inline text, not as an image — works cross-platform
 ---
