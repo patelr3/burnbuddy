@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import type { UserProfile } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
 import { getDb } from '../lib/firestore';
-import { generateUniqueUsername } from '../lib/username';
+import { generateUniqueUsername, validateUsername } from '../lib/username';
 
 /**
  * GET /users/search?q=<query>   — typeahead prefix search (returns array)
@@ -132,16 +132,55 @@ router.put('/me', requireAuth, async (req: Request, res: Response): Promise<void
   const existing = await docRef.get();
 
   if (existing.exists) {
-    const { gettingStartedDismissed } = req.body as Partial<UserProfile>;
+    const { gettingStartedDismissed, username: requestedUsername } = req.body as Partial<UserProfile>;
     const updates: Partial<UserProfile> = {};
     if (email !== undefined) updates.email = email;
     if (displayName !== undefined) updates.displayName = displayName;
     if (fcmToken !== undefined) updates.fcmToken = fcmToken;
     if (gettingStartedDismissed !== undefined) updates.gettingStartedDismissed = gettingStartedDismissed;
 
-    // Lazy migration: generate username for existing users that don't have one
     const existingData = existing.data() as UserProfile;
-    if (!existingData.username) {
+
+    // Username update: validate format and uniqueness
+    if (requestedUsername !== undefined) {
+      const validationError = validateUsername(requestedUsername);
+      if (validationError) {
+        res.status(400).json({ error: validationError });
+        return;
+      }
+
+      const newLower = requestedUsername.toLowerCase();
+      const oldLower = existingData.usernameLower;
+
+      if (newLower !== oldLower) {
+        const existingReservation = await db.collection('usernames').doc(newLower).get();
+        if (existingReservation.exists) {
+          res.status(409).json({ error: 'Username already taken' });
+          return;
+        }
+
+        updates.username = requestedUsername;
+        updates.usernameLower = newLower;
+
+        const batch = db.batch();
+        batch.set(docRef, updates, { merge: true });
+        batch.set(db.collection('usernames').doc(newLower), { uid });
+        if (oldLower) {
+          batch.delete(db.collection('usernames').doc(oldLower));
+        }
+        await batch.commit();
+        const updated = await docRef.get();
+        res.json(updated.data() as UserProfile);
+        return;
+      }
+      // Same username (case-insensitive) — allow casing change
+      if (requestedUsername !== existingData.username) {
+        updates.username = requestedUsername;
+      }
+    }
+
+    // Lazy migration: generate username for existing users that don't have one
+    if (!existingData.username && !updates.username) {
       const migrationEmail = email ?? existingData.email;
       if (migrationEmail) {
         const { username, usernameLower } = await generateUniqueUsername(migrationEmail, db);

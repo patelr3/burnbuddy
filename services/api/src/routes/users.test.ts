@@ -3,7 +3,7 @@ import express from 'express';
 import request from 'supertest';
 
 // vi.hoisted ensures mock variables are created before the mock factory runs
-const { mockVerifyIdToken, mockGet, mockSet, mockUpdate, mockDocRef, mockWhere, mockLimit, mockCollectionGet, mockBatchSet, mockBatchCommit, mockBatch, mockGenerateUniqueUsername } = vi.hoisted(() => {
+const { mockVerifyIdToken, mockGet, mockSet, mockUpdate, mockDocRef, mockWhere, mockLimit, mockCollectionGet, mockBatchSet, mockBatchCommit, mockBatchDelete, mockBatch, mockGenerateUniqueUsername, mockValidateUsername } = vi.hoisted(() => {
   const mockGet = vi.fn();
   const mockSet = vi.fn();
   const mockUpdate = vi.fn();
@@ -14,9 +14,11 @@ const { mockVerifyIdToken, mockGet, mockSet, mockUpdate, mockDocRef, mockWhere, 
   const mockDocRef = vi.fn();
   const mockBatchSet = vi.fn();
   const mockBatchCommit = vi.fn();
+  const mockBatchDelete = vi.fn();
   const mockBatch = vi.fn();
   const mockGenerateUniqueUsername = vi.fn();
-  return { mockVerifyIdToken: vi.fn(), mockGet, mockSet, mockUpdate, mockDocRef, mockWhere, mockLimit, mockCollectionGet, mockBatchSet, mockBatchCommit, mockBatch, mockGenerateUniqueUsername };
+  const mockValidateUsername = vi.fn();
+  return { mockVerifyIdToken: vi.fn(), mockGet, mockSet, mockUpdate, mockDocRef, mockWhere, mockLimit, mockCollectionGet, mockBatchSet, mockBatchCommit, mockBatchDelete, mockBatch, mockGenerateUniqueUsername, mockValidateUsername };
 });
 
 // Mock firebase-admin (used by requireAuth middleware)
@@ -35,9 +37,10 @@ vi.mock('../lib/firestore', () => ({
   }),
 }));
 
-// Mock username generation helper
+// Mock username generation and validation helpers
 vi.mock('../lib/username', () => ({
   generateUniqueUsername: mockGenerateUniqueUsername,
+  validateUsername: mockValidateUsername,
 }));
 
 import usersRouter from './users';
@@ -68,10 +71,12 @@ beforeEach(() => {
   mockWhere.mockReturnValue({ where: mockWhere, limit: mockLimit, get: mockCollectionGet });
   mockLimit.mockReturnValue({ get: mockCollectionGet });
   // Batch write defaults
-  mockBatch.mockReturnValue({ set: mockBatchSet, commit: mockBatchCommit });
+  mockBatch.mockReturnValue({ set: mockBatchSet, delete: mockBatchDelete, commit: mockBatchCommit });
   mockBatchCommit.mockResolvedValue(undefined);
   // Username generation default
   mockGenerateUniqueUsername.mockResolvedValue({ username: 'test', usernameLower: 'test' });
+  // Username validation default (null = valid)
+  mockValidateUsername.mockReturnValue(null);
 });
 
 // ── POST /users ────────────────────────────────────────────────────────────────
@@ -365,6 +370,110 @@ describe('PUT /users/me', () => {
     expect(mockBatchCommit).toHaveBeenCalledOnce();
     // Should NOT use docRef.update — uses batch.set with merge instead
     expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  // Username update tests (US-005)
+  it('updates username when valid and available', async () => {
+    const existingProfile = { ...TEST_PROFILE, username: 'oldname', usernameLower: 'oldname' };
+    const updatedProfile = { ...existingProfile, username: 'NewName', usernameLower: 'newname' };
+    mockGet
+      .mockResolvedValueOnce({ exists: true, data: () => existingProfile })  // exists check
+      .mockResolvedValueOnce({ exists: false })                              // username availability check
+      .mockResolvedValueOnce({ exists: true, data: () => updatedProfile });  // fresh data after update
+
+    const res = await request(buildApp())
+      .put('/users/me')
+      .set('Authorization', VALID_TOKEN)
+      .send({ username: 'NewName' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.username).toBe('NewName');
+    expect(res.body.usernameLower).toBe('newname');
+    expect(mockValidateUsername).toHaveBeenCalledWith('NewName');
+    expect(mockBatchSet).toHaveBeenCalledTimes(2);
+    expect(mockBatchDelete).toHaveBeenCalledTimes(1);
+    expect(mockBatchCommit).toHaveBeenCalledOnce();
+  });
+
+  it('returns 400 when username fails validation', async () => {
+    const existingProfile = { ...TEST_PROFILE, username: 'test', usernameLower: 'test' };
+    mockGet.mockResolvedValueOnce({ exists: true, data: () => existingProfile });
+    mockValidateUsername.mockReturnValueOnce('Username must be at least 3 characters');
+
+    const res = await request(buildApp())
+      .put('/users/me')
+      .set('Authorization', VALID_TOKEN)
+      .send({ username: 'ab' });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: 'Username must be at least 3 characters' });
+  });
+
+  it('returns 400 when username has invalid characters', async () => {
+    const existingProfile = { ...TEST_PROFILE, username: 'test', usernameLower: 'test' };
+    mockGet.mockResolvedValueOnce({ exists: true, data: () => existingProfile });
+    mockValidateUsername.mockReturnValueOnce('Username may only contain letters, numbers, and underscores');
+
+    const res = await request(buildApp())
+      .put('/users/me')
+      .set('Authorization', VALID_TOKEN)
+      .send({ username: 'bad@name!' });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: 'Username may only contain letters, numbers, and underscores' });
+  });
+
+  it('returns 409 when username is already taken', async () => {
+    const existingProfile = { ...TEST_PROFILE, username: 'oldname', usernameLower: 'oldname' };
+    mockGet
+      .mockResolvedValueOnce({ exists: true, data: () => existingProfile })  // exists check
+      .mockResolvedValueOnce({ exists: true });                              // username already taken
+
+    const res = await request(buildApp())
+      .put('/users/me')
+      .set('Authorization', VALID_TOKEN)
+      .send({ username: 'TakenName' });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({ error: 'Username already taken' });
+  });
+
+  it('releases old username reservation and creates new one atomically', async () => {
+    const existingProfile = { ...TEST_PROFILE, username: 'oldname', usernameLower: 'oldname' };
+    const updatedProfile = { ...existingProfile, username: 'newname', usernameLower: 'newname' };
+    mockGet
+      .mockResolvedValueOnce({ exists: true, data: () => existingProfile })
+      .mockResolvedValueOnce({ exists: false })
+      .mockResolvedValueOnce({ exists: true, data: () => updatedProfile });
+
+    await request(buildApp())
+      .put('/users/me')
+      .set('Authorization', VALID_TOKEN)
+      .send({ username: 'newname' });
+
+    // batch.set for profile update (merge) + new reservation, batch.delete for old reservation
+    expect(mockBatchSet).toHaveBeenCalledTimes(2);
+    expect(mockBatchDelete).toHaveBeenCalledTimes(1);
+    expect(mockBatchCommit).toHaveBeenCalledOnce();
+  });
+
+  it('allows case-only username change without uniqueness check', async () => {
+    const existingProfile = { ...TEST_PROFILE, username: 'myname', usernameLower: 'myname' };
+    const updatedProfile = { ...existingProfile, username: 'MyName' };
+    mockGet
+      .mockResolvedValueOnce({ exists: true, data: () => existingProfile })
+      .mockResolvedValueOnce({ exists: true, data: () => updatedProfile });
+    mockUpdate.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .put('/users/me')
+      .set('Authorization', VALID_TOKEN)
+      .send({ username: 'MyName' });
+
+    expect(res.status).toBe(200);
+    // Should use regular update, not batch (since lowercase is same)
+    expect(mockUpdate).toHaveBeenCalledWith({ username: 'MyName' });
+    expect(mockBatchSet).not.toHaveBeenCalled();
   });
 });
 

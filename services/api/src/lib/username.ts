@@ -16,6 +16,25 @@ export interface UsernameResult {
  * then checks the 'usernames' collection for collisions, appending
  * incrementing numeric suffixes (name2, name3, …) until unique.
  */
+const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,30}$/;
+
+/**
+ * Validates a username string: alphanumeric and underscores only, 3-30 characters.
+ * Returns null if valid, or a descriptive error string if invalid.
+ */
+export function validateUsername(username: string): string | null {
+  if (username.length < 3) {
+    return 'Username must be at least 3 characters';
+  }
+  if (username.length > 30) {
+    return 'Username must be at most 30 characters';
+  }
+  if (!USERNAME_REGEX.test(username)) {
+    return 'Username may only contain letters, numbers, and underscores';
+  }
+  return null;
+}
+
 export async function generateUniqueUsername(
   email: string,
   db: FirebaseFirestore.Firestore,

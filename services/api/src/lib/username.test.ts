@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { generateUniqueUsername } from './username';
+import { generateUniqueUsername, validateUsername } from './username';
 
 /**
  * Minimal Firestore stub: collection('usernames').doc(id).get() returns
@@ -76,5 +76,39 @@ describe('generateUniqueUsername', () => {
     const result = await generateUniqueUsername('my_name@example.com', db);
     expect(result.username).toBe('my_name');
     expect(result.usernameLower).toBe('my_name');
+  });
+});
+
+describe('validateUsername', () => {
+  it('returns null for a valid username', () => {
+    expect(validateUsername('alice_99')).toBeNull();
+  });
+
+  it('returns error when username is too short', () => {
+    expect(validateUsername('ab')).toBe('Username must be at least 3 characters');
+  });
+
+  it('returns error when username is too long', () => {
+    expect(validateUsername('a'.repeat(31))).toBe('Username must be at most 30 characters');
+  });
+
+  it('returns error when username has invalid characters', () => {
+    expect(validateUsername('bad@name!')).toBe('Username may only contain letters, numbers, and underscores');
+  });
+
+  it('allows underscores, letters, and numbers', () => {
+    expect(validateUsername('User_Name_123')).toBeNull();
+  });
+
+  it('rejects spaces', () => {
+    expect(validateUsername('my name')).toBe('Username may only contain letters, numbers, and underscores');
+  });
+
+  it('accepts exactly 3 characters', () => {
+    expect(validateUsername('abc')).toBeNull();
+  });
+
+  it('accepts exactly 30 characters', () => {
+    expect(validateUsername('a'.repeat(30))).toBeNull();
   });
 });
