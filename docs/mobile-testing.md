@@ -96,6 +96,26 @@ maestro test --include-tags=smoke .maestro/
 maestro test -e TEST_USER_EMAIL=myuser@test.com -e TEST_USER_PASSWORD=secret .maestro/
 ```
 
+### Available E2E Flows
+
+| Flow | File | Tags | Description |
+|---|---|---|---|
+| Login | `login.yaml` | smoke, auth | Enters email/password, taps Sign In, verifies Home screen appears |
+| Sign Up | `signup.yaml` | auth | Fills signup form, creates account, verifies Home screen appears |
+
+**Running individual flows:**
+
+```bash
+# Run login flow
+maestro test .maestro/login.yaml
+
+# Run signup flow with custom credentials
+maestro test -e SIGNUP_EMAIL=custom@test.com -e SIGNUP_PASSWORD=secret123 .maestro/signup.yaml
+
+# Run all auth-tagged flows
+maestro test --include-tags=auth .maestro/
+```
+
 ### Writing New Flows
 
 Maestro flows are YAML files in `apps/mobile/.maestro/`. Each flow describes a sequence of user interactions:

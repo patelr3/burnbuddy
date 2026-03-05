@@ -60,6 +60,7 @@ export default function SignupScreen({ onNavigateToLogin }: Props) {
         value={displayName}
         onChangeText={setDisplayName}
         autoComplete="name"
+        testID="signup-display-name-input"
       />
       <TextInput
         style={styles.input}
@@ -69,6 +70,7 @@ export default function SignupScreen({ onNavigateToLogin }: Props) {
         keyboardType="email-address"
         autoCapitalize="none"
         autoComplete="email"
+        testID="signup-email-input"
       />
       <TextInput
         style={styles.input}
@@ -77,12 +79,14 @@ export default function SignupScreen({ onNavigateToLogin }: Props) {
         onChangeText={setPassword}
         secureTextEntry
         autoComplete="new-password"
+        testID="signup-password-input"
       />
 
       <TouchableOpacity
         style={[styles.button, loading && styles.buttonDisabled]}
         onPress={handleSignup}
         disabled={loading}
+        testID="signup-create-account-button"
       >
         {loading ? (
           <ActivityIndicator color="#fff" />
@@ -91,7 +95,7 @@ export default function SignupScreen({ onNavigateToLogin }: Props) {
         )}
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={onNavigateToLogin} style={styles.link}>
+      <TouchableOpacity onPress={onNavigateToLogin} style={styles.link} testID="signup-sign-in-link">
         <Text style={styles.linkText}>Already have an account? Sign in</Text>
       </TouchableOpacity>
     </View>

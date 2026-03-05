@@ -1,0 +1,33 @@
+appId: host.exp.exponent
+tags:
+  - smoke
+  - auth
+---
+# Flow: Login with email and password
+# Verifies a user can sign in and reach the Home screen.
+# Prerequisites: API running at localhost:3001, test user account exists.
+
+# Step 1 — Launch the app (state cleared via config.yaml onFlowStart)
+- launchApp
+
+# Step 2 — Verify Login screen is visible
+- assertVisible: "Sign in to your account"
+
+# Step 3 — Enter email address
+- tapOn:
+    id: "login-email-input"
+- inputText: "${TEST_USER_EMAIL}"
+
+# Step 4 — Enter password
+- tapOn:
+    id: "login-password-input"
+- inputText: "${TEST_USER_PASSWORD}"
+
+# Step 5 — Tap Sign In button
+- tapOn:
+    id: "login-sign-in-button"
+
+# Step 6 — Verify Home screen appears (tab bar visible)
+- assertVisible:
+    id: "tab-home"
+    timeout: 10000
