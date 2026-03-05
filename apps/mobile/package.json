@@ -9,7 +9,8 @@
     "web": "expo start --web",
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test": "jest"
+    "test": "jest",
+    "test:e2e": "maestro test .maestro/"
   },
   "dependencies": {
     "@burnbuddy/shared": "*",

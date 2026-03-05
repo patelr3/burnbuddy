@@ -1,0 +1,28 @@
+# Maestro E2E Test Configuration for BurnBuddy Mobile
+# https://maestro.mobile.dev/
+
+# App identifiers — update these if you create a custom Expo dev client
+# Default values target Expo Go for local development
+appId: host.exp.exponent          # iOS (Expo Go)
+# appId: com.burnbuddy.mobile     # Use this for custom dev builds
+
+# Expo Dev Server settings
+# Maestro launches the app; Expo Dev Server must already be running
+env:
+  # Local API used by E2E tests
+  EXPO_PUBLIC_API_URL: "http://localhost:3001"
+  # Maestro test user credentials (override via CLI: maestro test -e EMAIL=... -e PASSWORD=...)
+  TEST_USER_EMAIL: "test@example.com"
+  TEST_USER_PASSWORD: "testpassword123"
+
+# Tags for selective test execution
+# Run tagged flows: maestro test --include-tags=smoke .maestro/
+tags:
+  - smoke
+  - auth
+  - navigation
+  - friends
+
+# Execution settings
+onFlowStart:
+  - clearState        # Clear app state before each flow
