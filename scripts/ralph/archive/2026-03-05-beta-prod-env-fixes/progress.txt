@@ -1,8 +1,23 @@
 # Ralph Progress Log
-Started: Thu Mar  5 01:53:00 UTC 2026
+Started: Tue Mar  3 05:48:16 PM UTC 2026
 
 ## Codebase Patterns
-
+- Vitest config must exclude `dist/` directory — compiled JS test files cause CommonJS/ESM import errors and make `yarn test` exit with code 1 even if all source tests pass
+- Tailwind v4 CSS is properly bundled in Next.js standalone Docker output — the Dockerfile correctly copies `.next/static` to the runtime stage
+- The deploy-web.yml workflow passes Firebase config as `--build-arg` to Docker build for NEXT_PUBLIC_* env vars
+- FirebaseUI CSS is imported via `@import "firebaseui/dist/firebaseui.css"` in globals.css and gets bundled into the single Next.js CSS file
+- Firebase Web client config (apiKey, authDomain, etc.) should be stored in Azure Key Vault as `firebase-web-*` secrets and fetched by the deploy workflow
+- The `buddyburn-beta` Firebase project exists (auth handler at buddyburn-beta.firebaseapp.com responds) but client config was never stored in KV or GitHub secrets
+- Firebase Admin SDK in the API container works with the minimal service account JSON (`{"type":"service_account","project_id":"buddyburn-beta"}`) — it successfully rejects invalid tokens
+- Use custom domain URLs (buddyburn.arayosun.com) for browser testing — direct Azure FQDN URLs can timeout
+- Both beta and production use the SAME Firebase project (`buddyburn-beta`) — confirmed via `firebase-service-account-json` in both KVs. Use `--env all` with setup script.
+- **CORRECTION**: The actual Firebase project is `patelr3-site`, NOT `buddyburn-beta` — confirmed via JWT audience claim from Firebase Web SDK tokens. The KV service account JSON has wrong project_id.
+- API's `services/api/src/lib/firebase.ts` defaults `FIREBASE_PROJECT_ID` to `burnbuddy-dev` — MUST be set to `patelr3-site` on the API container for auth to work
+- **FIXED**: firebase.ts now checks both `FIREBASE_SERVICE_ACCOUNT_JSON` and `FIREBASE_SERVICE_ACCOUNT` env vars — the Bicep/container uses the `_JSON` suffix
+- deploy-api.yml now fetches `firebase-web-project-id` from KV and sets `FIREBASE_PROJECT_ID` env var on the container during deploy
+- Bicep API container app template now includes `FIREBASE_PROJECT_ID` (from `firebase-web-project-id` KV secret) and already had `FIREBASE_SERVICE_ACCOUNT_JSON`
+- Firebase token verification (verifyIdToken) works WITHOUT real credentials — it only needs the correct projectId to validate the JWT `aud` claim
+- Firestore access REQUIRES real service account credentials (private_key + client_email) — without them, the Admin SDK tries ADC → metadata server → hangs on Azure
 - `az containerapp update --set-env-vars KEY=VALUE` can set env vars on running containers without redeploying the image
 - Express 4 async route handlers MUST have try-catch or use `express-async-errors` — unhandled rejections crash Node 15+ with exit code 1
 - Cloud Firestore API must be ENABLED in the GCP project before Firestore SDK works — the firebase-adminsdk service account cannot enable APIs (lacks serviceusage.services.enable permission)
