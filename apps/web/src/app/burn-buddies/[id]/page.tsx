@@ -6,7 +6,8 @@ import { apiGet, apiPut } from '@/lib/api';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { NavBar } from '@/components/NavBar';
-import type { BurnBuddy, GroupWorkout, WorkoutSchedule } from '@burnbuddy/shared';
+import { StatCard } from '@/components/StatCard';
+import type { BurnBuddy, GroupWorkout, GroupStats, WorkoutSchedule } from '@burnbuddy/shared';
 
 interface PartnerProfile {
   uid: string;
@@ -74,6 +75,7 @@ export default function BurnBuddyDetailPage() {
   const [partner, setPartner] = useState<PartnerProfile | null>(null);
   const [streaks, setStreaks] = useState<Streaks>({ burnStreak: 0, supernovaStreak: 0 });
   const [groupWorkouts, setGroupWorkouts] = useState<GroupWorkout[]>([]);
+  const [stats, setStats] = useState<GroupStats | null>(null);
   const [dataLoading, setDataLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -92,14 +94,16 @@ export default function BurnBuddyDetailPage() {
 
       const partnerUid = bb.uid1 === user.uid ? bb.uid2 : bb.uid1;
 
-      const [partnerProfile, fetchedStreaks, allGroupWorkouts] = await Promise.all([
+      const [partnerProfile, fetchedStreaks, allGroupWorkouts, fetchedStats] = await Promise.all([
         apiGet<PartnerProfile>(`/users/${partnerUid}`).catch(() => null),
         apiGet<Streaks>(`/burn-buddies/${id}/streaks`).catch(() => ({ burnStreak: 0, supernovaStreak: 0 })),
         apiGet<GroupWorkout[]>('/group-workouts').catch(() => [] as GroupWorkout[]),
+        apiGet<GroupStats>(`/burn-buddies/${id}/stats`).catch(() => null),
       ]);
 
       setPartner(partnerProfile);
       setStreaks(fetchedStreaks);
+      setStats(fetchedStats);
 
       // Filter group workouts for this burn buddy (referenceId === id, type === 'buddy')
       const buddyWorkouts = allGroupWorkouts
@@ -269,10 +273,21 @@ export default function BurnBuddyDetailPage() {
         <div className="mb-7 grid grid-cols-2 gap-3">
           <StatCard label="Burn Streak" value={`${streaks.burnStreak}`} unit="days" colorClass="text-primary" />
           <StatCard label="Supernova Streak" value={`${streaks.supernovaStreak}`} unit="days" colorClass="text-violet-500" />
+          <StatCard
+            label="Highest Streak"
+            value={stats?.highestStreakEver.value ? `${stats.highestStreakEver.value}` : '—'}
+            unit={stats?.highestStreakEver.date ? formatDate(stats.highestStreakEver.date) : 'days'}
+            colorClass="text-amber-500"
+          />
+          <StatCard
+            label="First Workout"
+            value={stats?.firstGroupWorkoutDate ? formatDate(stats.firstGroupWorkoutDate) : '—'}
+            colorClass="text-gray-500"
+          />
+          <StatCard label="Total Workouts" value={`${stats?.groupWorkoutsAllTime ?? 0}`} unit="all time" colorClass="text-secondary" />
+          <StatCard label="This Month" value={`${stats?.groupWorkoutsThisMonth ?? workoutsThisMonth}`} unit="group workouts" colorClass="text-secondary" />
           <StatCard label="This Week" value={`${workoutsThisWeek}`} unit="group workouts" colorClass="text-secondary" />
-          <StatCard label="This Month" value={`${workoutsThisMonth}`} unit="group workouts" colorClass="text-secondary" />
-          <StatCard label="Burn Buddy Since" value={buddyAge(burnBuddy.createdAt)} unit="" colorClass="text-gray-500" />
-          <StatCard label="Started" value={formatDate(burnBuddy.createdAt)} unit="" colorClass="text-gray-500" />
+          <StatCard label="Burn Buddy Since" value={buddyAge(burnBuddy.createdAt)} colorClass="text-gray-500" />
         </div>
 
         {/* Group workout log */}
@@ -297,25 +312,5 @@ export default function BurnBuddyDetailPage() {
         )}
       </main>
     </>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  unit,
-  colorClass,
-}: {
-  label: string;
-  value: string;
-  unit: string;
-  colorClass: string;
-}) {
-  return (
-    <div className="rounded-lg border border-gray-200 bg-white px-4 py-3.5">
-      <div className="mb-1 text-xs text-gray-400">{label}</div>
-      <div className={`text-2xl font-bold ${colorClass}`}>{value}</div>
-      {unit && <div className="text-[11px] text-gray-400">{unit}</div>}
-    </div>
   );
 }
