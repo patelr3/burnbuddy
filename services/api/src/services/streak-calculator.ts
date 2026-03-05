@@ -11,8 +11,9 @@ import type { GroupWorkout } from '@burnbuddy/shared';
  * Both burnStreak and supernovaStreak return the same value — the distinction
  * is no longer meaningful when using group workouts as the data source.
  *
- * The streak walks backwards from today. It resets to 0 as soon as a day
- * with no group workout is encountered.
+ * The streak walks backwards from today. It tolerates gaps of up to 6
+ * consecutive days without a group workout. A gap of 7 or more consecutive
+ * days resets the streak to 0.
  */
 export function calculateStreaks(
   groupWorkouts: GroupWorkout[],
@@ -28,17 +29,23 @@ export function calculateStreaks(
   }
 
   let streak = 0;
+  let gapDays = 0;
   const todayMs = Date.now();
   const MS_PER_DAY = 86_400_000;
 
-  // Walk backwards from today up to 10 years to bound the loop
+  // Walk backwards from today up to 10 years to bound the loop.
+  // Gaps of up to 6 days are tolerated; 7+ consecutive gap days reset.
   for (let i = 0; i < 3_650; i++) {
     const dateStr = new Date(todayMs - i * MS_PER_DAY).toISOString().substring(0, 10);
 
     if (datesWithGroupWorkout.has(dateStr)) {
       streak++;
+      gapDays = 0;
     } else {
-      break;
+      gapDays++;
+      if (gapDays >= 7) {
+        break;
+      }
     }
   }
 

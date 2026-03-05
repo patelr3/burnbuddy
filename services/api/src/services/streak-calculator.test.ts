@@ -45,9 +45,9 @@ describe('calculateStreaks', () => {
     expect(calculateStreaks(groupWorkouts)).toEqual({ burnStreak: 1, supernovaStreak: 1 });
   });
 
-  it('returns 0 when the most recent group workout was 2 days ago (gap yesterday)', () => {
+  it('preserves streak when the most recent group workout was 2 days ago (gap < 7 days)', () => {
     const groupWorkouts = [makeGroupWorkout(daysAgoStr(2))];
-    expect(calculateStreaks(groupWorkouts)).toEqual({ burnStreak: 0, supernovaStreak: 0 });
+    expect(calculateStreaks(groupWorkouts)).toEqual({ burnStreak: 1, supernovaStreak: 1 });
   });
 
   it('accumulates streak across consecutive days', () => {
@@ -59,13 +59,13 @@ describe('calculateStreaks', () => {
     expect(calculateStreaks(groupWorkouts)).toEqual({ burnStreak: 3, supernovaStreak: 3 });
   });
 
-  it('stops counting after first missing day', () => {
-    // Today and 3 days ago, but 1 and 2 days ago missing
+  it('counts across short gaps (gap of 2 days between workout days)', () => {
+    // Today and 3 days ago, but 1 and 2 days ago missing (2-day gap < 7)
     const groupWorkouts = [
       makeGroupWorkout(daysAgoStr(0)),
       makeGroupWorkout(daysAgoStr(3)),
     ];
-    expect(calculateStreaks(groupWorkouts)).toEqual({ burnStreak: 1, supernovaStreak: 1 });
+    expect(calculateStreaks(groupWorkouts)).toEqual({ burnStreak: 2, supernovaStreak: 2 });
   });
 
   it('handles multiple group workouts on the same day', () => {
@@ -126,5 +126,45 @@ describe('calculateStreaks', () => {
     const result = calculateStreaks(groupWorkouts);
     expect(result.burnStreak).toBe(result.supernovaStreak);
     expect(result.burnStreak).toBe(5);
+  });
+
+  // --- US-002: 7-day inactivity window tests ---
+
+  it('streak survives a 6-day gap', () => {
+    // Workouts on day 0 and day 7 (6-day gap between them: days 1-6 missing)
+    const groupWorkouts = [
+      makeGroupWorkout(daysAgoStr(0)),
+      makeGroupWorkout(daysAgoStr(7)),
+    ];
+    expect(calculateStreaks(groupWorkouts)).toEqual({ burnStreak: 2, supernovaStreak: 2 });
+  });
+
+  it('streak resets on a 7-day gap', () => {
+    // Workouts on day 0 and day 8 (7-day gap between them: days 1-7 missing)
+    const groupWorkouts = [
+      makeGroupWorkout(daysAgoStr(0)),
+      makeGroupWorkout(daysAgoStr(8)),
+    ];
+    expect(calculateStreaks(groupWorkouts)).toEqual({ burnStreak: 1, supernovaStreak: 1 });
+  });
+
+  it('streak survives multiple short gaps', () => {
+    // Workouts spread out with gaps of 3-5 days each — all < 7
+    const groupWorkouts = [
+      makeGroupWorkout(daysAgoStr(0)),   // today
+      makeGroupWorkout(daysAgoStr(4)),   // 4-day gap (days 1-3 missing)
+      makeGroupWorkout(daysAgoStr(10)),  // 6-day gap (days 5-9 missing, largest allowed)
+      makeGroupWorkout(daysAgoStr(13)),  // 3-day gap (days 11-12 missing)
+    ];
+    expect(calculateStreaks(groupWorkouts)).toEqual({ burnStreak: 4, supernovaStreak: 4 });
+  });
+
+  it('streak resets to 0 when no workout in the last 7 days', () => {
+    // Most recent workout was 7 days ago — leading gap of 7 days from today
+    const groupWorkouts = [
+      makeGroupWorkout(daysAgoStr(7)),
+      makeGroupWorkout(daysAgoStr(8)),
+    ];
+    expect(calculateStreaks(groupWorkouts)).toEqual({ burnStreak: 0, supernovaStreak: 0 });
   });
 });
