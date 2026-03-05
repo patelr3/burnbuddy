@@ -7,6 +7,7 @@ Started: Thu Mar  5 06:11:08 AM UTC 2026
 - Maestro E2E flows live in `apps/mobile/.maestro/` — use `testID` props with convention `screen-name-element` for element selection
 - Maestro config uses `appId: host.exp.exponent` for Expo Go; update for custom dev builds
 - testID props follow `screen-name-element` convention (e.g., `login-email-input`, `home-buddy-item-{id}`) — dynamic IDs use template literals with entity IDs
+- SignupScreen testIDs: signup-display-name-input, signup-email-input, signup-password-input, signup-create-account-button, signup-sign-in-link
 - For complex screens with many API calls, use `apiGet.mockImplementation()` with path matching to route different endpoints to different responses
 - Use `UNSAFE_queryByType(ActivityIndicator)` from @testing-library/react-native to assert loading spinners
 - Use `setupFiles` (not `setupFilesAfterSetup`) in jest.config.js for setup scripts
@@ -183,4 +184,35 @@ Started: Thu Mar  5 06:11:08 AM UTC 2026
   - testID is a built-in React Native prop on all View/TouchableOpacity/TextInput components — no type issues
   - For dynamic list items, use template literals: testID={`screen-item-${entity.id}`} for unique selection in Maestro
   - The Tab navigator is in App.tsx not a separate navigation file — add tab testIDs there
+---
+
+## 2026-03-05T06:40Z - US-011
+- Created Maestro E2E flows for login and signup authentication journeys
+- Added testID props to SignupScreen (signup-display-name-input, signup-email-input, signup-password-input, signup-create-account-button, signup-sign-in-link)
+- Created `apps/mobile/.maestro/login.yaml` — enters email/password from env vars, taps Sign In, verifies Home screen tab bar appears (tags: smoke, auth)
+- Created `apps/mobile/.maestro/signup.yaml` — navigates from Login to Signup, fills display name/email/password, creates account, verifies Home screen (tags: auth)
+- Updated `docs/mobile-testing.md` with "Available E2E Flows" table and per-flow run instructions
+- Files changed: apps/mobile/src/screens/SignupScreen.tsx, apps/mobile/.maestro/login.yaml, apps/mobile/.maestro/signup.yaml, docs/mobile-testing.md
+- **Learnings for future iterations:**
+  - SignupScreen did not have testID props from US-010 — always check all screens referenced by Maestro flows have testIDs before writing flows
+  - Maestro `env:` block inside a flow file can define flow-specific env vars that override config.yaml defaults
+  - Use `${Date.now()}` in Maestro env vars for unique signup emails to avoid "email already in use" errors
+  - `assertVisible` with `timeout: 10000` is needed for post-auth assertions since Firebase auth + API calls take time
+  - Maestro flows reference testIDs via `id:` selector (not `testID:`) — e.g., `tapOn: { id: "login-email-input" }`
+- When writing new Maestro flows, audit target components for missing testIDs first — add them before writing the flow YAML
+- When adding new Maestro flows that interact with elements lacking testIDs, add the testIDs to the component first, then reference them in flows
+---
+
+## 2026-03-05T06:42Z - US-012
+- Created Maestro E2E flows for home navigation and friend management
+- Added testIDs to FriendsScreen: friends-add-friend-button, friends-search-button, friends-search-result, friends-modal-cancel-button, friends-modal-send-button
+- Created `apps/mobile/.maestro/home-navigation.yaml` — logs in, navigates Home → Friends → Account → Home tabs, verifies each screen loads (tags: smoke, navigation)
+- Created `apps/mobile/.maestro/add-friend.yaml` — logs in, opens Friends tab, taps Add Friend, searches by email, taps search result, confirms Send Request, verifies Pending Requests section appears (tags: friends)
+- Updated `docs/mobile-testing.md` with new flows in Available E2E Flows table and run instructions
+- Files changed: apps/mobile/src/screens/FriendsScreen.tsx, apps/mobile/.maestro/home-navigation.yaml, apps/mobile/.maestro/add-friend.yaml, docs/mobile-testing.md
+- **Learnings for future iterations:**
+  - FriendsScreen had no testIDs on the Add Friend button, Search button, search result card, or modal buttons — always audit testID coverage before writing Maestro flows
+  - Maestro flows that test multi-screen journeys (login → navigate → action) should use generous timeouts (5000-10000ms) on screen transition assertions
+  - The add-friend flow requires a valid FRIEND_EMAIL env var pointing to an existing user — override via `maestro test -e FRIEND_EMAIL=... .maestro/add-friend.yaml`
+  - Modal elements can be selected via testID just like regular components — Maestro handles Modal visibility correctly
 ---
