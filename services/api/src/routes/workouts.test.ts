@@ -16,6 +16,9 @@ const {
   // users — doc operations
   mockUsersDocGet,
   mockUsersDocRef,
+  // burnBuddies/burnSquads — query operations
+  mockBuddiesQueryGet,
+  mockSquadsQueryGet,
 } = vi.hoisted(() => {
   const mockVerifyIdToken = vi.fn();
 
@@ -40,6 +43,12 @@ const {
   const mockUsersDocGet = vi.fn();
   const mockUsersDocRef = vi.fn(() => ({ get: mockUsersDocGet }));
 
+  // burnBuddies — query
+  const mockBuddiesQueryGet = vi.fn();
+
+  // burnSquads — query
+  const mockSquadsQueryGet = vi.fn();
+
   return {
     mockVerifyIdToken,
     mockWorkoutsDocGet,
@@ -50,6 +59,8 @@ const {
     mockWorkoutsQueryChain,
     mockUsersDocGet,
     mockUsersDocRef,
+    mockBuddiesQueryGet,
+    mockSquadsQueryGet,
   };
 });
 
@@ -79,6 +90,12 @@ vi.mock('../lib/firestore', () => ({
       }
       if (name === 'users') {
         return { doc: mockUsersDocRef };
+      }
+      if (name === 'burnBuddies') {
+        return { where: () => ({ get: mockBuddiesQueryGet }) };
+      }
+      if (name === 'burnSquads') {
+        return { where: () => ({ get: mockSquadsQueryGet }) };
       }
       return {};
     },
@@ -129,6 +146,10 @@ beforeEach(() => {
     exists: true,
     data: () => ({ uid: TEST_UID, email: 'test@test.com', displayName: 'Test User', createdAt: '' }),
   });
+
+  // Re-setup burnBuddies/burnSquads query mocks (empty by default)
+  mockBuddiesQueryGet.mockResolvedValue({ docs: [] });
+  mockSquadsQueryGet.mockResolvedValue({ docs: [] });
 });
 
 // ── POST /workouts ─────────────────────────────────────────────────────────────
@@ -376,5 +397,194 @@ describe('autoEndStaleWorkouts', () => {
     const cutoffUsed = new Date(cutoff).getTime();
     const expectedCutoff = Date.now() - 90 * 60 * 1000;
     expect(Math.abs(cutoffUsed - expectedCutoff)).toBeLessThan(5000);
+  });
+});
+
+// ── GET /workouts/partner-active ───────────────────────────────────────────────
+
+describe('GET /workouts/partner-active', () => {
+  it('returns 401 when unauthenticated', async () => {
+    const res = await request(buildApp()).get('/workouts/partner-active');
+    expect(res.status).toBe(401);
+  });
+
+  it('returns empty array when no burn buddies or squads exist', async () => {
+    const res = await request(buildApp())
+      .get('/workouts/partner-active')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      groupWorkoutWindowMs: 1200000,
+      activePartnerWorkouts: [],
+    });
+  });
+
+  it('returns buddy entry when partner has active workout within 20-minute window', async () => {
+    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+
+    mockBuddiesQueryGet
+      .mockResolvedValueOnce({
+        docs: [{ data: () => ({ id: 'buddy-1', uid1: TEST_UID, uid2: OTHER_UID }) }],
+      })
+      .mockResolvedValueOnce({ docs: [] });
+
+    mockWorkoutsQueryGet.mockResolvedValueOnce({
+      docs: [
+        {
+          data: () => ({
+            id: 'workout-partner-1',
+            uid: OTHER_UID,
+            type: 'Running',
+            startedAt: fiveMinAgo,
+            status: 'active',
+          }),
+        },
+      ],
+    });
+
+    const res = await request(buildApp())
+      .get('/workouts/partner-active')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.groupWorkoutWindowMs).toBe(1200000);
+    expect(res.body.activePartnerWorkouts).toHaveLength(1);
+    expect(res.body.activePartnerWorkouts[0]).toEqual({
+      type: 'buddy',
+      referenceId: 'buddy-1',
+      earliestStartedAt: fiveMinAgo,
+    });
+  });
+
+  it('excludes buddy entry when partner workout started more than 20 minutes ago', async () => {
+    const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+
+    mockBuddiesQueryGet
+      .mockResolvedValueOnce({
+        docs: [{ data: () => ({ id: 'buddy-1', uid1: TEST_UID, uid2: OTHER_UID }) }],
+      })
+      .mockResolvedValueOnce({ docs: [] });
+
+    mockWorkoutsQueryGet.mockResolvedValueOnce({
+      docs: [
+        {
+          data: () => ({
+            id: 'workout-old',
+            uid: OTHER_UID,
+            type: 'Yoga',
+            startedAt: thirtyMinAgo,
+            status: 'active',
+          }),
+        },
+      ],
+    });
+
+    const res = await request(buildApp())
+      .get('/workouts/partner-active')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.activePartnerWorkouts).toHaveLength(0);
+  });
+
+  it('returns squad entry when a squad member has active workout within window', async () => {
+    const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const squadMemberUid = 'squad-member-1';
+
+    mockSquadsQueryGet.mockResolvedValueOnce({
+      docs: [
+        {
+          data: () => ({
+            id: 'squad-1',
+            memberUids: [TEST_UID, squadMemberUid],
+          }),
+        },
+      ],
+    });
+
+    mockWorkoutsQueryGet.mockResolvedValueOnce({
+      docs: [
+        {
+          data: () => ({
+            id: 'workout-squad-1',
+            uid: squadMemberUid,
+            type: 'HIIT',
+            startedAt: tenMinAgo,
+            status: 'active',
+          }),
+        },
+      ],
+    });
+
+    const res = await request(buildApp())
+      .get('/workouts/partner-active')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.activePartnerWorkouts).toHaveLength(1);
+    expect(res.body.activePartnerWorkouts[0]).toEqual({
+      type: 'squad',
+      referenceId: 'squad-1',
+      earliestStartedAt: tenMinAgo,
+    });
+  });
+
+  it('returns correct earliestStartedAt for squad with multiple active members', async () => {
+    const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const member1Uid = 'squad-member-1';
+    const member2Uid = 'squad-member-2';
+
+    mockSquadsQueryGet.mockResolvedValueOnce({
+      docs: [
+        {
+          data: () => ({
+            id: 'squad-1',
+            memberUids: [TEST_UID, member1Uid, member2Uid],
+          }),
+        },
+      ],
+    });
+
+    mockWorkoutsQueryGet
+      .mockResolvedValueOnce({
+        docs: [
+          {
+            data: () => ({
+              id: 'workout-m1',
+              uid: member1Uid,
+              type: 'Running',
+              startedAt: fifteenMinAgo,
+              status: 'active',
+            }),
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        docs: [
+          {
+            data: () => ({
+              id: 'workout-m2',
+              uid: member2Uid,
+              type: 'Cycling',
+              startedAt: fiveMinAgo,
+              status: 'active',
+            }),
+          },
+        ],
+      });
+
+    const res = await request(buildApp())
+      .get('/workouts/partner-active')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.activePartnerWorkouts).toHaveLength(1);
+    expect(res.body.activePartnerWorkouts[0]).toEqual({
+      type: 'squad',
+      referenceId: 'squad-1',
+      earliestStartedAt: fifteenMinAgo,
+    });
   });
 });
