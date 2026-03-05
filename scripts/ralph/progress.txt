@@ -6,6 +6,7 @@ Started: Thu Mar  5 06:11:08 AM UTC 2026
 - jest-expo 55 requires jest ^29 (not 30) — check `node_modules/jest-expo/package.json` dependencies for version compatibility
 - Maestro E2E flows live in `apps/mobile/.maestro/` — use `testID` props with convention `screen-name-element` for element selection
 - Maestro config uses `appId: host.exp.exponent` for Expo Go; update for custom dev builds
+- testID props follow `screen-name-element` convention (e.g., `login-email-input`, `home-buddy-item-{id}`) — dynamic IDs use template literals with entity IDs
 - For complex screens with many API calls, use `apiGet.mockImplementation()` with path matching to route different endpoints to different responses
 - Use `UNSAFE_queryByType(ActivityIndicator)` from @testing-library/react-native to assert loading spinners
 - Use `setupFiles` (not `setupFilesAfterSetup`) in jest.config.js for setup scripts
@@ -168,4 +169,18 @@ Started: Thu Mar  5 06:11:08 AM UTC 2026
   - Maestro env vars can be overridden via CLI with `-e KEY=value` — useful for different test credentials per environment
   - The `onFlowStart: [clearState]` directive ensures clean app state between flows
   - Maestro flows select elements via `testID` props — the convention for this project is `screen-name-element` (e.g., `login-email-input`)
+---
+
+## 2026-03-05T06:37Z - US-010
+- Added testID props to all screen components for Maestro E2E testing
+- LoginScreen: login-email-input, login-password-input, login-sign-in-button, login-sign-up-link
+- HomeScreen: home-sign-out-button, home-start-workout-button, home-buddy-requests, home-squad-requests, home-buddies-squads-list, home-buddy-item-{id}, home-squad-item-{id}
+- FriendsScreen: friends-search-input, friends-request-item-{id}, friends-accept-button-{id}, friends-decline-button-{id}, friends-friend-item-{uid}
+- AccountScreen: account-sign-out-button, account-display-name, account-email, account-toggle-getting-started
+- App.tsx (TabBar): tab-home, tab-friends, tab-account
+- Files changed: apps/mobile/src/screens/LoginScreen.tsx, apps/mobile/src/screens/HomeScreen.tsx, apps/mobile/src/screens/FriendsScreen.tsx, apps/mobile/src/screens/AccountScreen.tsx, apps/mobile/App.tsx
+- **Learnings for future iterations:**
+  - testID is a built-in React Native prop on all View/TouchableOpacity/TextInput components — no type issues
+  - For dynamic list items, use template literals: testID={`screen-item-${entity.id}`} for unique selection in Maestro
+  - The Tab navigator is in App.tsx not a separate navigation file — add tab testIDs there
 ---
