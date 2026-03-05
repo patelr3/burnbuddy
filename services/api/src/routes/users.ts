@@ -4,30 +4,57 @@ import { requireAuth } from '../middleware/auth';
 import { getDb } from '../lib/firestore';
 
 /**
- * GET /users/search?email=<email>
- * Returns basic info (uid, displayName, email) for a user matching the given email, or 404.
+ * GET /users/search?q=<query>   — typeahead prefix search (returns array)
+ * GET /users/search?email=<email> — exact email lookup (returns single object, legacy)
  */
 
 const router = Router();
 
 router.get('/search', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const q = req.query['q'] as string | undefined;
   const email = req.query['email'] as string | undefined;
 
-  if (!email) {
-    res.status(400).json({ error: 'email query parameter is required' });
+  // Legacy exact-email search
+  if (email) {
+    const db = getDb();
+    const snapshot = await db.collection('users').where('email', '==', email).limit(1).get();
+
+    if (snapshot.empty) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    const user = snapshot.docs[0].data() as UserProfile;
+    res.json({ uid: user.uid, displayName: user.displayName, email: user.email });
     return;
   }
 
+  // Typeahead prefix search
+  if (!q || q.trim().length < 2) {
+    res.status(400).json({ error: 'q parameter must be at least 2 characters' });
+    return;
+  }
+
+  const query = q.trim();
+  const currentUid = req.user!.uid;
   const db = getDb();
-  const snapshot = await db.collection('users').where('email', '==', email).limit(1).get();
 
-  if (snapshot.empty) {
-    res.status(404).json({ error: 'User not found' });
-    return;
-  }
+  // Prefix search on email using Firestore range query
+  const snapshot = await db
+    .collection('users')
+    .where('email', '>=', query)
+    .where('email', '<', query + '\uf8ff')
+    .limit(10)
+    .get();
 
-  const user = snapshot.docs[0].data() as UserProfile;
-  res.json({ uid: user.uid, displayName: user.displayName, email: user.email });
+  const results = snapshot.docs
+    .map((doc: FirebaseFirestore.QueryDocumentSnapshot) => {
+      const u = doc.data() as UserProfile;
+      return { uid: u.uid, displayName: u.displayName, email: u.email };
+    })
+    .filter((u: { uid: string }) => u.uid !== currentUid);
+
+  res.json(results);
 });
 
 /**

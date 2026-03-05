@@ -2,8 +2,9 @@ import './instrumentation'; // must be first — initializes OpenTelemetry SDK
 
 import 'express-async-errors'; // patches Express to forward async errors to error handler
 import express from 'express';
-import pino from 'pino';
+import cors from 'cors';
 import { initFirebase } from './lib/firebase';
+import { logger } from './lib/logger';
 import { requireAuth } from './middleware/auth';
 import usersRouter from './routes/users';
 import friendsRouter from './routes/friends';
@@ -15,31 +16,20 @@ import groupWorkoutsRouter from './routes/group-workouts';
 // Initialize Firebase Admin on startup
 initFirebase();
 
-const transportTargets: pino.TransportTargetOptions[] = [
-  {
-    target: 'pino/file',
-    options: { destination: 1 }, // stdout
-    level: process.env.LOG_LEVEL ?? 'info',
-  },
-];
-
-// Enable OpenTelemetry log transport when OTEL_LOGS_ENABLED=true (e.g., production with collector)
-if (process.env.OTEL_LOGS_ENABLED === 'true') {
-  transportTargets.push({
-    target: 'pino-opentelemetry-transport',
-    options: {},
-    level: process.env.LOG_LEVEL ?? 'info',
-  });
-}
-
-const transport = pino.transport({ targets: transportTargets });
-
-const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' }, transport);
-
 const app = express();
 const PORT = process.env.PORT ?? 3001;
 
 app.use(express.json());
+
+// CORS — allow web origins to call the API from the browser
+const corsOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
+  : [
+      'https://buddyburn-beta.arayosun.com',
+      'https://buddyburn.arayosun.com',
+      'http://localhost:3000',
+    ];
+app.use(cors({ origin: corsOrigins, credentials: true }));
 
 app.use('/users', usersRouter);
 app.use('/friends', friendsRouter);

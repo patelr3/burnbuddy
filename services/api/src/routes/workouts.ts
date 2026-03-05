@@ -5,6 +5,7 @@ import { requireAuth } from '../middleware/auth';
 import { getDb } from '../lib/firestore';
 import { detectGroupWorkouts } from '../services/group-workout-detection';
 import { sendWorkoutStartedNotifications } from '../services/push-notifications';
+import { logger } from '../lib/logger';
 
 const router = Router();
 
@@ -36,8 +37,8 @@ router.post('/', requireAuth, async (req: Request, res: Response): Promise<void>
   await db.collection('workouts').doc(id).set(workout);
 
   // Detect group workouts in background — errors must not fail workout creation
-  detectGroupWorkouts(uid, workout).catch(() => {
-    // detection errors are non-fatal
+  detectGroupWorkouts(uid, workout).catch((err: unknown) => {
+    logger.error({ err, uid, workoutId: id }, 'Group workout detection failed');
   });
 
   // Send push notifications to Burn Buddies and Burn Squad members in background
@@ -45,8 +46,8 @@ router.post('/', requireAuth, async (req: Request, res: Response): Promise<void>
   const senderDisplayName = userDoc.exists
     ? ((userDoc.data() as UserProfile).displayName ?? 'Someone')
     : 'Someone';
-  sendWorkoutStartedNotifications(uid, senderDisplayName).catch(() => {
-    // notification errors are non-fatal
+  sendWorkoutStartedNotifications(uid, senderDisplayName).catch((err: unknown) => {
+    logger.error({ err, uid }, 'Push notification send failed');
   });
 
   res.status(201).json(workout);
