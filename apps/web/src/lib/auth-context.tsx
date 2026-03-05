@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { type User, onAuthStateChanged, getIdToken } from 'firebase/auth';
 import { auth } from './firebase-client';
+import { apiPut } from './api';
 
 interface AuthContextValue {
   user: User | null;
@@ -26,6 +27,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       if (u) {
         document.cookie = 'auth_session=1; path=/; SameSite=Lax';
+        // Ensure Firestore profile exists for web users (idempotent PUT)
+        apiPut('/users/me', {
+          email: u.email,
+          displayName: u.displayName,
+        }).catch((err) => {
+          console.error('Failed to ensure Firestore profile:', err);
+        });
       } else {
         document.cookie = 'auth_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
       }
