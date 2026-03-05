@@ -1,3 +1,43 @@
 # Ralph Progress Log
 Started: Thu Mar  5 06:11:08 AM UTC 2026
 ---
+
+## Codebase Patterns
+- jest-expo 55 requires jest ^29 (not 30) — check `node_modules/jest-expo/package.json` dependencies for version compatibility
+- Use `setupFiles` (not `setupFilesAfterSetup`) in jest.config.js for setup scripts
+- Mock `expo-modules-core` and `expo-notifications` in jest.setup.ts to prevent native module resolution errors
+- `transformIgnorePatterns` must whitelist expo/react-native packages to allow babel transform in tests
+- Run `yarn workspace mobile test` to execute mobile Jest tests
+- Mock files in `src/__mocks__/` export individual mock fns + a `reset*()` helper; use `jest.mock('module', () => require('../__mocks__/file'))` pattern
+- Firebase mock provides both `firebaseAuthModule` (for mocking 'firebase/auth') and `firebaseModule` (for mocking '../lib/firebase')
+---
+
+## 2026-03-05T06:11Z - US-001
+- Configured Jest test runner in apps/mobile
+- Added devDependencies: jest@^29.7.0, jest-expo@^55.0.9, @testing-library/react-native, @testing-library/jest-native, @types/jest@^29.5.0
+- Created jest.config.js extending jest-expo preset with proper transformIgnorePatterns
+- Created jest.setup.ts with mocks for expo-modules-core and expo-notifications
+- Added `test` script to package.json
+- Created trivial smoke test at src/__tests__/smoke.test.ts (2 passing tests)
+- Files changed: apps/mobile/package.json, apps/mobile/jest.config.js, apps/mobile/jest.setup.ts, apps/mobile/src/__tests__/smoke.test.ts, yarn.lock
+- **Learnings for future iterations:**
+  - jest-expo 55 internally depends on jest@^29 — installing jest@30 causes "import outside scope" errors
+  - The `react-native/Libraries/Animated/NativeAnimatedHelper` path doesn't exist in RN 0.83 — don't mock it directly
+  - expo-modules-core mock needs NativeModulesProxy, requireNativeModule, requireOptionalNativeModule, EventEmitter
+  - @testing-library/react-native and jest-native have unmet peer dep for react-test-renderer — tests still work without it for now
+---
+
+## 2026-03-05T06:17Z - US-002
+- Created shared mock infrastructure in apps/mobile/src/__mocks__/
+- Files created:
+  - `firebase.ts` — mocks signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, getIdToken, signOut, plus pre-assembled module mocks and mockUser/mockAuth objects
+  - `api.ts` — mocks apiGet, apiPost, apiPut, apiPatch, apiDelete as jest.fn() stubs with default resolved values
+  - `notifications.ts` — mocks expo-notifications getPermissionsAsync, requestPermissionsAsync, getExpoPushTokenAsync, setNotificationHandler, listeners
+  - `async-storage.ts` — in-memory Map-backed mock for @react-native-async-storage/async-storage with getItem, setItem, removeItem, clear, multiGet, multiSet, multiRemove
+- Each file exports a reset helper (resetFirebaseMocks, resetApiMocks, resetNotificationMocks, resetAsyncStorageMock)
+- All mocks have inline JSDoc comments explaining usage patterns
+- **Learnings for future iterations:**
+  - Firebase mock needs both a 'firebase/auth' module shape AND a '../lib/firebase' module shape since app code imports from both
+  - onAuthStateChanged mock must accept (auth, callback) signature matching the modular Firebase SDK
+  - AsyncStorage mock with real Map backing is more useful than plain jest.fn() — allows asserting stored values
+---
