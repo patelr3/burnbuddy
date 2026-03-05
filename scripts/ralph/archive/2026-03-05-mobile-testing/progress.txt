@@ -1,0 +1,218 @@
+# Ralph Progress Log
+Started: Thu Mar  5 06:11:08 AM UTC 2026
+---
+
+## Codebase Patterns
+- jest-expo 55 requires jest ^29 (not 30) — check `node_modules/jest-expo/package.json` dependencies for version compatibility
+- Maestro E2E flows live in `apps/mobile/.maestro/` — use `testID` props with convention `screen-name-element` for element selection
+- Maestro config uses `appId: host.exp.exponent` for Expo Go; update for custom dev builds
+- testID props follow `screen-name-element` convention (e.g., `login-email-input`, `home-buddy-item-{id}`) — dynamic IDs use template literals with entity IDs
+- SignupScreen testIDs: signup-display-name-input, signup-email-input, signup-password-input, signup-create-account-button, signup-sign-in-link
+- For complex screens with many API calls, use `apiGet.mockImplementation()` with path matching to route different endpoints to different responses
+- Use `UNSAFE_queryByType(ActivityIndicator)` from @testing-library/react-native to assert loading spinners
+- Use `setupFiles` (not `setupFilesAfterSetup`) in jest.config.js for setup scripts
+- Screen headers often render static titles (e.g., "Friends") — use content-specific text (empty state messages, section labels) instead of header titles for loading state assertions
+- Mock `expo-modules-core` and `expo-notifications` in jest.setup.ts to prevent native module resolution errors
+- `transformIgnorePatterns` must whitelist expo/react-native packages to allow babel transform in tests
+- Run `yarn workspace mobile test` to execute mobile Jest tests
+- Mock files in `src/__mocks__/` export individual mock fns + a `reset*()` helper; use `jest.mock('module', () => require('../__mocks__/file'))` pattern
+- Firebase mock provides both `firebaseAuthModule` (for mocking 'firebase/auth') and `firebaseModule` (for mocking '../lib/firebase')
+- Use `require()` inside `jest.mock()` factories to avoid hoisting scope errors — e.g., `jest.mock('firebase/auth', () => require('../../__mocks__/firebase').firebaseAuthModule)`
+- For testing React context hooks, use `renderHook` from `@testing-library/react-native` with a wrapper component
+- To test module-scope env var reads (e.g., `API_BASE`), use `jest.resetModules()` + re-apply `jest.mock()` + `require()` to reimport with new env
+- Mock global `fetch` in `beforeEach` and restore in `afterAll` — create a `mockResponse()` helper to build Response-like objects
+- For screen component tests that use `expo-web-browser` or `expo-auth-session`, mock them at the top of the test file (module-scope side effects)
+- Mock `expo-auth-session/providers/google` useAuthRequest returning `[request, response, promptAsync]` tuple
+- Spy on `Alert.alert` with `jest.spyOn(Alert, 'alert')` to verify error messages in components
+---
+
+## 2026-03-05T06:11Z - US-001
+- Configured Jest test runner in apps/mobile
+- Added devDependencies: jest@^29.7.0, jest-expo@^55.0.9, @testing-library/react-native, @testing-library/jest-native, @types/jest@^29.5.0
+- Created jest.config.js extending jest-expo preset with proper transformIgnorePatterns
+- Created jest.setup.ts with mocks for expo-modules-core and expo-notifications
+- Added `test` script to package.json
+- Created trivial smoke test at src/__tests__/smoke.test.ts (2 passing tests)
+- Files changed: apps/mobile/package.json, apps/mobile/jest.config.js, apps/mobile/jest.setup.ts, apps/mobile/src/__tests__/smoke.test.ts, yarn.lock
+- **Learnings for future iterations:**
+  - jest-expo 55 internally depends on jest@^29 — installing jest@30 causes "import outside scope" errors
+  - The `react-native/Libraries/Animated/NativeAnimatedHelper` path doesn't exist in RN 0.83 — don't mock it directly
+  - expo-modules-core mock needs NativeModulesProxy, requireNativeModule, requireOptionalNativeModule, EventEmitter
+  - @testing-library/react-native and jest-native have unmet peer dep for react-test-renderer — tests still work without it for now
+---
+
+## 2026-03-05T06:17Z - US-002
+- Created shared mock infrastructure in apps/mobile/src/__mocks__/
+- Files created:
+  - `firebase.ts` — mocks signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, getIdToken, signOut, plus pre-assembled module mocks and mockUser/mockAuth objects
+  - `api.ts` — mocks apiGet, apiPost, apiPut, apiPatch, apiDelete as jest.fn() stubs with default resolved values
+  - `notifications.ts` — mocks expo-notifications getPermissionsAsync, requestPermissionsAsync, getExpoPushTokenAsync, setNotificationHandler, listeners
+  - `async-storage.ts` — in-memory Map-backed mock for @react-native-async-storage/async-storage with getItem, setItem, removeItem, clear, multiGet, multiSet, multiRemove
+- Each file exports a reset helper (resetFirebaseMocks, resetApiMocks, resetNotificationMocks, resetAsyncStorageMock)
+- All mocks have inline JSDoc comments explaining usage patterns
+- **Learnings for future iterations:**
+  - Firebase mock needs both a 'firebase/auth' module shape AND a '../lib/firebase' module shape since app code imports from both
+  - onAuthStateChanged mock must accept (auth, callback) signature matching the modular Firebase SDK
+  - AsyncStorage mock with real Map backing is more useful than plain jest.fn() — allows asserting stored values
+---
+
+## 2026-03-05T06:19Z - US-003
+- Created test file at apps/mobile/src/lib/__tests__/auth-context.test.tsx
+- 6 tests covering AuthProvider and useAuth hook:
+  1. Renders children when onAuthStateChanged emits a user
+  2. useAuth() returns { user, loading, getToken } with correct values
+  3. Loading is true initially, then false after auth state resolves (deferred callback)
+  4. Unauthenticated state when onAuthStateChanged emits null
+  5. getToken() calls Firebase getIdToken() and returns token string
+  6. getToken() returns null when user is not authenticated
+- Files changed: apps/mobile/src/lib/__tests__/auth-context.test.tsx
+- **Learnings for future iterations:**
+  - Must use `require()` inside `jest.mock()` factory fns — direct variable references (even imports) cause hoisting scope errors. Only `mock`-prefixed variables are allowed.
+  - To test initial loading state, override `mockOnAuthStateChanged` to capture the callback without calling it immediately, then fire it manually inside `act()`.
+  - `renderHook` from `@testing-library/react-native` works well for context hook testing with a wrapper prop.
+---
+
+## 2026-03-05T06:22Z - US-004
+- Created test file at apps/mobile/src/lib/__tests__/api.test.ts
+- 10 tests covering the API client module:
+  1. apiGet sends GET with Authorization: Bearer <token> header
+  2. apiPost sends POST with JSON body and auth header
+  3. Uses EXPO_PUBLIC_API_URL env var for base URL
+  4. Falls back to http://localhost:3001 when env var not set
+  5. Network error throws/rejects with meaningful error
+  6. 401 response is handled (throws, not silently swallowed)
+  7. apiPut sends PUT with JSON body and auth header
+  8. apiPatch sends PATCH with JSON body and auth header
+  9. apiDelete sends DELETE with auth header
+  10. No auth header when user is not logged in
+- Files changed: apps/mobile/src/lib/__tests__/api.test.ts
+- **Learnings for future iterations:**
+  - API_BASE is computed at module scope from process.env.EXPO_PUBLIC_API_URL — to test env var changes, must use jest.resetModules() then re-apply jest.mock() and require() the module fresh
+  - Global fetch mock: assign jest.fn() to global.fetch in beforeEach, restore original in afterAll
+  - mockAuth.currentUser needs a type assertion to set null: `(mockAuth as { currentUser: ... }).currentUser = null`
+  - The mockResponse() helper approach (building a minimal Response-like object) is cleaner than importing jest-fetch-mock
+---
+
+## 2026-03-05T06:24Z - US-005
+- Created test file at apps/mobile/src/screens/__tests__/LoginScreen.test.tsx
+- 6 tests covering LoginScreen component:
+  1. Renders email and password text inputs
+  2. Renders a Sign In button
+  3. Tapping Sign In with valid inputs calls signInWithEmailAndPassword
+  4. Displays error message when auth fails (wrong password)
+  5. Shows validation error when fields are empty
+  6. Tapping Sign Up link triggers navigation to signup screen
+- Files changed: apps/mobile/src/screens/__tests__/LoginScreen.test.tsx
+- **Learnings for future iterations:**
+  - LoginScreen uses `expo-web-browser` (maybeCompleteAuthSession) at module scope — must mock before import
+  - LoginScreen uses `expo-auth-session/providers/google` for Google OAuth — mock useAuthRequest returning [request, response, promptAsync]
+  - Use `jest.spyOn(Alert, 'alert')` to verify error Alert dialogs without mocking the whole module
+  - The LoginScreen takes `onNavigateToSignup` callback prop (no React Navigation needed)
+  - The `firebaseAuthModule` mock already includes `GoogleAuthProvider` and `signInWithCredential` — no extra mocking needed
+---
+
+## 2026-03-05T06:27Z - US-006
+- Created test file at apps/mobile/src/screens/__tests__/HomeScreen.test.tsx
+- 6 tests covering HomeScreen component:
+  1. Shows loading indicator while API calls are in flight (ActivityIndicator present, no list content)
+  2. Renders list of burn buddies returned by apiGet('/burn-buddies') with partner name, badge, and streak
+  3. Renders list of burn squads returned by apiGet('/burn-squads') with squad name, badge, and streak
+  4. Displays empty state message when user has no buddies or squads
+  5. Displays incoming buddy request indicators with sender name
+  6. Displays incoming squad invitation indicators with squad name
+- Files changed: apps/mobile/src/screens/__tests__/HomeScreen.test.tsx
+- **Learnings for future iterations:**
+  - HomeScreen makes 7+ parallel API calls in loadData() plus N enrichment calls per buddy/squad — use apiGet.mockImplementation() with path matching to route different endpoints
+  - `UNSAFE_queryByType(ActivityIndicator)` is the correct way to find ActivityIndicator in @testing-library/react-native (queryAllByProps doesn't exist)
+  - Mock child screens (BurnBuddyDetailScreen, etc.) to keep tests focused on HomeListView behavior
+  - The enrichment flow makes secondary API calls for partner profiles (/users/{uid}) and streaks (/burn-buddies/{id}/streaks, /burn-squads/{id}/streaks) — mock those in the path router
+  - Squad join requests from the API already include `squadName` field — no extra enrichment needed
+---
+
+## 2026-03-05T06:30Z - US-007
+- Created test file at apps/mobile/src/screens/__tests__/FriendsScreen.test.tsx
+- 6 tests covering FriendsScreen component:
+  1. Renders list of current friends from API (displayName, email, count in section label)
+  2. Renders incoming and outgoing friend request sections with badges ("incoming", "pending")
+  3. Tapping Accept on incoming request calls apiPost('/friends/requests/{id}/accept')
+  4. Tapping Ignore button is present but no API call made (stub handler in component)
+  5. Displays empty state message when user has no friends
+  6. Shows ActivityIndicator loading state while API calls are in flight
+- Files changed: apps/mobile/src/screens/__tests__/FriendsScreen.test.tsx
+- **Learnings for future iterations:**
+  - FriendsScreen header always shows "Friends" title — don't use queryByText('Friends') to check loading state; check for content-specific text instead
+  - FriendsScreen enriches friend requests by calling /users/{uid} for each request — the mock must route user profile lookups by UID
+  - The "Ignore" button on incoming requests has no handler (just renders) — test for presence only
+  - The setupDefaultApiMocks() pattern with path-matching mockImplementation continues to work well for screens with multiple API calls
+---
+
+## 2026-03-05T06:33Z - US-008
+- Created `.github/workflows/test-mobile.yml` for CI
+- Triggers on push to main and pull_request when `apps/mobile/**` or `packages/shared/**` change
+- Steps: checkout, Node.js 24 setup with yarn cache, yarn install --frozen-lockfile, build shared package, run mobile tests with --ci --coverage
+- Test results reported to GitHub Actions summary via GITHUB_STEP_SUMMARY
+- YAML validated with Python yaml parser
+- Files changed: .github/workflows/test-mobile.yml
+- **Learnings for future iterations:**
+  - Follow the existing deploy-api.yml pattern: actions/checkout@v4, actions/setup-node@v4 with node-version '24' and cache 'yarn'
+  - Must build shared package (`yarn workspace @burnbuddy/shared build`) before running mobile tests since mobile depends on it
+  - Use `--ci` flag with Jest for deterministic CI behavior (no interactive prompts, fail on missing snapshots)
+---
+
+## 2026-03-05T06:35Z - US-009
+- Configured Maestro E2E testing framework for the mobile app
+- Created `apps/mobile/.maestro/config.yaml` with Expo Go app identifier, env vars for local API (localhost:3001), test credentials, tags, and clearState on flow start
+- Added `test:e2e` script to `apps/mobile/package.json` running `maestro test .maestro/`
+- Created `docs/mobile-testing.md` with comprehensive instructions: Maestro CLI installation, prerequisites (local API, simulator, Expo dev server), running flows, writing new flows, configuration reference, custom dev build guide, and troubleshooting
+- Files changed: apps/mobile/.maestro/config.yaml, apps/mobile/package.json, docs/mobile-testing.md
+- **Learnings for future iterations:**
+  - Maestro config.yaml uses `appId: host.exp.exponent` for Expo Go testing — update to custom bundle ID for dev builds
+  - Maestro env vars can be overridden via CLI with `-e KEY=value` — useful for different test credentials per environment
+  - The `onFlowStart: [clearState]` directive ensures clean app state between flows
+  - Maestro flows select elements via `testID` props — the convention for this project is `screen-name-element` (e.g., `login-email-input`)
+---
+
+## 2026-03-05T06:37Z - US-010
+- Added testID props to all screen components for Maestro E2E testing
+- LoginScreen: login-email-input, login-password-input, login-sign-in-button, login-sign-up-link
+- HomeScreen: home-sign-out-button, home-start-workout-button, home-buddy-requests, home-squad-requests, home-buddies-squads-list, home-buddy-item-{id}, home-squad-item-{id}
+- FriendsScreen: friends-search-input, friends-request-item-{id}, friends-accept-button-{id}, friends-decline-button-{id}, friends-friend-item-{uid}
+- AccountScreen: account-sign-out-button, account-display-name, account-email, account-toggle-getting-started
+- App.tsx (TabBar): tab-home, tab-friends, tab-account
+- Files changed: apps/mobile/src/screens/LoginScreen.tsx, apps/mobile/src/screens/HomeScreen.tsx, apps/mobile/src/screens/FriendsScreen.tsx, apps/mobile/src/screens/AccountScreen.tsx, apps/mobile/App.tsx
+- **Learnings for future iterations:**
+  - testID is a built-in React Native prop on all View/TouchableOpacity/TextInput components — no type issues
+  - For dynamic list items, use template literals: testID={`screen-item-${entity.id}`} for unique selection in Maestro
+  - The Tab navigator is in App.tsx not a separate navigation file — add tab testIDs there
+---
+
+## 2026-03-05T06:40Z - US-011
+- Created Maestro E2E flows for login and signup authentication journeys
+- Added testID props to SignupScreen (signup-display-name-input, signup-email-input, signup-password-input, signup-create-account-button, signup-sign-in-link)
+- Created `apps/mobile/.maestro/login.yaml` — enters email/password from env vars, taps Sign In, verifies Home screen tab bar appears (tags: smoke, auth)
+- Created `apps/mobile/.maestro/signup.yaml` — navigates from Login to Signup, fills display name/email/password, creates account, verifies Home screen (tags: auth)
+- Updated `docs/mobile-testing.md` with "Available E2E Flows" table and per-flow run instructions
+- Files changed: apps/mobile/src/screens/SignupScreen.tsx, apps/mobile/.maestro/login.yaml, apps/mobile/.maestro/signup.yaml, docs/mobile-testing.md
+- **Learnings for future iterations:**
+  - SignupScreen did not have testID props from US-010 — always check all screens referenced by Maestro flows have testIDs before writing flows
+  - Maestro `env:` block inside a flow file can define flow-specific env vars that override config.yaml defaults
+  - Use `${Date.now()}` in Maestro env vars for unique signup emails to avoid "email already in use" errors
+  - `assertVisible` with `timeout: 10000` is needed for post-auth assertions since Firebase auth + API calls take time
+  - Maestro flows reference testIDs via `id:` selector (not `testID:`) — e.g., `tapOn: { id: "login-email-input" }`
+- When writing new Maestro flows, audit target components for missing testIDs first — add them before writing the flow YAML
+- When adding new Maestro flows that interact with elements lacking testIDs, add the testIDs to the component first, then reference them in flows
+---
+
+## 2026-03-05T06:42Z - US-012
+- Created Maestro E2E flows for home navigation and friend management
+- Added testIDs to FriendsScreen: friends-add-friend-button, friends-search-button, friends-search-result, friends-modal-cancel-button, friends-modal-send-button
+- Created `apps/mobile/.maestro/home-navigation.yaml` — logs in, navigates Home → Friends → Account → Home tabs, verifies each screen loads (tags: smoke, navigation)
+- Created `apps/mobile/.maestro/add-friend.yaml` — logs in, opens Friends tab, taps Add Friend, searches by email, taps search result, confirms Send Request, verifies Pending Requests section appears (tags: friends)
+- Updated `docs/mobile-testing.md` with new flows in Available E2E Flows table and run instructions
+- Files changed: apps/mobile/src/screens/FriendsScreen.tsx, apps/mobile/.maestro/home-navigation.yaml, apps/mobile/.maestro/add-friend.yaml, docs/mobile-testing.md
+- **Learnings for future iterations:**
+  - FriendsScreen had no testIDs on the Add Friend button, Search button, search result card, or modal buttons — always audit testID coverage before writing Maestro flows
+  - Maestro flows that test multi-screen journeys (login → navigate → action) should use generous timeouts (5000-10000ms) on screen transition assertions
+  - The add-friend flow requires a valid FRIEND_EMAIL env var pointing to an existing user — override via `maestro test -e FRIEND_EMAIL=... .maestro/add-friend.yaml`
+  - Modal elements can be selected via testID just like regular components — Maestro handles Modal visibility correctly
+---
