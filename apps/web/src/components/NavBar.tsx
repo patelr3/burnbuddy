@@ -32,9 +32,6 @@ export function NavBar() {
           <Link href="/account" className={linkClass('/account')}>
             Account
           </Link>
-          <Link href="/settings" className={linkClass('/settings')}>
-            Settings
-          </Link>
           {user && (
             <button
               onClick={handleSignOut}
