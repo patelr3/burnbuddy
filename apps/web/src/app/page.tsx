@@ -6,7 +6,7 @@ import { apiGet, apiPost, apiPut, apiPatch } from '@/lib/api';
 import { GettingStartedCard } from '@/components/GettingStartedCard';
 import { NavBar } from '@/components/NavBar';
 import Link from 'next/link';
-import type { UserProfile, BurnBuddy, BurnSquad, GroupWorkout, BurnBuddyRequest, BurnSquadJoinRequest, Workout, WorkoutType } from '@burnbuddy/shared';
+import type { UserProfile, BurnBuddy, BurnSquad, GroupWorkout, BurnBuddyRequest, BurnSquadJoinRequest, Workout, WorkoutType, WorkoutSchedule } from '@burnbuddy/shared';
 
 const WORKOUT_TYPES: WorkoutType[] = [
   'Weightlifting', 'Running', 'Cycling', 'Yoga', 'Barre', 'Swimming', 'HIIT', 'Custom',
@@ -31,6 +31,47 @@ interface CombinedItem {
   name: string;
   burnStreak: number;
   lastGroupWorkout: string | null;
+  workoutSchedule?: WorkoutSchedule;
+}
+
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+
+function getNextWorkout(schedule?: WorkoutSchedule): string | null {
+  if (!schedule || schedule.days.length === 0) return null;
+  const now = new Date();
+  const currentDayIndex = now.getDay(); // 0=Sun ... 6=Sat
+  const currentDayName = DAY_NAMES[currentDayIndex];
+  const [schedHour, schedMin] = schedule.time
+    ? schedule.time.split(':').map(Number)
+    : [0, 0];
+
+  // Check today and next 7 days
+  for (let offset = 0; offset <= 7; offset++) {
+    const candidate = new Date(now);
+    candidate.setDate(now.getDate() + offset);
+    const dayName = DAY_NAMES[candidate.getDay()];
+    if (!schedule.days.includes(dayName as typeof schedule.days[number])) continue;
+
+    if (offset === 0) {
+      // Today: only show if the scheduled time hasn't passed
+      if (schedule.time) {
+        const scheduledToday = new Date(now);
+        scheduledToday.setHours(schedHour, schedMin, 0, 0);
+        if (now >= scheduledToday) continue;
+      } else {
+        continue; // No time set, skip today
+      }
+    }
+
+    const timeStr = schedule.time
+      ? new Date(2000, 0, 1, schedHour, schedMin).toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+        })
+      : '';
+    return `${dayName}${timeStr ? ' ' + timeStr : ''}`;
+  }
+  return null;
 }
 
 interface EnrichedBurnBuddyRequest extends BurnBuddyRequest {
@@ -137,6 +178,7 @@ export default function Home() {
           name: partnerProfile?.displayName ?? partnerUid,
           burnStreak: streaks.burnStreak,
           lastGroupWorkout: lastWorkoutMap.get(b.id) ?? null,
+          workoutSchedule: b.workoutSchedule,
         };
       });
 
@@ -152,6 +194,7 @@ export default function Home() {
           name: s.name,
           burnStreak: streaks.burnStreak,
           lastGroupWorkout: lastWorkoutMap.get(s.id) ?? null,
+          workoutSchedule: s.settings?.workoutSchedule,
         };
       });
 
@@ -444,12 +487,19 @@ export default function Home() {
                   <div className="text-[13px] text-gray-500">
                     {timeAgo(item.lastGroupWorkout)}
                   </div>
+                  {(() => {
+                    const next = getNextWorkout(item.workoutSchedule);
+                    return next ? (
+                      <div className="mt-0.5 text-[12px] text-gray-400">
+                        Next: {next}
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
                 <div className="text-right">
                   <div className="text-[22px] font-bold text-orange-500">
-                    {item.burnStreak}
+                    🔥{item.burnStreak}
                   </div>
-                  <div className="text-[11px] text-gray-400">streak</div>
                 </div>
               </div>
             </Link>

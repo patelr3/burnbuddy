@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { apiGet, apiPost, apiDelete } from '@/lib/api';
 import { NavBar } from '@/components/NavBar';
+import Link from 'next/link';
 import type { FriendRequest, BurnBuddy, BurnBuddyRequest } from '@burnbuddy/shared';
 
 interface FriendWithProfile {
@@ -394,13 +395,16 @@ export default function FriendsPage() {
                       key={friend.uid}
                       className="flex items-center justify-between rounded-lg border border-gray-100 bg-white p-3 mb-2 shadow-sm hover:bg-gray-50"
                     >
-                      <div>
+                      <Link
+                        href={`/profile/${friend.uid}`}
+                        className="min-w-0 flex-1 no-underline"
+                      >
                         <strong className="text-gray-900">{friend.displayName}</strong>
                         {friend.username && (
                           <span className="ml-1.5 text-sm text-gray-400">@{friend.username}</span>
                         )}
                         <div className="text-xs text-gray-500">{friend.email}</div>
-                      </div>
+                      </Link>
                       <div className="flex items-center gap-2">
                         {bbStatus === 'buddy' && (
                           <span className="rounded-full bg-orange-50 px-2.5 py-1 text-xs font-medium text-primary">

@@ -17,7 +17,7 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "Refactor streak-calculator.ts to walk through GroupWorkout documents. The existing group workout detection (20-min window) already captures overlapping workouts — use those as the data source."
     },
     {
@@ -36,7 +36,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Builds on the streak-calculator refactor from US-001. The calculator should allow gaps of up to 6 days between group workouts without resetting."
     },
     {
@@ -52,7 +52,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Frontend-only change. Move username editing UI from /settings to /account, delete the settings page, and update navigation."
     },
     {
@@ -69,7 +69,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Calculate highest streak ever by walking full group workout history using the updated streak calculator from US-001/US-002. Add new test file following the project's vi.mock + vi.hoisted + supertest pattern."
     },
     {
@@ -88,7 +88,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Aggregates stats across all of a user's buddy/squad relationships. May involve multiple Firestore reads — consider batching. Add new test file following the project's vi.mock + vi.hoisted + supertest pattern."
     },
     {
@@ -104,7 +104,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-004 (stats API). Create reusable stat display components — these will be reused on the friend profile page in US-007."
     },
     {
@@ -121,7 +121,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-005 (profile API). Reuse stat display components from US-006. The Request to be Burn Buddy button uses buddyRelationshipStatus from the profile API."
     },
     {
@@ -137,7 +137,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "Next planned workout derived from WorkoutSchedule on the buddy/squad. Calculate next occurrence from the schedule's day/time fields."
     },
     {

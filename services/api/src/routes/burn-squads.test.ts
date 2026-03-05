@@ -22,9 +22,12 @@ const {
   // friends — doc (friendship check)
   mockFriendsDocGet,
   mockFriendsDocRef,
-  // workouts — query (for streaks)
+  // workouts — query (for streaks - legacy, kept for other potential uses)
   mockWorkoutsQueryGet,
   mockWorkoutsQueryChain,
+  // groupWorkouts — query (for streaks endpoint)
+  mockGroupWorkoutsQueryGet,
+  mockGroupWorkoutsQueryChain,
   // burnSquadJoinRequests — query (for GET /join-requests)
   mockJoinRequestQueryGet,
   mockJoinRequestQueryChain,
@@ -71,11 +74,18 @@ const {
   const mockFriendsDocGet = vi.fn();
   const mockFriendsDocRef = vi.fn(() => ({ get: mockFriendsDocGet }));
 
-  // workouts — query chain (for streaks endpoint)
+  // workouts — query chain (for streaks endpoint — legacy)
   const mockWorkoutsQueryGet = vi.fn();
   const mockWorkoutsQueryChain = {
     where: vi.fn(),
     get: mockWorkoutsQueryGet,
+  };
+
+  // groupWorkouts — query chain (for streaks endpoint)
+  const mockGroupWorkoutsQueryGet = vi.fn();
+  const mockGroupWorkoutsQueryChain = {
+    where: vi.fn(),
+    get: mockGroupWorkoutsQueryGet,
   };
 
   return {
@@ -95,6 +105,8 @@ const {
     mockFriendsDocRef,
     mockWorkoutsQueryGet,
     mockWorkoutsQueryChain,
+    mockGroupWorkoutsQueryGet,
+    mockGroupWorkoutsQueryChain,
     mockJoinRequestQueryGet,
     mockJoinRequestQueryChain,
   };
@@ -127,6 +139,9 @@ vi.mock('../lib/firestore', () => ({
       }
       if (name === 'workouts') {
         return { where: () => mockWorkoutsQueryChain };
+      }
+      if (name === 'groupWorkouts') {
+        return { where: () => mockGroupWorkoutsQueryChain };
       }
       return {};
     },
@@ -166,6 +181,7 @@ beforeEach(() => {
   // Re-setup query chains (mockReturnThis must be re-applied after resetAllMocks)
   mockSquadQueryChain.where.mockReturnThis();
   mockWorkoutsQueryChain.where.mockReturnThis();
+  mockGroupWorkoutsQueryChain.where.mockReturnThis();
   mockJoinRequestQueryChain.where.mockReturnThis();
 
   // Re-setup doc refs
@@ -771,14 +787,12 @@ describe('GET /burn-squads/:id/streaks', () => {
     expect(res.status).toBe(403);
   });
 
-  it('returns burnStreak and supernovaStreak when no workouts exist', async () => {
+  it('returns burnStreak and supernovaStreak when no group workouts exist', async () => {
     mockSquadDocGet.mockResolvedValueOnce({
       exists: true,
       data: () => ({ ...SAMPLE_SQUAD, memberUids: [TEST_UID, OTHER_UID] }),
     });
-    mockWorkoutsQueryGet
-      .mockResolvedValueOnce({ docs: [] })
-      .mockResolvedValueOnce({ docs: [] });
+    mockGroupWorkoutsQueryGet.mockResolvedValueOnce({ docs: [] });
 
     const res = await request(buildApp())
       .get(`/burn-squads/${SQUAD_ID}/streaks`)
@@ -788,17 +802,21 @@ describe('GET /burn-squads/:id/streaks', () => {
     expect(res.body).toMatchObject({ burnStreak: 0, supernovaStreak: 0 });
   });
 
-  it('returns streak counts based on completed workouts', async () => {
+  it('returns streak counts based on group workouts', async () => {
     mockSquadDocGet.mockResolvedValueOnce({
       exists: true,
       data: () => ({ ...SAMPLE_SQUAD, memberUids: [TEST_UID, OTHER_UID] }),
     });
     const today = new Date().toISOString().substring(0, 10);
-    const workout1 = { id: 'w1', uid: TEST_UID, type: 'Yoga', startedAt: `${today}T08:00:00.000Z`, endedAt: `${today}T09:00:00.000Z`, status: 'completed' };
-    const workout2 = { id: 'w2', uid: OTHER_UID, type: 'Yoga', startedAt: `${today}T08:00:00.000Z`, endedAt: `${today}T09:00:00.000Z`, status: 'completed' };
-    mockWorkoutsQueryGet
-      .mockResolvedValueOnce({ docs: [{ data: () => workout1 }] })
-      .mockResolvedValueOnce({ docs: [{ data: () => workout2 }] });
+    const gw = {
+      id: 'gw-1',
+      type: 'squad',
+      referenceId: SQUAD_ID,
+      memberUids: [TEST_UID, OTHER_UID],
+      startedAt: `${today}T08:00:00.000Z`,
+      workoutIds: ['w1', 'w2'],
+    };
+    mockGroupWorkoutsQueryGet.mockResolvedValueOnce({ docs: [{ data: () => gw }] });
 
     const res = await request(buildApp())
       .get(`/burn-squads/${SQUAD_ID}/streaks`)
@@ -806,6 +824,98 @@ describe('GET /burn-squads/:id/streaks', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ burnStreak: 1, supernovaStreak: 1 });
+  });
+});
+
+// ── GET /burn-squads/:id/stats ────────────────────────────────────────────────
+
+describe('GET /burn-squads/:id/stats', () => {
+  it('returns 401 when unauthenticated', async () => {
+    const res = await request(buildApp()).get(`/burn-squads/${SQUAD_ID}/stats`);
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 when the squad does not exist', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}/stats`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 403 when user is not a member', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ ...SAMPLE_SQUAD, memberUids: [OTHER_UID] }),
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}/stats`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('returns empty stats when no group workouts exist', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ ...SAMPLE_SQUAD, memberUids: [TEST_UID, OTHER_UID] }),
+    });
+    mockGroupWorkoutsQueryGet.mockResolvedValueOnce({ docs: [] });
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}/stats`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      highestStreakEver: { value: 0, date: '' },
+      firstGroupWorkoutDate: null,
+      groupWorkoutsAllTime: 0,
+      groupWorkoutsThisMonth: 0,
+    });
+  });
+
+  it('returns correct stats when group workouts exist', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ ...SAMPLE_SQUAD, memberUids: [TEST_UID, OTHER_UID] }),
+    });
+
+    const now = new Date();
+    const thisMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+    const gw1 = {
+      id: 'gw-1',
+      type: 'squad',
+      referenceId: SQUAD_ID,
+      memberUids: [TEST_UID, OTHER_UID],
+      startedAt: `${thisMonth}-01T10:00:00.000Z`,
+      workoutIds: ['w1', 'w2'],
+    };
+    const gw2 = {
+      id: 'gw-2',
+      type: 'squad',
+      referenceId: SQUAD_ID,
+      memberUids: [TEST_UID, OTHER_UID],
+      startedAt: `${thisMonth}-02T10:00:00.000Z`,
+      workoutIds: ['w3', 'w4'],
+    };
+
+    mockGroupWorkoutsQueryGet.mockResolvedValueOnce({
+      docs: [{ data: () => gw1 }, { data: () => gw2 }],
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}/stats`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.highestStreakEver.value).toBe(2);
+    expect(res.body.firstGroupWorkoutDate).toBe(`${thisMonth}-01T10:00:00.000Z`);
+    expect(res.body.groupWorkoutsAllTime).toBe(2);
+    expect(res.body.groupWorkoutsThisMonth).toBe(2);
   });
 });
 
