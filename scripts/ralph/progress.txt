@@ -3,6 +3,7 @@ Started: Thu Mar  5 07:32:41 AM UTC 2026
 
 ## Codebase Patterns
 - Streak calculator now uses `GroupWorkout[]` as the sole input — no more per-member individual workout queries
+- Reusable `StatCard` component lives in `apps/web/src/components/StatCard.tsx` — use it for any stats grid display
 - Profile endpoint aggregates stats across burn buddies and squads using `calculateStreaks()` and `calculateHighestStreakEver()` — reuse these instead of reimplementing
 - For buddy relationship name display: partner's displayName (from users collection) for buddies, squad's `name` field for squads
 - Friendship check uses sorted composite key `${uid1}_${uid2}` as the friends document ID
@@ -106,4 +107,40 @@ Started: Thu Mar  5 07:32:41 AM UTC 2026
   - Profile endpoint is a read-heavy aggregation — it queries users, friends, burnBuddies (2 queries), burnSquads, partner user profiles, groupWorkouts (per relationship), workouts, and optionally burnBuddyRequests (2 queries). Consider caching for production.
   - When testing a route that calls `doc().get()` multiple times on the same collection, the `mockDocGet` mock needs `mockResolvedValueOnce` calls in the exact sequence they're called in the route handler
   - BurnBuddy uid1/uid2 are sorted, so `isBuddy` check must handle both orderings
+---
+
+## 2026-03-05T08:00:00Z - US-006
+- Added stats from GroupStats API to burn buddy and burn squad detail pages
+- Created reusable `StatCard` component in `apps/web/src/components/StatCard.tsx`
+- Both detail pages now fetch `/burn-buddies/:id/stats` or `/burn-squads/:id/stats` in parallel with existing data
+- New stat cards: Highest Streak (with date), First Workout, Total Workouts (all time), This Month (from API)
+- Retained existing: Burn Streak, Supernova Streak, This Week, Buddy/Squad Age
+- Graceful null-safe rendering when stats API unavailable
+- Files changed:
+  - `apps/web/src/components/StatCard.tsx` — new reusable component
+  - `apps/web/src/app/burn-buddies/[id]/page.tsx` — fetch stats, use shared StatCard, display new fields
+  - `apps/web/src/app/burn-squads/[id]/page.tsx` — same changes as buddies page
+- **Learnings for future iterations:**
+  - `GroupStats` type is imported from `@burnbuddy/shared` — make sure shared package is built first
+  - Detail pages fetch stats in parallel with streaks and group workouts using `Promise.all` with `.catch(() => null)` for graceful degradation
+  - `StatCard` component uses optional `unit` and `colorClass` props — pass `colorClass` for themed values, omit `unit` for date-only cards
+  - Browser verification requires auth — unauthenticated requests redirect to /login
+---
+
+## 2026-03-05T08:03:00Z - US-007
+- Created friend profile page at `/profile/[uid]` using `GET /users/:uid/profile` API
+- Displays: displayName, username, highest active streak (with buddy/squad name), highest streak ever (with date + name), first workout date, total workouts all time, total workouts this month
+- "Request Burn Buddy" button shows when `buddyRelationshipStatus === 'none'`, hidden for buddies/pending
+- Status badges for buddies, pending_sent, pending_received states
+- Updated friends page: friend list items are now clickable via `<Link>` to `/profile/[uid]`
+- Reused `StatCard` component from US-006 for stats grid
+- Loading and error states handled (404 user not found, 403 not friends)
+- Files changed:
+  - `apps/web/src/app/profile/[uid]/page.tsx` — new friend profile page
+  - `apps/web/src/app/friends/page.tsx` — made friend items clickable with Link to profile
+- **Learnings for future iterations:**
+  - Profile page uses `apiGet<ProfileStats>` — the ProfileStats type from @burnbuddy/shared has all needed fields
+  - `buddyRelationshipStatus` from the profile API drives the burn buddy button visibility — no extra API calls needed
+  - Friends page friend items wrap the info area in `<Link>` while keeping action buttons outside the link to prevent navigation on button clicks
+  - Error messages from API use status code in the error message string (e.g. `msg.includes('403')`) — matches the `apiGet` helper's error format
 ---
