@@ -170,6 +170,7 @@ export default function FriendsScreen() {
         <TouchableOpacity
           onPress={() => (showSearch ? closeSearch() : setShowSearch(true))}
           style={styles.addButton}
+          testID="friends-add-friend-button"
         >
           <Text style={styles.addButtonText}>{showSearch ? 'Cancel' : '+ Add Friend'}</Text>
         </TouchableOpacity>
@@ -192,11 +193,13 @@ export default function FriendsScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 onSubmitEditing={handleSearch}
+                testID="friends-search-input"
               />
               <TouchableOpacity
                 onPress={handleSearch}
                 disabled={searching}
                 style={[styles.searchButton, searching && styles.disabledButton]}
+                testID="friends-search-button"
               >
                 <Text style={styles.searchButtonText}>{searching ? '…' : 'Search'}</Text>
               </TouchableOpacity>
@@ -206,6 +209,7 @@ export default function FriendsScreen() {
               <TouchableOpacity
                 onPress={() => setConfirmUser(searchResult)}
                 style={styles.searchResultCard}
+                testID="friends-search-result"
               >
                 <Text style={styles.searchResultName}>{searchResult.displayName}</Text>
                 <Text style={styles.searchResultEmail}>{searchResult.email}</Text>
@@ -223,7 +227,7 @@ export default function FriendsScreen() {
               <View style={styles.section}>
                 <Text style={styles.sectionLabel}>Pending Requests</Text>
                 {incoming.map((req) => (
-                  <View key={req.id} style={styles.requestRow}>
+                  <View key={req.id} style={styles.requestRow} testID={`friends-request-item-${req.id}`}>
                     <View style={styles.requestInfo}>
                       <Text style={styles.requestName}>{req.displayName ?? req.fromUid}</Text>
                       <View style={styles.incomingBadge}>
@@ -234,10 +238,11 @@ export default function FriendsScreen() {
                       <TouchableOpacity
                         onPress={() => handleAcceptRequest(req.id)}
                         style={styles.acceptButton}
+                        testID={`friends-accept-button-${req.id}`}
                       >
                         <Text style={styles.acceptButtonText}>Accept</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity style={styles.ignoreButton}>
+                      <TouchableOpacity style={styles.ignoreButton} testID={`friends-decline-button-${req.id}`}>
                         <Text style={styles.ignoreButtonText}>Ignore</Text>
                       </TouchableOpacity>
                     </View>
@@ -263,7 +268,7 @@ export default function FriendsScreen() {
                 <Text style={styles.emptyText}>No friends yet. Add your first friend above!</Text>
               ) : (
                 friends.map((friend) => (
-                  <View key={friend.uid} style={styles.friendRow}>
+                  <View key={friend.uid} style={styles.friendRow} testID={`friends-friend-item-${friend.uid}`}>
                     <View style={styles.friendInfo}>
                       <Text style={styles.friendName}>{friend.displayName}</Text>
                       <Text style={styles.friendEmail}>{friend.email}</Text>
@@ -297,6 +302,7 @@ export default function FriendsScreen() {
               <TouchableOpacity
                 onPress={() => setConfirmUser(null)}
                 style={styles.cancelButton}
+                testID="friends-modal-cancel-button"
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
@@ -304,6 +310,7 @@ export default function FriendsScreen() {
                 onPress={handleConfirmRequest}
                 disabled={sendingRequest}
                 style={[styles.confirmButton, sendingRequest && styles.disabledButton]}
+                testID="friends-modal-send-button"
               >
                 <Text style={styles.confirmButtonText}>
                   {sendingRequest ? 'Sending…' : 'Send Request'}

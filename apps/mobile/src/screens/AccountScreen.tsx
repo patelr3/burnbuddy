@@ -76,13 +76,13 @@ export default function AccountScreen() {
       {/* Profile info */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Profile</Text>
-        <View style={styles.field}>
+        <View style={styles.field} testID="account-display-name">
           <Text style={styles.fieldLabel}>Display Name</Text>
           <Text style={styles.fieldValue}>
             {user?.displayName ?? profile?.displayName ?? '—'}
           </Text>
         </View>
-        <View style={styles.field}>
+        <View style={styles.field} testID="account-email">
           <Text style={styles.fieldLabel}>Email</Text>
           <Text style={styles.fieldValue}>{user?.email ?? profile?.email ?? '—'}</Text>
         </View>
@@ -104,6 +104,7 @@ export default function AccountScreen() {
           ]}
           onPress={handleToggleGettingStarted}
           disabled={saving}
+          testID="account-toggle-getting-started"
         >
           <Text style={styles.buttonText}>
             {profile?.gettingStartedDismissed
@@ -118,7 +119,7 @@ export default function AccountScreen() {
       <View style={[styles.section, styles.dangerSection]}>
         <Text style={styles.sectionTitle}>Sign Out</Text>
         <Text style={styles.sectionBody}>You will be returned to the login screen.</Text>
-        <TouchableOpacity style={[styles.button, styles.dangerButton]} onPress={handleSignOut}>
+        <TouchableOpacity style={[styles.button, styles.dangerButton]} onPress={handleSignOut} testID="account-sign-out-button">
           <Text style={styles.buttonText}>Log Out</Text>
         </TouchableOpacity>
       </View>

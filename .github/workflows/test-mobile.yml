@@ -1,0 +1,47 @@
+name: Test Mobile
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/mobile/**'
+      - 'packages/shared/**'
+  pull_request:
+    paths:
+      - 'apps/mobile/**'
+      - 'packages/shared/**'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Mobile Unit & Component Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build shared package
+        run: yarn workspace @burnbuddy/shared build
+
+      - name: Run mobile tests
+        run: yarn workspace mobile test -- --ci --coverage
+
+      - name: Write test results to summary
+        if: always()
+        run: |
+          echo "## 📱 Mobile Unit & Component Tests" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ job.status }}" == "success" ]]; then
+            echo "✅ All mobile tests passed" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "❌ Mobile tests failed — check job logs for details" >> "$GITHUB_STEP_SUMMARY"
+          fi
