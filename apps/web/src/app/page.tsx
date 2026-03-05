@@ -6,7 +6,7 @@ import { apiGet, apiPost, apiPut, apiPatch } from '@/lib/api';
 import { GettingStartedCard } from '@/components/GettingStartedCard';
 import { NavBar } from '@/components/NavBar';
 import Link from 'next/link';
-import type { UserProfile, BurnBuddy, BurnSquad, GroupWorkout, BurnBuddyRequest, BurnSquadJoinRequest, Workout, WorkoutType, WorkoutSchedule } from '@burnbuddy/shared';
+import type { UserProfile, BurnBuddy, BurnSquad, GroupWorkout, BurnBuddyRequest, BurnSquadJoinRequest, Workout, WorkoutType, WorkoutSchedule, ActivePartnerWorkout } from '@burnbuddy/shared';
 
 const WORKOUT_TYPES: WorkoutType[] = [
   'Weightlifting', 'Running', 'Cycling', 'Yoga', 'Barre', 'Swimming', 'HIIT', 'Custom',
@@ -18,6 +18,13 @@ function formatElapsed(seconds: number): string {
   const s = seconds % 60;
   if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function formatCountdown(ms: number): string {
+  const totalSeconds = Math.ceil(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
 interface Streaks {
@@ -32,6 +39,7 @@ interface CombinedItem {
   burnStreak: number;
   lastGroupWorkout: string | null;
   workoutSchedule?: WorkoutSchedule;
+  activePartnerStartedAt?: string;
 }
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
@@ -106,12 +114,14 @@ export default function Home() {
   const [selectedType, setSelectedType] = useState<WorkoutType | ''>('');
   const [customType, setCustomType] = useState('');
   const [elapsed, setElapsed] = useState(0);
+  const [groupWorkoutWindowMs, setGroupWorkoutWindowMs] = useState(0);
+  const [countdowns, setCountdowns] = useState<Record<string, number>>({});
 
   const loadData = useCallback(async () => {
     if (!user) return;
     setDataLoading(true);
     try {
-      const [userProfile, buddies, squads, groupWorkouts, buddyRequests, squadRequests, workouts] = await Promise.all([
+      const [userProfile, buddies, squads, groupWorkouts, buddyRequests, squadRequests, workouts, partnerActiveData] = await Promise.all([
         apiGet<UserProfile>('/users/me').catch(() => null),
         apiGet<BurnBuddy[]>('/burn-buddies').catch(() => [] as BurnBuddy[]),
         apiGet<BurnSquad[]>('/burn-squads').catch(() => [] as BurnSquad[]),
@@ -123,7 +133,16 @@ export default function Home() {
           '/burn-squads/join-requests',
         ).catch(() => ({ incoming: [], outgoing: [] })),
         apiGet<Workout[]>('/workouts').catch(() => [] as Workout[]),
+        apiGet<{ groupWorkoutWindowMs: number; activePartnerWorkouts: ActivePartnerWorkout[] }>(
+          '/workouts/partner-active',
+        ).catch(() => ({ groupWorkoutWindowMs: 0, activePartnerWorkouts: [] as ActivePartnerWorkout[] })),
       ]);
+
+      setGroupWorkoutWindowMs(partnerActiveData.groupWorkoutWindowMs);
+      const activePartnerMap = new Map<string, string>();
+      for (const apw of partnerActiveData.activePartnerWorkouts) {
+        activePartnerMap.set(apw.referenceId, apw.earliestStartedAt);
+      }
 
       const active = workouts.find((w) => w.status === 'active') ?? null;
       setActiveWorkout(active);
@@ -179,6 +198,7 @@ export default function Home() {
           burnStreak: streaks.burnStreak,
           lastGroupWorkout: lastWorkoutMap.get(b.id) ?? null,
           workoutSchedule: b.workoutSchedule,
+          activePartnerStartedAt: activePartnerMap.get(b.id),
         };
       });
 
@@ -195,6 +215,7 @@ export default function Home() {
           burnStreak: streaks.burnStreak,
           lastGroupWorkout: lastWorkoutMap.get(s.id) ?? null,
           workoutSchedule: s.settings?.workoutSchedule,
+          activePartnerStartedAt: activePartnerMap.get(s.id),
         };
       });
 
@@ -234,6 +255,54 @@ export default function Home() {
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, [activeWorkout]);
+
+  // Poll partner-active every 30 seconds (skip while user has an active workout)
+  useEffect(() => {
+    if (!user || activeWorkout) return;
+    const poll = async () => {
+      try {
+        const data = await apiGet<{ groupWorkoutWindowMs: number; activePartnerWorkouts: ActivePartnerWorkout[] }>(
+          '/workouts/partner-active',
+        );
+        setGroupWorkoutWindowMs(data.groupWorkoutWindowMs);
+        const newMap = new Map<string, string>();
+        for (const apw of data.activePartnerWorkouts) {
+          newMap.set(apw.referenceId, apw.earliestStartedAt);
+        }
+        setItems((prev) =>
+          prev.map((item) => ({
+            ...item,
+            activePartnerStartedAt: newMap.get(item.id),
+          })),
+        );
+      } catch {
+        // Non-fatal — keep existing state
+      }
+    };
+    const interval = setInterval(poll, 30000);
+    return () => clearInterval(interval);
+  }, [user, activeWorkout]);
+
+  // Countdown timer: update every second for items with active partner workouts
+  useEffect(() => {
+    if (!groupWorkoutWindowMs) return;
+    const tick = () => {
+      const now = Date.now();
+      const next: Record<string, number> = {};
+      for (const item of items) {
+        if (item.activePartnerStartedAt) {
+          const remaining = new Date(item.activePartnerStartedAt).getTime() + groupWorkoutWindowMs - now;
+          if (remaining > 0) {
+            next[item.id] = remaining;
+          }
+        }
+      }
+      setCountdowns(next);
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [items, groupWorkoutWindowMs]);
 
   const handleDismiss = async () => {
     setShowCard(false);
@@ -495,6 +564,23 @@ export default function Home() {
                       </div>
                     ) : null;
                   })()}
+                  {!activeWorkout && countdowns[item.id] != null && (
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          setShowWorkoutSelector(true);
+                        }}
+                        className="cursor-pointer rounded bg-green-500 px-3 py-1.5 text-[13px] font-bold text-white hover:bg-green-600"
+                      >
+                        Join Workout
+                      </button>
+                      <span className={`text-[13px] font-medium ${countdowns[item.id] < 300000 ? 'text-red-600' : 'text-gray-500'}`}>
+                        {formatCountdown(countdowns[item.id])}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="text-right">
                   <div className="text-[22px] font-bold text-orange-500">

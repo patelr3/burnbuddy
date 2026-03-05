@@ -1,14 +1,49 @@
 # Ralph Progress Log
-Started: Thu Mar  5 05:04:23 PM UTC 2026
+Started: Thu Mar  5 05:06:44 PM UTC 2026
 
 ## Codebase Patterns
-- Streak calculator uses `GroupWorkout[]` as input — `calculateStreaks(groupWorkouts)` returns `{ burnStreak, supernovaStreak }`
-- Route test files use `vi.hoisted` + `vi.mock` pattern with collection-keyed mock routing in `getDb().collection(name)`
-- Web app uses `apiGet`/`apiPost`/`apiPut`/`apiPatch` from `@/lib/api` for all authenticated API calls
-- Reusable `StatCard` component lives in `apps/web/src/components/StatCard.tsx`
-- Friendship check uses sorted composite key `${uid1}_${uid2}` as the friends document ID
-- Streak reset uses a 7-day inactivity window
-- `calculateGroupStats()` returns GroupStats shape
-- When adding a new Firestore collection to route tests, add the mock query chain in `vi.hoisted`, add the collection routing in `vi.mock`, and add `mockReturnThis()` for `.where()` in `beforeEach`
+- Always rebuild `packages/shared` (`yarn build` in shared dir) after changing types — the API resolves `@burnbuddy/shared` from compiled `dist/` output, not source
+- Use `import { GROUP_WORKOUT_WINDOW_MS } from '@burnbuddy/shared'` for the group workout window constant
+- Firestore queries: use simple single-field queries with in-memory filtering to avoid composite index requirements
+- API tests: vi.hoisted + vi.mock + supertest + buildApp() pattern, run with `cd services/api && yarn test`
+- Express route ordering: place named routes (e.g., `/partner-active`) BEFORE parameterized routes (e.g., `/:id`) to avoid conflicts
 
+---
+
+## 2026-03-05T17:09 - US-001
+- Added `GROUP_WORKOUT_WINDOW_MS` constant and `ActivePartnerWorkout` interface to `packages/shared/src/types.ts`
+- Updated `services/api/src/services/group-workout-detection.ts` to import from `@burnbuddy/shared` instead of local constant
+- Files changed: `packages/shared/src/types.ts`, `services/api/src/services/group-workout-detection.ts`
+- **Learnings for future iterations:**
+  - The shared package's `dist/` is gitignored — after changing shared types, must run `cd packages/shared && yarn build` before API typecheck will pass
+  - `index.ts` already does `export * from './types'` so no separate re-export needed for new types/constants
+  - All 249 API tests continue to pass after the import change
+---
+
+## 2026-03-05T17:10 - US-002
+- Added GET /workouts/partner-active endpoint to services/api/src/routes/workouts.ts
+- Endpoint queries burnBuddies (both uid1/uid2 directions) and burnSquads (array-contains) for active partner workouts within the 20-minute window
+- Returns { groupWorkoutWindowMs, activePartnerWorkouts: ActivePartnerWorkout[] }
+- For buddies: returns entry if partner has active workout in window
+- For squads: returns entry if ANY non-self member has active workout; earliestStartedAt is the earliest
+- Uses simple single-field Firestore queries with in-memory filtering (no composite indexes needed)
+- Files changed: `services/api/src/routes/workouts.ts`
+- **Learnings for future iterations:**
+  - Route placed BEFORE /:id routes to avoid Express route parameter conflicts (Express matches `/partner-active` as `:id` otherwise)
+  - Reused the same Firestore query pattern from group-workout-detection.ts: single-field query + in-memory filter
+  - ActivePartnerWorkout type and GROUP_WORKOUT_WINDOW_MS are already exported from @burnbuddy/shared (added in US-001)
+---
+
+## 2026-03-05T17:14 - US-003
+- Added 6 tests for GET /workouts/partner-active in a new describe block in workouts.test.ts
+- Added hoisted mocks for burnBuddies (mockBuddiesQueryGet) and burnSquads (mockSquadsQueryGet) query chains
+- Updated firestore mock to handle burnBuddies and burnSquads collections
+- Added default empty mock setups in beforeEach for new collections
+- Tests cover: 401 unauth, empty results, buddy active within window, buddy expired (>20 min), squad active, squad multiple members earliestStartedAt
+- Files changed: `services/api/src/routes/workouts.test.ts`
+- **Learnings for future iterations:**
+  - burnBuddies/burnSquads collection mocks only need `{ where: () => ({ get: mockFn }) }` — no chained where needed since the endpoint uses single `.where().get()` calls
+  - Use `mockResolvedValueOnce` chaining for ordered Firestore queries (e.g., uid1 query then uid2 query on burnBuddies)
+  - `mockWorkoutsQueryGet` is shared across buddy/squad partner workout lookups — set up `mockResolvedValueOnce` in the order the endpoint calls them
+  - All 255 tests pass after adding the 6 new partner-active tests
 ---
