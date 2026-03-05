@@ -99,3 +99,14 @@ export interface GroupStats {
   groupWorkoutsAllTime: number;
   groupWorkoutsThisMonth: number;
 }
+
+export interface ProfileStats {
+  displayName: string;
+  username?: string;
+  highestActiveStreak: { value: number; name: string } | null;
+  highestStreakEver: { value: number; date: string; name: string } | null;
+  firstWorkoutDate: string | null;
+  workoutsAllTime: number;
+  workoutsThisMonth: number;
+  buddyRelationshipStatus: 'none' | 'pending_sent' | 'pending_received' | 'buddies';
+}

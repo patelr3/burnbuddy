@@ -69,7 +69,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Calculate highest streak ever by walking full group workout history using the updated streak calculator from US-001/US-002. Add new test file following the project's vi.mock + vi.hoisted + supertest pattern."
     },
     {
@@ -88,7 +88,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Aggregates stats across all of a user's buddy/squad relationships. May involve multiple Firestore reads — consider batching. Add new test file following the project's vi.mock + vi.hoisted + supertest pattern."
     },
     {

@@ -3,8 +3,14 @@ Started: Thu Mar  5 07:32:41 AM UTC 2026
 
 ## Codebase Patterns
 - Streak calculator now uses `GroupWorkout[]` as the sole input — no more per-member individual workout queries
+- Profile endpoint aggregates stats across burn buddies and squads using `calculateStreaks()` and `calculateHighestStreakEver()` — reuse these instead of reimplementing
+- For buddy relationship name display: partner's displayName (from users collection) for buddies, squad's `name` field for squads
+- Friendship check uses sorted composite key `${uid1}_${uid2}` as the friends document ID
 - Streak reset uses a 7-day inactivity window — gaps of 1-6 days are tolerated, 7+ resets to 0
 - Route test files use `vi.hoisted` + `vi.mock` pattern with collection-keyed mock routing in `getDb().collection(name)`
+- `calculateHighestStreakEver()` walks full GroupWorkout history from earliest to latest with same 7-day gap tolerance
+- `calculateGroupStats()` returns GroupStats shape (highestStreakEver, firstGroupWorkoutDate, groupWorkoutsAllTime, groupWorkoutsThisMonth)
+- Stats endpoints follow same auth/membership gating as streaks endpoints
 - When adding a new Firestore collection to route tests, add the mock query chain in `vi.hoisted`, add the collection routing in `vi.mock`, and add `mockReturnThis()` for `.where()` in `beforeEach`
 - `calculateStreaks(groupWorkouts)` returns `{ burnStreak, supernovaStreak }` — both values are always equal since GroupWorkout implies all members participated
 - Web app uses `apiGet`/`apiPut`/`apiPost`/`apiPatch` from `@/lib/api` for all authenticated API calls — avoid raw `fetch`
@@ -61,4 +67,43 @@ Started: Thu Mar  5 07:32:41 AM UTC 2026
   - The settings page used raw `fetch` instead of `apiPut` — always prefer the shared API helpers in `@/lib/api`
   - NavBar auth check: middleware handles redirect to /login for unauthenticated users, so NavBar only renders on protected pages
   - Browser testing for auth-gated pages requires login first — unauthenticated requests redirect to /login via middleware
+---
+
+## 2026-03-05T07:50:00Z - US-004
+- Added `GroupStats` type to `@burnbuddy/shared` with fields: highestStreakEver (value + date), firstGroupWorkoutDate, groupWorkoutsAllTime, groupWorkoutsThisMonth
+- Added `calculateHighestStreakEver()` and `calculateGroupStats()` to streak-calculator.ts
+- Added `GET /burn-buddies/:id/stats` endpoint — membership gated (403 for non-members)
+- Added `GET /burn-squads/:id/stats` endpoint — membership gated (403 for non-members)
+- Added 6 unit tests for calculateHighestStreakEver, 2 for calculateGroupStats
+- Added 5 route tests each for burn-buddies stats and burn-squads stats (401, 404, 403, empty stats, populated stats)
+- Files changed:
+  - `packages/shared/src/types.ts` — added GroupStats interface
+  - `services/api/src/services/streak-calculator.ts` — added calculateHighestStreakEver, calculateGroupStats
+  - `services/api/src/services/streak-calculator.test.ts` — added tests for new functions
+  - `services/api/src/routes/burn-buddies.ts` — added stats endpoint
+  - `services/api/src/routes/burn-buddies.test.ts` — added stats tests
+  - `services/api/src/routes/burn-squads.ts` — added stats endpoint
+  - `services/api/src/routes/burn-squads.test.ts` — added stats tests
+- **Learnings for future iterations:**
+  - The shared package must be rebuilt (`yarn build`) before `yarn typecheck` will find new exported types
+  - Stats endpoints follow same pattern as streaks endpoints — doc lookup + membership check + GroupWorkout query + calculation
+  - `calculateHighestStreakEver` walks forward through sorted dates (unlike `calculateStreaks` which walks backward from today)
+  - Gap between two dates for highest-streak-ever is `(curr - prev) / DAY - 1` — be careful with off-by-one
+---
+
+## 2026-03-05T07:55:00Z - US-005
+- Added `ProfileStats` type to `@burnbuddy/shared` with fields: displayName, username, highestActiveStreak, highestStreakEver, firstWorkoutDate, workoutsAllTime, workoutsThisMonth, buddyRelationshipStatus
+- Added `GET /users/:uid/profile` endpoint to users.ts with friendship gating (403 for non-friends)
+- Aggregates stats across all target user's burn buddy and squad relationships
+- Determines burn buddy relationship status between requester and target (none, pending_sent, pending_received, buddies)
+- Created `users-profile.test.ts` with 8 tests: 401, 404, 403, empty stats, populated stats with buddy relationship, pending_sent, pending_received, multi-relationship aggregation
+- Files changed:
+  - `packages/shared/src/types.ts` — added ProfileStats interface
+  - `services/api/src/routes/users.ts` — added `/:uid/profile` endpoint with imports for BurnBuddy, BurnSquad, GroupWorkout, Workout, ProfileStats, and streak calculator functions
+  - `services/api/src/routes/users-profile.test.ts` — new test file with 8 tests
+- **Learnings for future iterations:**
+  - The `/:uid/profile` route must be registered BEFORE `/:uid` in Express to avoid the catch-all matching first (though in Express `/:uid` only matches single-segment paths so `/uid/profile` wouldn't conflict — still good practice to keep specific routes first)
+  - Profile endpoint is a read-heavy aggregation — it queries users, friends, burnBuddies (2 queries), burnSquads, partner user profiles, groupWorkouts (per relationship), workouts, and optionally burnBuddyRequests (2 queries). Consider caching for production.
+  - When testing a route that calls `doc().get()` multiple times on the same collection, the `mockDocGet` mock needs `mockResolvedValueOnce` calls in the exact sequence they're called in the route handler
+  - BurnBuddy uid1/uid2 are sorted, so `isBuddy` check must handle both orderings
 ---

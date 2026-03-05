@@ -1,8 +1,16 @@
 import { Router, type Request, type Response } from 'express';
-import type { UserProfile } from '@burnbuddy/shared';
+import type {
+  UserProfile,
+  BurnBuddy,
+  BurnSquad,
+  GroupWorkout,
+  Workout,
+  ProfileStats,
+} from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
 import { getDb } from '../lib/firestore';
 import { generateUniqueUsername, validateUsername } from '../lib/username';
+import { calculateStreaks, calculateHighestStreakEver } from '../services/streak-calculator';
 
 /**
  * GET /users/search?q=<query>   — typeahead prefix search (returns array)
@@ -236,6 +244,174 @@ router.put('/me', requireAuth, async (req: Request, res: Response): Promise<void
     await batch.commit();
     res.status(201).json(profile);
   }
+});
+
+/**
+ * GET /users/:uid/profile
+ * Returns aggregated profile stats for a user. Requires the requester to be a friend.
+ */
+router.get('/:uid/profile', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const requesterUid = req.user!.uid;
+  const targetUid = req.params['uid'] as string;
+  const db = getDb();
+
+  // 1. Get target user profile
+  const userDoc = await db.collection('users').doc(targetUid).get();
+  if (!userDoc.exists) {
+    res.status(404).json({ error: 'User not found' });
+    return;
+  }
+  const profile = userDoc.data() as UserProfile;
+
+  // 2. Check friendship (sorted composite key)
+  const [friendUid1, friendUid2] = [requesterUid, targetUid].sort();
+  const friendDocId = `${friendUid1}_${friendUid2}`;
+  const friendDoc = await db.collection('friends').doc(friendDocId).get();
+  if (!friendDoc.exists) {
+    res.status(403).json({ error: 'You can only view profiles of your friends' });
+    return;
+  }
+
+  // 3. Get target's burn buddies and squads in parallel
+  const [bbSnap1, bbSnap2, squadSnap] = await Promise.all([
+    db.collection('burnBuddies').where('uid1', '==', targetUid).get(),
+    db.collection('burnBuddies').where('uid2', '==', targetUid).get(),
+    db.collection('burnSquads').where('memberUids', 'array-contains', targetUid).get(),
+  ]);
+
+  const burnBuddies = [
+    ...bbSnap1.docs.map((d) => d.data() as BurnBuddy),
+    ...bbSnap2.docs.map((d) => d.data() as BurnBuddy),
+  ];
+  const burnSquads = squadSnap.docs.map((d) => d.data() as BurnSquad);
+
+  // 4. Get partner display names for buddy relationships
+  const partnerUids = burnBuddies.map((bb) => (bb.uid1 === targetUid ? bb.uid2 : bb.uid1));
+  const partnerDocs = await Promise.all(
+    partnerUids.map((uid) => db.collection('users').doc(uid).get()),
+  );
+  const partnerNames: Record<string, string> = {};
+  partnerDocs.forEach((doc, i) => {
+    if (doc.exists) {
+      partnerNames[partnerUids[i]!] = (doc.data() as UserProfile).displayName;
+    }
+  });
+
+  // 5. Get group workouts for all buddy/squad relationships
+  const allReferenceIds = [
+    ...burnBuddies.map((bb) => bb.id),
+    ...burnSquads.map((sq) => sq.id),
+  ];
+
+  const groupWorkoutsByRef: Record<string, GroupWorkout[]> = {};
+  await Promise.all(
+    allReferenceIds.map(async (refId) => {
+      const snap = await db.collection('groupWorkouts').where('referenceId', '==', refId).get();
+      groupWorkoutsByRef[refId] = snap.docs.map((d) => d.data() as GroupWorkout);
+    }),
+  );
+
+  // 6. Calculate highest active streak and highest streak ever across all relationships
+  let highestActiveStreak: ProfileStats['highestActiveStreak'] = null;
+  let highestStreakEver: ProfileStats['highestStreakEver'] = null;
+
+  for (const bb of burnBuddies) {
+    const gws = groupWorkoutsByRef[bb.id] ?? [];
+    const partnerUid = bb.uid1 === targetUid ? bb.uid2 : bb.uid1;
+    const name = partnerNames[partnerUid] ?? 'Unknown';
+
+    const { burnStreak } = calculateStreaks(gws);
+    if (burnStreak > 0 && (!highestActiveStreak || burnStreak > highestActiveStreak.value)) {
+      highestActiveStreak = { value: burnStreak, name };
+    }
+
+    const hse = calculateHighestStreakEver(gws);
+    if (hse.value > 0 && (!highestStreakEver || hse.value > highestStreakEver.value)) {
+      highestStreakEver = { value: hse.value, date: hse.date, name };
+    }
+  }
+
+  for (const sq of burnSquads) {
+    const gws = groupWorkoutsByRef[sq.id] ?? [];
+    const name = sq.name;
+
+    const { burnStreak } = calculateStreaks(gws);
+    if (burnStreak > 0 && (!highestActiveStreak || burnStreak > highestActiveStreak.value)) {
+      highestActiveStreak = { value: burnStreak, name };
+    }
+
+    const hse = calculateHighestStreakEver(gws);
+    if (hse.value > 0 && (!highestStreakEver || hse.value > highestStreakEver.value)) {
+      highestStreakEver = { value: hse.value, date: hse.date, name };
+    }
+  }
+
+  // 7. Get individual workouts for counts
+  const workoutSnap = await db.collection('workouts').where('uid', '==', targetUid).get();
+  const workouts = workoutSnap.docs.map((d) => d.data() as Workout);
+
+  const sortedWorkouts = [...workouts].sort(
+    (a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime(),
+  );
+  const firstWorkoutDate = sortedWorkouts.length > 0 ? sortedWorkouts[0]!.startedAt : null;
+
+  const now = new Date();
+  const currentMonth = now.getUTCMonth();
+  const currentYear = now.getUTCFullYear();
+  const workoutsThisMonth = workouts.filter((w) => {
+    const d = new Date(w.startedAt);
+    return d.getUTCMonth() === currentMonth && d.getUTCFullYear() === currentYear;
+  }).length;
+
+  // 8. Determine burn buddy relationship status between requester and target
+  let buddyRelationshipStatus: ProfileStats['buddyRelationshipStatus'] = 'none';
+
+  const isBuddy = burnBuddies.some(
+    (bb) =>
+      (bb.uid1 === requesterUid && bb.uid2 === targetUid) ||
+      (bb.uid1 === targetUid && bb.uid2 === requesterUid),
+  );
+
+  if (isBuddy) {
+    buddyRelationshipStatus = 'buddies';
+  } else {
+    const [sentSnap, receivedSnap] = await Promise.all([
+      db
+        .collection('burnBuddyRequests')
+        .where('fromUid', '==', requesterUid)
+        .where('toUid', '==', targetUid)
+        .where('status', '==', 'pending')
+        .limit(1)
+        .get(),
+      db
+        .collection('burnBuddyRequests')
+        .where('fromUid', '==', targetUid)
+        .where('toUid', '==', requesterUid)
+        .where('status', '==', 'pending')
+        .limit(1)
+        .get(),
+    ]);
+
+    if (!sentSnap.empty) {
+      buddyRelationshipStatus = 'pending_sent';
+    } else if (!receivedSnap.empty) {
+      buddyRelationshipStatus = 'pending_received';
+    }
+  }
+
+  // 9. Return ProfileStats
+  const profileStats: ProfileStats = {
+    displayName: profile.displayName,
+    username: profile.username,
+    highestActiveStreak,
+    highestStreakEver,
+    firstWorkoutDate,
+    workoutsAllTime: workouts.length,
+    workoutsThisMonth,
+    buddyRelationshipStatus,
+  };
+
+  res.json(profileStats);
 });
 
 /**
