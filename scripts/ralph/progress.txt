@@ -4,7 +4,10 @@ Started: Thu Mar  5 06:11:08 AM UTC 2026
 
 ## Codebase Patterns
 - jest-expo 55 requires jest ^29 (not 30) — check `node_modules/jest-expo/package.json` dependencies for version compatibility
+- For complex screens with many API calls, use `apiGet.mockImplementation()` with path matching to route different endpoints to different responses
+- Use `UNSAFE_queryByType(ActivityIndicator)` from @testing-library/react-native to assert loading spinners
 - Use `setupFiles` (not `setupFilesAfterSetup`) in jest.config.js for setup scripts
+- Screen headers often render static titles (e.g., "Friends") — use content-specific text (empty state messages, section labels) instead of header titles for loading state assertions
 - Mock `expo-modules-core` and `expo-notifications` in jest.setup.ts to prevent native module resolution errors
 - `transformIgnorePatterns` must whitelist expo/react-native packages to allow babel transform in tests
 - Run `yarn workspace mobile test` to execute mobile Jest tests
@@ -102,4 +105,52 @@ Started: Thu Mar  5 06:11:08 AM UTC 2026
   - Use `jest.spyOn(Alert, 'alert')` to verify error Alert dialogs without mocking the whole module
   - The LoginScreen takes `onNavigateToSignup` callback prop (no React Navigation needed)
   - The `firebaseAuthModule` mock already includes `GoogleAuthProvider` and `signInWithCredential` — no extra mocking needed
+---
+
+## 2026-03-05T06:27Z - US-006
+- Created test file at apps/mobile/src/screens/__tests__/HomeScreen.test.tsx
+- 6 tests covering HomeScreen component:
+  1. Shows loading indicator while API calls are in flight (ActivityIndicator present, no list content)
+  2. Renders list of burn buddies returned by apiGet('/burn-buddies') with partner name, badge, and streak
+  3. Renders list of burn squads returned by apiGet('/burn-squads') with squad name, badge, and streak
+  4. Displays empty state message when user has no buddies or squads
+  5. Displays incoming buddy request indicators with sender name
+  6. Displays incoming squad invitation indicators with squad name
+- Files changed: apps/mobile/src/screens/__tests__/HomeScreen.test.tsx
+- **Learnings for future iterations:**
+  - HomeScreen makes 7+ parallel API calls in loadData() plus N enrichment calls per buddy/squad — use apiGet.mockImplementation() with path matching to route different endpoints
+  - `UNSAFE_queryByType(ActivityIndicator)` is the correct way to find ActivityIndicator in @testing-library/react-native (queryAllByProps doesn't exist)
+  - Mock child screens (BurnBuddyDetailScreen, etc.) to keep tests focused on HomeListView behavior
+  - The enrichment flow makes secondary API calls for partner profiles (/users/{uid}) and streaks (/burn-buddies/{id}/streaks, /burn-squads/{id}/streaks) — mock those in the path router
+  - Squad join requests from the API already include `squadName` field — no extra enrichment needed
+---
+
+## 2026-03-05T06:30Z - US-007
+- Created test file at apps/mobile/src/screens/__tests__/FriendsScreen.test.tsx
+- 6 tests covering FriendsScreen component:
+  1. Renders list of current friends from API (displayName, email, count in section label)
+  2. Renders incoming and outgoing friend request sections with badges ("incoming", "pending")
+  3. Tapping Accept on incoming request calls apiPost('/friends/requests/{id}/accept')
+  4. Tapping Ignore button is present but no API call made (stub handler in component)
+  5. Displays empty state message when user has no friends
+  6. Shows ActivityIndicator loading state while API calls are in flight
+- Files changed: apps/mobile/src/screens/__tests__/FriendsScreen.test.tsx
+- **Learnings for future iterations:**
+  - FriendsScreen header always shows "Friends" title — don't use queryByText('Friends') to check loading state; check for content-specific text instead
+  - FriendsScreen enriches friend requests by calling /users/{uid} for each request — the mock must route user profile lookups by UID
+  - The "Ignore" button on incoming requests has no handler (just renders) — test for presence only
+  - The setupDefaultApiMocks() pattern with path-matching mockImplementation continues to work well for screens with multiple API calls
+---
+
+## 2026-03-05T06:33Z - US-008
+- Created `.github/workflows/test-mobile.yml` for CI
+- Triggers on push to main and pull_request when `apps/mobile/**` or `packages/shared/**` change
+- Steps: checkout, Node.js 24 setup with yarn cache, yarn install --frozen-lockfile, build shared package, run mobile tests with --ci --coverage
+- Test results reported to GitHub Actions summary via GITHUB_STEP_SUMMARY
+- YAML validated with Python yaml parser
+- Files changed: .github/workflows/test-mobile.yml
+- **Learnings for future iterations:**
+  - Follow the existing deploy-api.yml pattern: actions/checkout@v4, actions/setup-node@v4 with node-version '24' and cache 'yarn'
+  - Must build shared package (`yarn workspace @burnbuddy/shared build`) before running mobile tests since mobile depends on it
+  - Use `--ci` flag with Jest for deterministic CI behavior (no interactive prompts, fail on missing snapshots)
 ---
