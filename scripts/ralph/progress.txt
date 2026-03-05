@@ -163,3 +163,19 @@ Started: Thu Mar  5 07:32:41 AM UTC 2026
   - The `CombinedItem` interface is the centralized shape for listing cards — add any new card fields there
   - Fire emoji is rendered as inline text, not as an image — works cross-platform
 ---
+
+## 2026-03-05T08:06:00Z - US-009
+- Pushed branch `ralph/profiles-streaks-stats` to origin
+- Created PR #6 against main: "feat: Profiles, Streaks & Stats Overhaul"
+- PR description lists all user stories US-001 through US-008 with summaries
+- CI checks passed (Mobile Unit & Component Tests)
+- Squash-merged PR into main, deleted remote branch
+- Files changed:
+  - `scripts/ralph/prd.json` — marked US-009 as passes: true
+  - `scripts/ralph/progress.txt` — appended this entry
+- **Learnings for future iterations:**
+  - `gh pr create` with `--base main --head <branch>` creates the PR cleanly
+  - `gh pr checks <number> --watch` blocks until all CI checks pass or fail — useful for automation
+  - `gh pr merge <number> --squash --delete-branch` squash-merges and cleans up the remote branch in one command
+  - After merge with `--delete-branch`, git automatically switches to main locally
+---
