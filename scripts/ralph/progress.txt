@@ -10,6 +10,13 @@ Started: Thu Mar  5 06:11:08 AM UTC 2026
 - Run `yarn workspace mobile test` to execute mobile Jest tests
 - Mock files in `src/__mocks__/` export individual mock fns + a `reset*()` helper; use `jest.mock('module', () => require('../__mocks__/file'))` pattern
 - Firebase mock provides both `firebaseAuthModule` (for mocking 'firebase/auth') and `firebaseModule` (for mocking '../lib/firebase')
+- Use `require()` inside `jest.mock()` factories to avoid hoisting scope errors — e.g., `jest.mock('firebase/auth', () => require('../../__mocks__/firebase').firebaseAuthModule)`
+- For testing React context hooks, use `renderHook` from `@testing-library/react-native` with a wrapper component
+- To test module-scope env var reads (e.g., `API_BASE`), use `jest.resetModules()` + re-apply `jest.mock()` + `require()` to reimport with new env
+- Mock global `fetch` in `beforeEach` and restore in `afterAll` — create a `mockResponse()` helper to build Response-like objects
+- For screen component tests that use `expo-web-browser` or `expo-auth-session`, mock them at the top of the test file (module-scope side effects)
+- Mock `expo-auth-session/providers/google` useAuthRequest returning `[request, response, promptAsync]` tuple
+- Spy on `Alert.alert` with `jest.spyOn(Alert, 'alert')` to verify error messages in components
 ---
 
 ## 2026-03-05T06:11Z - US-001
@@ -40,4 +47,59 @@ Started: Thu Mar  5 06:11:08 AM UTC 2026
   - Firebase mock needs both a 'firebase/auth' module shape AND a '../lib/firebase' module shape since app code imports from both
   - onAuthStateChanged mock must accept (auth, callback) signature matching the modular Firebase SDK
   - AsyncStorage mock with real Map backing is more useful than plain jest.fn() — allows asserting stored values
+---
+
+## 2026-03-05T06:19Z - US-003
+- Created test file at apps/mobile/src/lib/__tests__/auth-context.test.tsx
+- 6 tests covering AuthProvider and useAuth hook:
+  1. Renders children when onAuthStateChanged emits a user
+  2. useAuth() returns { user, loading, getToken } with correct values
+  3. Loading is true initially, then false after auth state resolves (deferred callback)
+  4. Unauthenticated state when onAuthStateChanged emits null
+  5. getToken() calls Firebase getIdToken() and returns token string
+  6. getToken() returns null when user is not authenticated
+- Files changed: apps/mobile/src/lib/__tests__/auth-context.test.tsx
+- **Learnings for future iterations:**
+  - Must use `require()` inside `jest.mock()` factory fns — direct variable references (even imports) cause hoisting scope errors. Only `mock`-prefixed variables are allowed.
+  - To test initial loading state, override `mockOnAuthStateChanged` to capture the callback without calling it immediately, then fire it manually inside `act()`.
+  - `renderHook` from `@testing-library/react-native` works well for context hook testing with a wrapper prop.
+---
+
+## 2026-03-05T06:22Z - US-004
+- Created test file at apps/mobile/src/lib/__tests__/api.test.ts
+- 10 tests covering the API client module:
+  1. apiGet sends GET with Authorization: Bearer <token> header
+  2. apiPost sends POST with JSON body and auth header
+  3. Uses EXPO_PUBLIC_API_URL env var for base URL
+  4. Falls back to http://localhost:3001 when env var not set
+  5. Network error throws/rejects with meaningful error
+  6. 401 response is handled (throws, not silently swallowed)
+  7. apiPut sends PUT with JSON body and auth header
+  8. apiPatch sends PATCH with JSON body and auth header
+  9. apiDelete sends DELETE with auth header
+  10. No auth header when user is not logged in
+- Files changed: apps/mobile/src/lib/__tests__/api.test.ts
+- **Learnings for future iterations:**
+  - API_BASE is computed at module scope from process.env.EXPO_PUBLIC_API_URL — to test env var changes, must use jest.resetModules() then re-apply jest.mock() and require() the module fresh
+  - Global fetch mock: assign jest.fn() to global.fetch in beforeEach, restore original in afterAll
+  - mockAuth.currentUser needs a type assertion to set null: `(mockAuth as { currentUser: ... }).currentUser = null`
+  - The mockResponse() helper approach (building a minimal Response-like object) is cleaner than importing jest-fetch-mock
+---
+
+## 2026-03-05T06:24Z - US-005
+- Created test file at apps/mobile/src/screens/__tests__/LoginScreen.test.tsx
+- 6 tests covering LoginScreen component:
+  1. Renders email and password text inputs
+  2. Renders a Sign In button
+  3. Tapping Sign In with valid inputs calls signInWithEmailAndPassword
+  4. Displays error message when auth fails (wrong password)
+  5. Shows validation error when fields are empty
+  6. Tapping Sign Up link triggers navigation to signup screen
+- Files changed: apps/mobile/src/screens/__tests__/LoginScreen.test.tsx
+- **Learnings for future iterations:**
+  - LoginScreen uses `expo-web-browser` (maybeCompleteAuthSession) at module scope — must mock before import
+  - LoginScreen uses `expo-auth-session/providers/google` for Google OAuth — mock useAuthRequest returning [request, response, promptAsync]
+  - Use `jest.spyOn(Alert, 'alert')` to verify error Alert dialogs without mocking the whole module
+  - The LoginScreen takes `onNavigateToSignup` callback prop (no React Navigation needed)
+  - The `firebaseAuthModule` mock already includes `GoogleAuthProvider` and `signInWithCredential` — no extra mocking needed
 ---
