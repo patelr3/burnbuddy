@@ -481,6 +481,98 @@ describe('GET /burn-buddies/:id/streaks', () => {
   });
 });
 
+// ── GET /burn-buddies/:id/stats ───────────────────────────────────────────────
+
+describe('GET /burn-buddies/:id/stats', () => {
+  it('returns 401 when unauthenticated', async () => {
+    const res = await request(buildApp()).get(`/burn-buddies/${BURN_BUDDY_ID}/stats`);
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 when the burn buddy does not exist', async () => {
+    mockBBDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .get(`/burn-buddies/${BURN_BUDDY_ID}/stats`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 403 when user is not a member of the Burn Buddy', async () => {
+    mockBBDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ id: BURN_BUDDY_ID, uid1: 'other-1', uid2: 'other-2', createdAt: '' }),
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-buddies/${BURN_BUDDY_ID}/stats`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('returns empty stats when no group workouts exist', async () => {
+    mockBBDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ id: BURN_BUDDY_ID, uid1: TEST_UID, uid2: OTHER_UID, createdAt: '' }),
+    });
+    mockGroupWorkoutsQueryGet.mockResolvedValueOnce({ docs: [] });
+
+    const res = await request(buildApp())
+      .get(`/burn-buddies/${BURN_BUDDY_ID}/stats`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      highestStreakEver: { value: 0, date: '' },
+      firstGroupWorkoutDate: null,
+      groupWorkoutsAllTime: 0,
+      groupWorkoutsThisMonth: 0,
+    });
+  });
+
+  it('returns correct stats when group workouts exist', async () => {
+    mockBBDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ id: BURN_BUDDY_ID, uid1: TEST_UID, uid2: OTHER_UID, createdAt: '' }),
+    });
+
+    const now = new Date();
+    const thisMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+    const gw1 = {
+      id: 'gw-1',
+      type: 'buddy',
+      referenceId: BURN_BUDDY_ID,
+      memberUids: [TEST_UID, OTHER_UID],
+      startedAt: `${thisMonth}-01T10:00:00.000Z`,
+      workoutIds: ['w1', 'w2'],
+    };
+    const gw2 = {
+      id: 'gw-2',
+      type: 'buddy',
+      referenceId: BURN_BUDDY_ID,
+      memberUids: [TEST_UID, OTHER_UID],
+      startedAt: `${thisMonth}-02T10:00:00.000Z`,
+      workoutIds: ['w3', 'w4'],
+    };
+
+    mockGroupWorkoutsQueryGet.mockResolvedValueOnce({
+      docs: [{ data: () => gw1 }, { data: () => gw2 }],
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-buddies/${BURN_BUDDY_ID}/stats`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.highestStreakEver.value).toBe(2);
+    expect(res.body.firstGroupWorkoutDate).toBe(`${thisMonth}-01T10:00:00.000Z`);
+    expect(res.body.groupWorkoutsAllTime).toBe(2);
+    expect(res.body.groupWorkoutsThisMonth).toBe(2);
+  });
+});
+
 // ── GET /burn-buddies/:id ──────────────────────────────────────────────────────
 
 describe('GET /burn-buddies/:id', () => {

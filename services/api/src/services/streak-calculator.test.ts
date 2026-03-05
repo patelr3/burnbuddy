@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { calculateStreaks } from './streak-calculator';
+import { calculateStreaks, calculateHighestStreakEver, calculateGroupStats } from './streak-calculator';
 import type { GroupWorkout } from '@burnbuddy/shared';
 
 /** Builds a GroupWorkout stub for a given UTC date string (YYYY-MM-DD). */
@@ -166,5 +166,98 @@ describe('calculateStreaks', () => {
       makeGroupWorkout(daysAgoStr(8)),
     ];
     expect(calculateStreaks(groupWorkouts)).toEqual({ burnStreak: 0, supernovaStreak: 0 });
+  });
+});
+
+describe('calculateHighestStreakEver', () => {
+  it('returns 0 when there are no group workouts', () => {
+    expect(calculateHighestStreakEver([])).toEqual({ value: 0, date: '' });
+  });
+
+  it('returns 1 for a single group workout', () => {
+    const result = calculateHighestStreakEver([makeGroupWorkout('2026-01-15')]);
+    expect(result).toEqual({ value: 1, date: '2026-01-15' });
+  });
+
+  it('counts consecutive days as a streak', () => {
+    const groupWorkouts = [
+      makeGroupWorkout('2026-01-10'),
+      makeGroupWorkout('2026-01-11'),
+      makeGroupWorkout('2026-01-12'),
+    ];
+    expect(calculateHighestStreakEver(groupWorkouts).value).toBe(3);
+    expect(calculateHighestStreakEver(groupWorkouts).date).toBe('2026-01-12');
+  });
+
+  it('tolerates gaps of up to 6 days', () => {
+    const groupWorkouts = [
+      makeGroupWorkout('2026-01-01'),
+      makeGroupWorkout('2026-01-07'), // 5-day gap (tolerated)
+    ];
+    expect(calculateHighestStreakEver(groupWorkouts).value).toBe(2);
+  });
+
+  it('resets on 7+ day gap and returns the peak', () => {
+    const groupWorkouts = [
+      makeGroupWorkout('2026-01-01'),
+      makeGroupWorkout('2026-01-02'),
+      makeGroupWorkout('2026-01-03'),
+      // 7-day gap — streak resets
+      makeGroupWorkout('2026-01-11'),
+      makeGroupWorkout('2026-01-12'),
+    ];
+    const result = calculateHighestStreakEver(groupWorkouts);
+    expect(result.value).toBe(3);
+    expect(result.date).toBe('2026-01-03');
+  });
+
+  it('returns latest peak when multiple streaks tie', () => {
+    const groupWorkouts = [
+      makeGroupWorkout('2026-01-01'),
+      makeGroupWorkout('2026-01-02'),
+      // 7-day gap
+      makeGroupWorkout('2026-01-10'),
+      makeGroupWorkout('2026-01-11'),
+      makeGroupWorkout('2026-01-12'),
+    ];
+    const result = calculateHighestStreakEver(groupWorkouts);
+    expect(result.value).toBe(3);
+    expect(result.date).toBe('2026-01-12');
+  });
+});
+
+describe('calculateGroupStats', () => {
+  const FIXED_NOW = new Date('2026-03-02T12:00:00.000Z').getTime();
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FIXED_NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('returns empty stats when there are no group workouts', () => {
+    const stats = calculateGroupStats([]);
+    expect(stats).toEqual({
+      highestStreakEver: { value: 0, date: '' },
+      firstGroupWorkoutDate: null,
+      groupWorkoutsAllTime: 0,
+      groupWorkoutsThisMonth: 0,
+    });
+  });
+
+  it('calculates all stats correctly', () => {
+    const groupWorkouts = [
+      makeGroupWorkout('2026-02-28'),
+      makeGroupWorkout('2026-03-01'),
+      makeGroupWorkout('2026-03-02'),
+    ];
+    const stats = calculateGroupStats(groupWorkouts);
+    expect(stats.highestStreakEver.value).toBe(3);
+    expect(stats.firstGroupWorkoutDate).toBe('2026-02-28T10:00:00.000Z');
+    expect(stats.groupWorkoutsAllTime).toBe(3);
+    expect(stats.groupWorkoutsThisMonth).toBe(2); // only March workouts
   });
 });

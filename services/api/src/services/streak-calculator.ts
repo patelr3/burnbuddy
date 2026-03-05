@@ -1,4 +1,4 @@
-import type { GroupWorkout } from '@burnbuddy/shared';
+import type { GroupWorkout, GroupStats } from '@burnbuddy/shared';
 
 /**
  * Calculates streak for a buddy/squad using GroupWorkout documents as the
@@ -50,4 +50,80 @@ export function calculateStreaks(
   }
 
   return { burnStreak: streak, supernovaStreak: streak };
+}
+
+/**
+ * Calculates the highest streak ever achieved by walking the full group
+ * workout history from earliest to latest. Uses the same 7-day gap tolerance.
+ *
+ * Returns the peak streak value and the date on which it was achieved
+ * (the last workout day of the peak streak).
+ */
+export function calculateHighestStreakEver(
+  groupWorkouts: GroupWorkout[],
+): { value: number; date: string } {
+  if (groupWorkouts.length === 0) {
+    return { value: 0, date: '' };
+  }
+
+  // Sort unique workout dates ascending
+  const dateSet = new Set<string>();
+  for (const gw of groupWorkouts) {
+    dateSet.add(gw.startedAt.substring(0, 10));
+  }
+  const sortedDates = [...dateSet].sort();
+
+  let currentStreak = 1;
+  let bestStreak = 1;
+  let bestDate = sortedDates[0]!;
+
+  for (let i = 1; i < sortedDates.length; i++) {
+    const prev = new Date(sortedDates[i - 1]!).getTime();
+    const curr = new Date(sortedDates[i]!).getTime();
+    const gapDays = Math.round((curr - prev) / 86_400_000) - 1;
+
+    if (gapDays < 7) {
+      // Gap is tolerated — streak continues
+      currentStreak++;
+    } else {
+      // Gap of 7+ days — reset streak
+      currentStreak = 1;
+    }
+
+    if (currentStreak > bestStreak) {
+      bestStreak = currentStreak;
+      bestDate = sortedDates[i]!;
+    }
+  }
+
+  return { value: bestStreak, date: bestDate };
+}
+
+/**
+ * Calculates group stats (for the stats API endpoints) from a set of
+ * GroupWorkout documents.
+ */
+export function calculateGroupStats(groupWorkouts: GroupWorkout[]): GroupStats {
+  const highestStreakEver = calculateHighestStreakEver(groupWorkouts);
+
+  const sorted = [...groupWorkouts].sort(
+    (a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime(),
+  );
+
+  const firstGroupWorkoutDate = sorted.length > 0 ? sorted[0]!.startedAt : null;
+
+  const now = new Date();
+  const currentMonth = now.getUTCMonth();
+  const currentYear = now.getUTCFullYear();
+  const groupWorkoutsThisMonth = groupWorkouts.filter((gw) => {
+    const d = new Date(gw.startedAt);
+    return d.getUTCMonth() === currentMonth && d.getUTCFullYear() === currentYear;
+  }).length;
+
+  return {
+    highestStreakEver,
+    firstGroupWorkoutDate,
+    groupWorkoutsAllTime: groupWorkouts.length,
+    groupWorkoutsThisMonth,
+  };
 }

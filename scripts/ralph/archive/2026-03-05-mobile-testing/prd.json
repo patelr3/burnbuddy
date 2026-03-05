@@ -1,207 +1,160 @@
 {
   "project": "BurnBuddy",
-  "branchName": "ralph/mobile-testing",
-  "description": "Automated Mobile Testing - Jest unit/component tests and Maestro E2E flows for the Expo mobile app",
+  "branchName": "ralph/profiles-streaks-stats",
+  "description": "Profiles, Streaks & Stats Overhaul - Merge settings into account, add friend profiles with stats, enrich buddy/squad detail pages, overhaul streak logic, and enhance listing cards",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Configure Jest with jest-expo",
-      "description": "As a developer, I want a working Jest test runner in the mobile app so that I can write and run unit/component tests locally and in CI.",
+      "title": "Update streak increment logic to use group workouts",
+      "description": "As a user, I want my streak to increment anytime my buddy/squad and I start workouts within 20 minutes of each other, regardless of schedule.",
       "acceptanceCriteria": [
-        "jest, jest-expo, @testing-library/react-native, @testing-library/jest-native, @types/jest added as devDependencies in apps/mobile/package.json",
-        "apps/mobile/jest.config.js created, extending jest-expo preset",
-        "apps/mobile/jest.setup.ts created with baseline React Native module mocks (e.g., Animated, Linking)",
-        "'test' script added to apps/mobile/package.json running jest",
-        "A trivial smoke test (src/__tests__/smoke.test.ts) passes when running yarn workspace mobile test",
+        "A streak day is counted if all members have overlapping workouts (within 20-min window) on that calendar day, regardless of schedule",
+        "Streak calculation uses GroupWorkout documents as the source of truth instead of individual workouts",
+        "Existing streak calculation tests updated to reflect new logic",
+        "New test: streak increments on unscheduled workout days",
+        "New test: streak increments when workouts overlap within 20 min but outside schedule",
+        "All API tests pass (cd services/api && yarn test)",
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "Refactor streak-calculator.ts to walk through GroupWorkout documents. The existing group workout detection (20-min window) already captures overlapping workouts — use those as the data source."
     },
     {
       "id": "US-002",
-      "title": "Create shared mock infrastructure",
-      "description": "As a developer, I want pre-built mocks for Firebase Auth, the API client, AsyncStorage, and expo-notifications so that every test file doesn't have to reinvent mocking.",
+      "title": "Update streak reset logic to 7-day inactivity window",
+      "description": "As a user, I want my streak to reset only after a full week (7 days) of not working out together, so occasional missed days don't break momentum.",
       "acceptanceCriteria": [
-        "apps/mobile/src/__mocks__/firebase.ts mocks signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, getIdToken, signOut",
-        "apps/mobile/src/__mocks__/api.ts mocks apiGet, apiPost, apiPut, apiPatch, apiDelete as jest.fn() stubs",
-        "apps/mobile/src/__mocks__/notifications.ts mocks expo-notifications registration and listeners",
-        "apps/mobile/src/__mocks__/async-storage.ts mocks @react-native-async-storage/async-storage with in-memory store",
-        "Each mock file exports a reset() or similar helper to clear state between tests",
-        "Mocks are documented with inline comments explaining usage",
+        "A streak resets to 0 only if 7 or more consecutive calendar days pass without a group workout",
+        "Gaps of 1-6 days do NOT reset the streak (the streak pauses but is not lost)",
+        "Both Burn Buddy and Burn Squad streaks follow this rule",
+        "New test: streak survives a 6-day gap",
+        "New test: streak resets on a 7-day gap",
+        "New test: streak survives multiple short gaps",
+        "Existing streak tests updated for new reset window",
+        "All API tests pass (cd services/api && yarn test)",
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "Builds on the streak-calculator refactor from US-001. The calculator should allow gaps of up to 6 days between group workouts without resetting."
     },
     {
       "id": "US-003",
-      "title": "Test AuthContext and auth flows",
-      "description": "As a developer, I want tests for the AuthProvider and useAuth() hook so that auth regressions are caught automatically.",
+      "title": "Merge Settings into Account page",
+      "description": "As a user, I want a single Account page that includes both my profile info and settings so I don't have to navigate between two separate pages.",
       "acceptanceCriteria": [
-        "Test file at apps/mobile/src/lib/__tests__/auth-context.test.tsx",
-        "Test: AuthProvider renders children when onAuthStateChanged emits a user",
-        "Test: useAuth() returns { user, loading, getToken } with correct values",
-        "Test: loading state is true initially, then false after auth state resolves",
-        "Test: unauthenticated state (user is null) when onAuthStateChanged emits null",
-        "Test: getToken() calls Firebase getIdToken() and returns the token string",
-        "All tests pass via yarn workspace mobile test",
-        "Typecheck passes"
+        "Account page (/account) includes username editing (currently on /settings)",
+        "Account page retains existing functionality: display name, sign out, onboarding toggle",
+        "Settings page (/settings) is removed; any links to it redirect to /account",
+        "NavBar updated to remove Settings link if present",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "Frontend-only change. Move username editing UI from /settings to /account, delete the settings page, and update navigation."
     },
     {
       "id": "US-004",
-      "title": "Test API client module",
-      "description": "As a developer, I want tests for the API client (src/lib/api.ts) so that auth header injection and error handling are verified.",
+      "title": "Add buddy/squad stats API endpoints",
+      "description": "As a developer, I need API endpoints that return group workout stats for a given burn buddy or squad.",
       "acceptanceCriteria": [
-        "Test file at apps/mobile/src/lib/__tests__/api.test.ts",
-        "Test: apiGet(path) sends GET request with Authorization: Bearer <token> header",
-        "Test: apiPost(path, body) sends POST with JSON body and auth header",
-        "Test: API client uses EXPO_PUBLIC_API_URL env var for base URL, falls back to http://localhost:3001",
-        "Test: network error throws/rejects with meaningful error",
-        "Test: 401 response is handled (not silently swallowed)",
-        "All tests pass via yarn workspace mobile test",
+        "Add GroupStats type to packages/shared/src/types.ts with fields: highestStreakEver (value + date), firstGroupWorkoutDate, groupWorkoutsAllTime, groupWorkoutsThisMonth",
+        "GET /burn-buddies/:id/stats returns: highestStreakEver (value + date), firstGroupWorkoutDate, groupWorkoutsAllTime, groupWorkoutsThisMonth",
+        "GET /burn-squads/:id/stats returns the same shape of data",
+        "Only members of the buddy pair / squad can access these endpoints (return 403 otherwise)",
+        "Uses getDb() from lib/firestore.ts for all Firestore access",
+        "All API tests pass (cd services/api && yarn test)",
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "Calculate highest streak ever by walking full group workout history using the updated streak calculator from US-001/US-002. Add new test file following the project's vi.mock + vi.hoisted + supertest pattern."
     },
     {
       "id": "US-005",
-      "title": "Test LoginScreen component",
-      "description": "As a developer, I want component tests for the LoginScreen so that login UI and auth calls are verified.",
+      "title": "Add friend profile API endpoint",
+      "description": "As a developer, I need an API endpoint that returns a user's profile stats so the frontend can render friend profiles.",
       "acceptanceCriteria": [
-        "Test file at apps/mobile/src/screens/__tests__/LoginScreen.test.tsx",
-        "Test: renders email and password text inputs",
-        "Test: renders a Sign In button",
-        "Test: tapping Sign In with valid inputs calls signInWithEmailAndPassword",
-        "Test: displays error message when auth fails (e.g., wrong password)",
-        "Test: tapping Sign Up link/button triggers navigation to signup screen",
-        "All tests pass via yarn workspace mobile test",
+        "Add ProfileStats type to packages/shared/src/types.ts with fields: displayName, username, highestActiveStreak (value + buddy/squad name), highestStreakEver (value + date + buddy/squad name), firstWorkoutDate, workoutsAllTime, workoutsThisMonth, buddyRelationshipStatus",
+        "GET /users/:uid/profile returns the ProfileStats data",
+        "Endpoint requires authentication (user must be logged in)",
+        "Endpoint only returns data if requesting user is a friend of the target user (return 403 otherwise)",
+        "Returns burn buddy relationship status: none, pending_sent, pending_received, or buddies",
+        "Highest active streak and highest streak ever aggregated across all target user's buddy/squad relationships (with buddy/squad name for context)",
+        "Uses getDb() from lib/firestore.ts for all Firestore access",
+        "All API tests pass (cd services/api && yarn test)",
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "Aggregates stats across all of a user's buddy/squad relationships. May involve multiple Firestore reads — consider batching. Add new test file following the project's vi.mock + vi.hoisted + supertest pattern."
     },
     {
       "id": "US-006",
-      "title": "Test HomeScreen component",
-      "description": "As a developer, I want component tests for the HomeScreen so that core data loading and display are verified.",
+      "title": "Add stats to burn buddy and burn squad detail pages",
+      "description": "As a user, I want to see richer stats on the burn buddy and burn squad detail pages so I can track our progress together.",
       "acceptanceCriteria": [
-        "Test file at apps/mobile/src/screens/__tests__/HomeScreen.test.tsx",
-        "Test: shows loading indicator while API calls are in flight",
-        "Test: renders list of burn buddies returned by apiGet('/burn-buddies')",
-        "Test: renders list of burn squads returned by apiGet('/burn-squads')",
-        "Test: displays empty state message when user has no buddies or squads",
-        "Test: displays incoming buddy/squad request indicators when requests exist",
-        "All tests pass via yarn workspace mobile test",
-        "Typecheck passes"
+        "Detail pages (/burn-buddies/[id], /burn-squads/[id]) show: active streak (already done), highest streak achieved with date, first workout date, total workouts all time, total workouts this month",
+        "Stats fetched from GET /burn-buddies/:id/stats and GET /burn-squads/:id/stats",
+        "Stats displayed in a grid/card layout (e.g., 2-column grid of stat tiles)",
+        "Loading and error states handled gracefully",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "Depends on US-004 (stats API). Create reusable stat display components — these will be reused on the friend profile page in US-007."
     },
     {
       "id": "US-007",
-      "title": "Test FriendsScreen component",
-      "description": "As a developer, I want component tests for the FriendsScreen so that friend management flows are verified.",
+      "title": "Add friend profile page",
+      "description": "As a user, I want to tap on a friend's name on the Friends page and see their profile with workout stats.",
       "acceptanceCriteria": [
-        "Test file at apps/mobile/src/screens/__tests__/FriendsScreen.test.tsx",
-        "Test: renders list of current friends from API",
-        "Test: renders incoming and outgoing friend request sections",
-        "Test: tapping Accept on a friend request calls apiPost with correct endpoint",
-        "Test: tapping Decline on a friend request calls the correct API endpoint",
-        "All tests pass via yarn workspace mobile test",
-        "Typecheck passes"
+        "Friends list items on /friends are clickable and navigate to /profile/[uid]",
+        "Profile page displays: username, display name, highest active streak (with buddy/squad name), highest streak ever (with date and buddy/squad name), first workout date, total workouts all time, total workouts this month",
+        "Request to be Burn Buddy button visible near top-right if viewer is NOT already a buddy",
+        "Button hidden when already buddies or when a pending request exists",
+        "Loading and error states handled gracefully",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "Depends on US-005 (profile API). Reuse stat display components from US-006. The Request to be Burn Buddy button uses buddyRelationshipStatus from the profile API."
     },
     {
       "id": "US-008",
-      "title": "Add GitHub Actions CI workflow for mobile tests",
-      "description": "As a developer, I want mobile unit/component tests to run automatically on PRs so that regressions are caught before merge.",
+      "title": "Enhance burn buddies and squads listing cards",
+      "description": "As a user, I want the buddy/squad listing cards to show streaks with a fire emoji and the next planned workout so the cards are more engaging.",
       "acceptanceCriteria": [
-        ".github/workflows/test-mobile.yml created",
-        "Triggers on push to main and pull_request when files in apps/mobile/** or packages/shared/** change",
-        "Job steps: checkout, Node.js setup, yarn install --frozen-lockfile, yarn workspace mobile test",
-        "Test results reported to GitHub Actions summary",
-        "Workflow file passes YAML lint (valid GitHub Actions syntax)",
-        "Typecheck passes"
+        "Each card on Burn Buddies and Burn Squads list pages shows streak as fire emoji followed by count (e.g., 🔥12)",
+        "Fire emoji rendered inline as text, not as an image",
+        "If a next planned workout exists (from WorkoutSchedule), show next occurrence (e.g., Next: Mon 7:00 AM)",
+        "If no upcoming planned workout, the field is hidden entirely (no placeholder text)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 8,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "Next planned workout derived from WorkoutSchedule on the buddy/squad. Calculate next occurrence from the schedule's day/time fields."
     },
     {
       "id": "US-009",
-      "title": "Install and configure Maestro for E2E testing",
-      "description": "As a developer, I want Maestro configured in the mobile app so that I can write and run E2E test flows locally against a simulator.",
+      "title": "Push changes, create PR, and merge",
+      "description": "As a developer, I want all changes pushed to the remote branch with a PR created and merged so the feature is delivered to main.",
       "acceptanceCriteria": [
-        "apps/mobile/.maestro/ directory created",
-        "apps/mobile/.maestro/config.yaml created with app identifier and Expo dev server settings",
-        "test:e2e script added to apps/mobile/package.json that runs Maestro test suite",
-        "docs/mobile-testing.md created with instructions for installing Maestro CLI, starting Expo, and running E2E flows",
-        "Instructions specify tests run against local API (localhost:3001)",
+        "All changes committed and pushed to ralph/profiles-streaks-stats branch",
+        "Pull request created against main with a descriptive title and summary of all changes",
+        "PR description lists all user stories completed (US-001 through US-008)",
+        "All CI checks pass on the PR",
+        "PR is merged into main",
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-010",
-      "title": "Add testID props to screen components for Maestro",
-      "description": "As a developer, I want testID props on key interactive elements in screen components so that Maestro flows can reliably select elements.",
-      "acceptanceCriteria": [
-        "LoginScreen: testID on email input, password input, sign-in button, sign-up link",
-        "HomeScreen: testID on tab navigator items, buddy list container, squad list container",
-        "FriendsScreen: testID on search input, friend list items, accept/decline buttons",
-        "AccountScreen: testID on sign-out button and key profile elements",
-        "testID naming follows convention: screen-name-element (e.g., login-email-input, login-sign-in-button)",
-        "Typecheck passes"
-      ],
-      "priority": 10,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-011",
-      "title": "Write Maestro login and signup E2E flows",
-      "description": "As a developer, I want Maestro E2E flows for login and signup so that authentication journeys are validated end-to-end.",
-      "acceptanceCriteria": [
-        "apps/mobile/.maestro/login.yaml — enters email/password, taps Sign In, verifies Home screen appears",
-        "apps/mobile/.maestro/signup.yaml — fills signup form, creates account, verifies Home screen appears",
-        "Each flow has descriptive step names and uses testID attributes for element selection",
-        "Flows documented in docs/mobile-testing.md with run instructions",
-        "Typecheck passes"
-      ],
-      "priority": 11,
-      "passes": true,
-      "notes": ""
-    },
-    {
-      "id": "US-012",
-      "title": "Write Maestro navigation and friend E2E flows",
-      "description": "As a developer, I want Maestro E2E flows for home navigation and friend management so that critical user journeys are validated.",
-      "acceptanceCriteria": [
-        "apps/mobile/.maestro/home-navigation.yaml — navigates between Home, Friends, and Account tabs, verifies each loads",
-        "apps/mobile/.maestro/add-friend.yaml — opens Friends tab, searches for a user, sends friend request",
-        "Each flow has descriptive step names and uses testID attributes for element selection",
-        "Flows documented in docs/mobile-testing.md with run instructions",
-        "Typecheck passes"
-      ],
-      "priority": 12,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "Final story. Push the branch, create a PR using gh CLI, wait for CI checks to pass, then merge. Use 'gh pr create' and 'gh pr merge' commands."
     }
   ]
 }

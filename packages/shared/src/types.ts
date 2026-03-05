@@ -92,3 +92,10 @@ export interface GroupWorkout {
   startedAt: string;
   workoutIds: string[];
 }
+
+export interface GroupStats {
+  highestStreakEver: { value: number; date: string };
+  firstGroupWorkoutDate: string | null;
+  groupWorkoutsAllTime: number;
+  groupWorkoutsThisMonth: number;
+}

@@ -3,7 +3,7 @@ import { Router, type Request, type Response } from 'express';
 import type { BurnSquad, BurnSquadJoinRequest, GroupWorkout } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
 import { getDb } from '../lib/firestore';
-import { calculateStreaks } from '../services/streak-calculator';
+import { calculateStreaks, calculateGroupStats } from '../services/streak-calculator';
 
 const router = Router();
 
@@ -356,6 +356,44 @@ router.get(
     const streaks = calculateStreaks(groupWorkouts);
 
     res.json(streaks);
+  },
+);
+
+/**
+ * GET /burn-squads/:id/stats
+ * Returns group workout stats for the given Burn Squad.
+ */
+router.get(
+  '/:id/stats',
+  requireAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    const uid = req.user!.uid;
+    const squadId = req.params['id'] as string;
+    const db = getDb();
+
+    const squadDoc = await db.collection('burnSquads').doc(squadId).get();
+
+    if (!squadDoc.exists) {
+      res.status(404).json({ error: 'Burn Squad not found' });
+      return;
+    }
+
+    const squad = squadDoc.data() as BurnSquad;
+
+    if (!squad.memberUids.includes(uid)) {
+      res.status(403).json({ error: 'You are not a member of this Burn Squad' });
+      return;
+    }
+
+    const groupWorkoutSnap = await db
+      .collection('groupWorkouts')
+      .where('referenceId', '==', squadId)
+      .get();
+
+    const groupWorkouts = groupWorkoutSnap.docs.map((doc) => doc.data() as GroupWorkout);
+    const stats = calculateGroupStats(groupWorkouts);
+
+    res.json(stats);
   },
 );
 

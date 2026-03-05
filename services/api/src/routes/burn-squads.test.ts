@@ -827,6 +827,98 @@ describe('GET /burn-squads/:id/streaks', () => {
   });
 });
 
+// ── GET /burn-squads/:id/stats ────────────────────────────────────────────────
+
+describe('GET /burn-squads/:id/stats', () => {
+  it('returns 401 when unauthenticated', async () => {
+    const res = await request(buildApp()).get(`/burn-squads/${SQUAD_ID}/stats`);
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 when the squad does not exist', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}/stats`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 403 when user is not a member', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ ...SAMPLE_SQUAD, memberUids: [OTHER_UID] }),
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}/stats`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('returns empty stats when no group workouts exist', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ ...SAMPLE_SQUAD, memberUids: [TEST_UID, OTHER_UID] }),
+    });
+    mockGroupWorkoutsQueryGet.mockResolvedValueOnce({ docs: [] });
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}/stats`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      highestStreakEver: { value: 0, date: '' },
+      firstGroupWorkoutDate: null,
+      groupWorkoutsAllTime: 0,
+      groupWorkoutsThisMonth: 0,
+    });
+  });
+
+  it('returns correct stats when group workouts exist', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ ...SAMPLE_SQUAD, memberUids: [TEST_UID, OTHER_UID] }),
+    });
+
+    const now = new Date();
+    const thisMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+    const gw1 = {
+      id: 'gw-1',
+      type: 'squad',
+      referenceId: SQUAD_ID,
+      memberUids: [TEST_UID, OTHER_UID],
+      startedAt: `${thisMonth}-01T10:00:00.000Z`,
+      workoutIds: ['w1', 'w2'],
+    };
+    const gw2 = {
+      id: 'gw-2',
+      type: 'squad',
+      referenceId: SQUAD_ID,
+      memberUids: [TEST_UID, OTHER_UID],
+      startedAt: `${thisMonth}-02T10:00:00.000Z`,
+      workoutIds: ['w3', 'w4'],
+    };
+
+    mockGroupWorkoutsQueryGet.mockResolvedValueOnce({
+      docs: [{ data: () => gw1 }, { data: () => gw2 }],
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}/stats`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.highestStreakEver.value).toBe(2);
+    expect(res.body.firstGroupWorkoutDate).toBe(`${thisMonth}-01T10:00:00.000Z`);
+    expect(res.body.groupWorkoutsAllTime).toBe(2);
+    expect(res.body.groupWorkoutsThisMonth).toBe(2);
+  });
+});
+
 // ── DELETE /burn-squads/:id ────────────────────────────────────────────────────
 
 describe('DELETE /burn-squads/:id', () => {
