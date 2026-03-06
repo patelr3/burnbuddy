@@ -1,0 +1,161 @@
+{
+  "project": "burnbuddy",
+  "branchName": "ralph/site-performance",
+  "description": "Site Performance Optimization - Reduce load times with compression, caching, N+1 fixes, batch dashboard endpoint, and React Query",
+  "dependsOn": [],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add response compression to API",
+      "description": "As a user, I want API responses to be compressed so that data transfers are faster, especially on slower connections.",
+      "acceptanceCriteria": [
+        "Install and configure `compression` middleware in Express API (services/api/src/index.ts)",
+        "Verify responses include `Content-Encoding: gzip` header when client sends `Accept-Encoding: gzip`",
+        "Existing API tests still pass",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Add cache-control headers to read endpoints",
+      "description": "As a developer, I want appropriate cache-control headers on API responses so that clients and intermediaries can cache responses and reduce redundant requests.",
+      "acceptanceCriteria": [
+        "Create reusable Express middleware `cacheControl(seconds)` in services/api/src/middleware/",
+        "Add `Cache-Control: private, max-age=30` to stable read endpoints (`/burn-buddies`, `/burn-squads`, `/friends`)",
+        "Add `Cache-Control: private, max-age=5` to frequently-changing endpoints (`/workouts/partner-active`, `/group-workouts`)",
+        "Add `Cache-Control: no-store` to sensitive endpoints (`/users/me`)",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Fix N+1 queries in partner-active endpoint",
+      "description": "As a user, I want the partner activity check to load fast so I can see who's working out without waiting.",
+      "acceptanceCriteria": [
+        "Refactor `GET /workouts/partner-active` to batch Firestore queries instead of querying per-buddy in a loop",
+        "Use Firestore `in` operator to query up to 30 UIDs at once, with chunking for larger sets",
+        "Same response shape and data as before (no breaking changes)",
+        "Existing tests pass; add test for batched query path",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Fix N+1 queries in user profile endpoint",
+      "description": "As a user, I want profile pages to load quickly instead of waiting for sequential database lookups.",
+      "acceptanceCriteria": [
+        "Refactor `GET /users/:uid/profile` to batch group workout queries using Firestore `in` operator instead of per-referenceId loop",
+        "Batch friend/buddy profile lookups into a single multi-get instead of individual doc reads",
+        "Same response shape and data as before (no breaking changes)",
+        "Existing tests pass; add test covering the batched query path",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Create batch dashboard endpoint",
+      "description": "As a frontend developer, I want a single API endpoint that returns all the data the dashboard needs so the home page can load with 1 request instead of 9+.",
+      "acceptanceCriteria": [
+        "Create `GET /dashboard` endpoint in a new route file services/api/src/routes/dashboard.ts",
+        "Return combined payload: { user, burnBuddies, burnSquads, groupWorkouts, buddyRequests: { incoming, outgoing }, squadJoinRequests, activeWorkout, partnerActivity }",
+        "Use `Promise.all` to fetch all data in parallel within the endpoint (not sequential)",
+        "Enrich buddy/squad profiles server-side (include display names, streak data) to eliminate N+M client-side enrichment calls",
+        "Register the route in services/api/src/index.ts behind requireAuth middleware",
+        "Add tests using the existing vi.mock + vi.hoisted pattern with supertest",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Firestore `in` operator limit is 30 values. Chunk queries for users with more than 30 buddies/squad members."
+    },
+    {
+      "id": "US-006",
+      "title": "Add React Query to the web app",
+      "description": "As a developer, I want a data-fetching/caching library so that API responses are cached, deduplicated, and background-refreshed automatically.",
+      "acceptanceCriteria": [
+        "Install `@tanstack/react-query` in apps/web",
+        "Create a QueryClientProvider client component wrapper with defaults: staleTime: 30_000, gcTime: 300_000, refetchOnWindowFocus: true",
+        "Add the provider wrapper to apps/web/src/app/layout.tsx",
+        "Create apps/web/src/lib/queries.ts with typed query hooks (useDashboard, useProfile) that use the existing API client from lib/api.ts",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Layout is a server component, so QueryClientProvider must be a separate client component wrapper."
+    },
+    {
+      "id": "US-007",
+      "title": "Migrate dashboard page to batch endpoint + React Query",
+      "description": "As a user, I want the home page to load in under 1 second (cached) so the app feels instant.",
+      "acceptanceCriteria": [
+        "Replace the individual useEffect fetch calls in the dashboard page.tsx with a single useDashboard() query hook",
+        "Show a loading skeleton/spinner while data loads (no blank screen)",
+        "Navigating away and back shows cached data immediately (stale-while-revalidate)",
+        "Remove the old loadData function and individual state variables that are replaced",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Optimize polling strategy with React Query",
+      "description": "As a user, I want real-time partner activity updates without the app burning unnecessary resources.",
+      "acceptanceCriteria": [
+        "Replace any manual setInterval polling with React Query's built-in refetchInterval: 30_000 on the partner-active query",
+        "Only poll when the browser tab is focused (refetchIntervalInBackground: false)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Create web vitals API endpoint",
+      "description": "As a developer, I want an API endpoint to receive Core Web Vitals metrics so I can track real-world performance.",
+      "acceptanceCriteria": [
+        "Create `POST /metrics/vitals` endpoint in a new route file services/api/src/routes/metrics.ts",
+        "Endpoint accepts JSON body with metric name (LCP, FCP, TTFB, CLS, INP), value, and optional metadata",
+        "Log received metrics via pino as structured JSON",
+        "Register the route in services/api/src/index.ts (no auth required — metrics are anonymous)",
+        "Add basic tests using the existing vi.mock pattern",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Add web-vitals reporting to web app",
+      "description": "As a developer, I want to measure Core Web Vitals in the browser so I can track the real-world impact of performance improvements.",
+      "acceptanceCriteria": [
+        "Install the `web-vitals` library in apps/web",
+        "Create apps/web/src/lib/vitals.ts that captures LCP, FCP, TTFB, CLS, and INP metrics",
+        "In production: send metrics to the API via `POST /metrics/vitals` (fire-and-forget, non-blocking)",
+        "In development: log metrics to the browser console in a readable format",
+        "Wire up the vitals reporter in a client component loaded from app/layout.tsx",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
