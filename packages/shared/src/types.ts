@@ -4,6 +4,7 @@ export interface UserProfile {
   displayName: string;
   username?: string;
   usernameLower?: string;
+  profilePictureUrl?: string;
   fcmToken?: string;
   gettingStartedDismissed?: boolean;
   createdAt: string;
