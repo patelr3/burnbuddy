@@ -7,6 +7,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { NavBar } from '@/components/NavBar';
 import { StatCard } from '@/components/StatCard';
+import { AddToCalendarButton } from '@/components/AddToCalendarButton';
 import type { BurnBuddy, GroupWorkout, GroupStats, WorkoutSchedule } from '@burnbuddy/shared';
 
 interface PartnerProfile {
@@ -263,9 +264,12 @@ export default function BurnBuddyDetailPage() {
 
         {/* Workout schedule display */}
         {!editing && burnBuddy.workoutSchedule && burnBuddy.workoutSchedule.days.length > 0 && (
-          <div className="mb-5 rounded-md border border-green-200 bg-green-50 px-3.5 py-2.5 text-[13px] text-green-800">
-            Schedule: {burnBuddy.workoutSchedule.days.join(', ')}
-            {burnBuddy.workoutSchedule.time && ` at ${burnBuddy.workoutSchedule.time}`}
+          <div className="mb-5 flex items-center gap-3">
+            <div className="flex-1 rounded-md border border-green-200 bg-green-50 px-3.5 py-2.5 text-[13px] text-green-800">
+              Schedule: {burnBuddy.workoutSchedule.days.join(', ')}
+              {burnBuddy.workoutSchedule.time && ` at ${burnBuddy.workoutSchedule.time}`}
+            </div>
+            <AddToCalendarButton endpoint={`/burn-buddies/${id}/calendar`} />
           </div>
         )}
 
