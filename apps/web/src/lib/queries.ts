@@ -53,11 +53,17 @@ export const queryKeys = {
 
 // ── Hooks ────────────────────────────────────────────────────────────────────
 
-export function useDashboard(options?: { enabled?: boolean }) {
+export function useDashboard(options?: {
+  enabled?: boolean;
+  refetchInterval?: number | false;
+  refetchIntervalInBackground?: boolean;
+}) {
   return useQuery({
     queryKey: queryKeys.dashboard,
     queryFn: () => apiGet<DashboardData>('/dashboard'),
     enabled: options?.enabled,
+    refetchInterval: options?.refetchInterval,
+    refetchIntervalInBackground: options?.refetchIntervalInBackground,
   });
 }
 

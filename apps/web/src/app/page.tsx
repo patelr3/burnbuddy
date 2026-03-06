@@ -112,7 +112,11 @@ function DashboardSkeleton() {
 
 export default function Home() {
   const { user, loading } = useAuth();
-  const { data: dashboard, isLoading: dataLoading } = useDashboard({ enabled: !!user });
+  const { data: dashboard, isLoading: dataLoading } = useDashboard({
+    enabled: !!user,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
+  });
   const queryClient = useQueryClient();
 
   // UI-only state
