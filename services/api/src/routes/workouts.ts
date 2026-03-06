@@ -17,6 +17,7 @@ const AUTO_END_MS = 90 * 60 * 1000; // 1.5 hours in milliseconds
  * GET /workouts/partner-active
  * Returns burn buddies and squad members who have active workouts
  * within the group workout window (20 minutes).
+ * Uses batched Firestore `in` queries instead of per-partner lookups.
  */
 router.get('/partner-active', requireAuth, cacheControl(5), async (req: Request, res: Response): Promise<void> => {
   const uid = req.user!.uid;
@@ -24,10 +25,11 @@ router.get('/partner-active', requireAuth, cacheControl(5), async (req: Request,
   const cutoff = new Date(Date.now() - GROUP_WORKOUT_WINDOW_MS).toISOString();
   const activePartnerWorkouts: ActivePartnerWorkout[] = [];
 
-  // ── Burn Buddy detection ──────────────────────────────────────────────────
-  const [buddySnap1, buddySnap2] = await Promise.all([
+  // ── Fetch burn buddies and squads in parallel ─────────────────────────────
+  const [buddySnap1, buddySnap2, squadsSnap] = await Promise.all([
     db.collection('burnBuddies').where('uid1', '==', uid).get(),
     db.collection('burnBuddies').where('uid2', '==', uid).get(),
+    db.collection('burnSquads').where('memberUids', 'array-contains', uid).get(),
   ]);
 
   const burnBuddies = [
@@ -35,51 +37,54 @@ router.get('/partner-active', requireAuth, cacheControl(5), async (req: Request,
     ...buddySnap2.docs.map((d) => d.data() as BurnBuddy),
   ];
 
+  const squads = squadsSnap.docs.map((d) => d.data() as BurnSquad);
+
+  // ── Collect all unique partner UIDs ───────────────────────────────────────
+  const buddyPartnerUids = burnBuddies.map((b) => (b.uid1 === uid ? b.uid2 : b.uid1));
+  const squadMemberUids = squads.flatMap((s) => s.memberUids.filter((m) => m !== uid));
+  const allPartnerUids = [...new Set([...buddyPartnerUids, ...squadMemberUids])];
+
+  // ── Batch-fetch active workouts (Firestore `in` limit: 30 per query) ──────
+  const CHUNK_SIZE = 30;
+  const activeWorkoutsByUid = new Map<string, string>(); // uid → earliestStartedAt
+
+  for (let i = 0; i < allPartnerUids.length; i += CHUNK_SIZE) {
+    const chunk = allPartnerUids.slice(i, i + CHUNK_SIZE);
+    const snap = await db.collection('workouts').where('uid', 'in', chunk).get();
+    for (const doc of snap.docs) {
+      const w = doc.data() as Workout;
+      if (w.status === 'active' && w.startedAt >= cutoff) {
+        const existing = activeWorkoutsByUid.get(w.uid);
+        if (!existing || w.startedAt < existing) {
+          activeWorkoutsByUid.set(w.uid, w.startedAt);
+        }
+      }
+    }
+  }
+
+  // ── Map results back to buddy entries ─────────────────────────────────────
   for (const buddy of burnBuddies) {
     const partnerUid = buddy.uid1 === uid ? buddy.uid2 : buddy.uid1;
-    const partnerSnap = await db.collection('workouts').where('uid', '==', partnerUid).get();
-    const partnerWorkouts = partnerSnap.docs
-      .map((d) => d.data() as Workout)
-      .filter((w) => w.status === 'active' && w.startedAt >= cutoff);
-
-    if (partnerWorkouts.length > 0) {
-      const earliest = partnerWorkouts.reduce((a, b) => (a.startedAt < b.startedAt ? a : b));
+    const earliest = activeWorkoutsByUid.get(partnerUid);
+    if (earliest) {
       activePartnerWorkouts.push({
         type: 'buddy',
         referenceId: buddy.id,
-        earliestStartedAt: earliest.startedAt,
+        earliestStartedAt: earliest,
       });
     }
   }
 
-  // ── Burn Squad detection ──────────────────────────────────────────────────
-  const squadsSnap = await db
-    .collection('burnSquads')
-    .where('memberUids', 'array-contains', uid)
-    .get();
-
-  const squads = squadsSnap.docs.map((d) => d.data() as BurnSquad);
-
+  // ── Map results back to squad entries ─────────────────────────────────────
   for (const squad of squads) {
     const otherMemberUids = squad.memberUids.filter((m) => m !== uid);
-    if (otherMemberUids.length === 0) continue;
-
     let earliestStartedAt: string | null = null;
-
     for (const memberUid of otherMemberUids) {
-      const memberSnap = await db.collection('workouts').where('uid', '==', memberUid).get();
-      const memberWorkouts = memberSnap.docs
-        .map((d) => d.data() as Workout)
-        .filter((w) => w.status === 'active' && w.startedAt >= cutoff);
-
-      if (memberWorkouts.length > 0) {
-        const memberEarliest = memberWorkouts.reduce((a, b) => (a.startedAt < b.startedAt ? a : b));
-        if (earliestStartedAt === null || memberEarliest.startedAt < earliestStartedAt) {
-          earliestStartedAt = memberEarliest.startedAt;
-        }
+      const startedAt = activeWorkoutsByUid.get(memberUid);
+      if (startedAt && (earliestStartedAt === null || startedAt < earliestStartedAt)) {
+        earliestStartedAt = startedAt;
       }
     }
-
     if (earliestStartedAt !== null) {
       activePartnerWorkouts.push({
         type: 'squad',

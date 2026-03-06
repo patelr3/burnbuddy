@@ -16,6 +16,8 @@ const {
   // users — doc operations
   mockUsersDocGet,
   mockUsersDocRef,
+  // workouts — collection-level where (captures `in` operator args)
+  mockWorkoutsCollectionWhere,
   // burnBuddies/burnSquads — query operations
   mockBuddiesQueryGet,
   mockSquadsQueryGet,
@@ -39,6 +41,9 @@ const {
     get: mockWorkoutsQueryGet,
   };
 
+  // workouts — collection-level where (returns query chain)
+  const mockWorkoutsCollectionWhere = vi.fn(() => mockWorkoutsQueryChain);
+
   // users — doc
   const mockUsersDocGet = vi.fn();
   const mockUsersDocRef = vi.fn(() => ({ get: mockUsersDocGet }));
@@ -57,6 +62,7 @@ const {
     mockWorkoutsDocRef,
     mockWorkoutsQueryGet,
     mockWorkoutsQueryChain,
+    mockWorkoutsCollectionWhere,
     mockUsersDocGet,
     mockUsersDocRef,
     mockBuddiesQueryGet,
@@ -85,7 +91,7 @@ vi.mock('../lib/firestore', () => ({
       if (name === 'workouts') {
         return {
           doc: mockWorkoutsDocRef,
-          where: () => mockWorkoutsQueryChain,
+          where: mockWorkoutsCollectionWhere,
         };
       }
       if (name === 'users') {
@@ -132,6 +138,7 @@ beforeEach(() => {
 
   // Re-setup query chain (mockReturnThis must be re-applied after resetAllMocks)
   mockWorkoutsQueryChain.where.mockReturnThis();
+  mockWorkoutsCollectionWhere.mockReturnValue(mockWorkoutsQueryChain);
 
   // Re-setup doc refs
   mockWorkoutsDocRef.mockImplementation(() => ({
@@ -547,6 +554,7 @@ describe('GET /workouts/partner-active', () => {
       ],
     });
 
+    // Single batched query returns both members' workouts
     mockWorkoutsQueryGet
       .mockResolvedValueOnce({
         docs: [
@@ -559,10 +567,6 @@ describe('GET /workouts/partner-active', () => {
               status: 'active',
             }),
           },
-        ],
-      })
-      .mockResolvedValueOnce({
-        docs: [
           {
             data: () => ({
               id: 'workout-m2',
@@ -586,5 +590,83 @@ describe('GET /workouts/partner-active', () => {
       referenceId: 'squad-1',
       earliestStartedAt: fifteenMinAgo,
     });
+  });
+
+  it('uses a single batched query for both buddy and squad partner UIDs', async () => {
+    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const squadMemberUid = 'squad-member-1';
+
+    mockBuddiesQueryGet
+      .mockResolvedValueOnce({
+        docs: [{ data: () => ({ id: 'buddy-1', uid1: TEST_UID, uid2: OTHER_UID }) }],
+      })
+      .mockResolvedValueOnce({ docs: [] });
+
+    mockSquadsQueryGet.mockResolvedValueOnce({
+      docs: [{ data: () => ({ id: 'squad-1', memberUids: [TEST_UID, squadMemberUid] }) }],
+    });
+
+    mockWorkoutsQueryGet.mockResolvedValueOnce({
+      docs: [
+        { data: () => ({ id: 'w1', uid: OTHER_UID, type: 'Running', startedAt: fiveMinAgo, status: 'active' }) },
+        { data: () => ({ id: 'w2', uid: squadMemberUid, type: 'HIIT', startedAt: tenMinAgo, status: 'active' }) },
+      ],
+    });
+
+    const res = await request(buildApp())
+      .get('/workouts/partner-active')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.activePartnerWorkouts).toHaveLength(2);
+    expect(res.body.activePartnerWorkouts).toEqual(
+      expect.arrayContaining([
+        { type: 'buddy', referenceId: 'buddy-1', earliestStartedAt: fiveMinAgo },
+        { type: 'squad', referenceId: 'squad-1', earliestStartedAt: tenMinAgo },
+      ]),
+    );
+
+    // Only one batched workouts query instead of N+1 per-partner queries
+    expect(mockWorkoutsQueryGet).toHaveBeenCalledTimes(1);
+    expect(mockWorkoutsCollectionWhere).toHaveBeenCalledWith(
+      'uid', 'in', expect.arrayContaining([OTHER_UID, squadMemberUid]),
+    );
+  });
+
+  it('chunks batched queries into groups of 30 for large partner sets', async () => {
+    const buddyDocs = Array.from({ length: 35 }, (_, i) => ({
+      data: () => ({ id: `buddy-${i}`, uid1: TEST_UID, uid2: `partner-${i}` }),
+    }));
+
+    mockBuddiesQueryGet
+      .mockResolvedValueOnce({ docs: buddyDocs })
+      .mockResolvedValueOnce({ docs: [] });
+
+    // Two chunks: first 30 UIDs, then remaining 5
+    mockWorkoutsQueryGet
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [] });
+
+    const res = await request(buildApp())
+      .get('/workouts/partner-active')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.activePartnerWorkouts).toHaveLength(0);
+
+    // Two batch queries: 30 + 5
+    expect(mockWorkoutsQueryGet).toHaveBeenCalledTimes(2);
+    expect(mockWorkoutsCollectionWhere).toHaveBeenCalledTimes(2);
+
+    const firstChunk = mockWorkoutsCollectionWhere.mock.calls[0] as unknown[];
+    expect(firstChunk[0]).toBe('uid');
+    expect(firstChunk[1]).toBe('in');
+    expect(firstChunk[2]).toHaveLength(30);
+
+    const secondChunk = mockWorkoutsCollectionWhere.mock.calls[1] as unknown[];
+    expect(secondChunk[0]).toBe('uid');
+    expect(secondChunk[1]).toBe('in');
+    expect(secondChunk[2]).toHaveLength(5);
   });
 });
