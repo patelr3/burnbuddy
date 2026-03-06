@@ -31,6 +31,9 @@ const {
   // groupWorkouts — query (for streaks endpoint)
   mockGroupWorkoutsQueryGet,
   mockGroupWorkoutsQueryChain,
+  // users — doc (partner displayName lookup)
+  mockUsersDocGet,
+  mockUsersDocRef,
 } = vi.hoisted(() => {
   const mockVerifyIdToken = vi.fn();
 
@@ -89,6 +92,10 @@ const {
     get: mockGroupWorkoutsQueryGet,
   };
 
+  // users — doc (partner displayName lookup for calendar)
+  const mockUsersDocGet = vi.fn();
+  const mockUsersDocRef = vi.fn(() => ({ get: mockUsersDocGet }));
+
   return {
     mockVerifyIdToken,
     mockBBRequestDocGet,
@@ -110,6 +117,8 @@ const {
     mockWorkoutsQueryChain,
     mockGroupWorkoutsQueryGet,
     mockGroupWorkoutsQueryChain,
+    mockUsersDocGet,
+    mockUsersDocRef,
   };
 });
 
@@ -143,6 +152,9 @@ vi.mock('../lib/firestore', () => ({
       }
       if (name === 'groupWorkouts') {
         return { where: () => mockGroupWorkoutsQueryChain };
+      }
+      if (name === 'users') {
+        return { doc: mockUsersDocRef };
       }
       return {};
     },
@@ -190,6 +202,7 @@ beforeEach(() => {
     update: mockBBDocUpdate,
   }));
   mockFriendsDocRef.mockImplementation(() => ({ get: mockFriendsDocGet }));
+  mockUsersDocRef.mockImplementation(() => ({ get: mockUsersDocGet }));
 });
 
 // ── POST /burn-buddies/requests ────────────────────────────────────────────────
@@ -711,5 +724,169 @@ describe('DELETE /burn-buddies/:id', () => {
 
     expect(res.status).toBe(204);
     expect(mockBBDocDelete).toHaveBeenCalledOnce();
+  });
+});
+
+// ── GET /burn-buddies/:id/calendar ─────────────────────────────────────────────
+
+describe('GET /burn-buddies/:id/calendar', () => {
+  const PARTNER_NAME = 'Jane Doe';
+
+  it('returns 401 when unauthenticated', async () => {
+    const res = await request(buildApp()).get(`/burn-buddies/${BURN_BUDDY_ID}/calendar`);
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 when burn buddy not found', async () => {
+    mockBBDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .get(`/burn-buddies/${BURN_BUDDY_ID}/calendar`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 404 when user is not a member', async () => {
+    mockBBDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        id: BURN_BUDDY_ID,
+        uid1: 'other-user-1',
+        uid2: 'other-user-2',
+        workoutSchedule: { days: ['Mon', 'Wed'] },
+        createdAt: '2026-01-01T00:00:00.000Z',
+      }),
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-buddies/${BURN_BUDDY_ID}/calendar`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 400 when no workout schedule is configured', async () => {
+    mockBBDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        id: BURN_BUDDY_ID,
+        uid1: TEST_UID,
+        uid2: OTHER_UID,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      }),
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-buddies/${BURN_BUDDY_ID}/calendar`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: expect.stringContaining('schedule') });
+  });
+
+  it('returns 400 when workout schedule has empty days', async () => {
+    mockBBDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        id: BURN_BUDDY_ID,
+        uid1: TEST_UID,
+        uid2: OTHER_UID,
+        workoutSchedule: { days: [] },
+        createdAt: '2026-01-01T00:00:00.000Z',
+      }),
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-buddies/${BURN_BUDDY_ID}/calendar`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: expect.stringContaining('schedule') });
+  });
+
+  it('returns .ics file with timed events when schedule has time', async () => {
+    mockBBDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        id: BURN_BUDDY_ID,
+        uid1: TEST_UID,
+        uid2: OTHER_UID,
+        workoutSchedule: { days: ['Mon', 'Wed', 'Fri'], time: '07:00' },
+        createdAt: '2026-01-01T00:00:00.000Z',
+      }),
+    });
+    mockUsersDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ uid: OTHER_UID, displayName: PARTNER_NAME, email: 'jane@test.com' }),
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-buddies/${BURN_BUDDY_ID}/calendar`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('text/calendar');
+    expect(res.headers['content-disposition']).toBe('attachment; filename="burnbuddy-workout.ics"');
+
+    const body = res.text;
+    expect(body).toContain('BEGIN:VCALENDAR');
+    expect(body).toContain('END:VCALENDAR');
+    expect(body).toContain(`SUMMARY:🔥 Workout with ${PARTNER_NAME}`);
+    expect(body).toContain('RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR');
+    expect(body).toContain('DTSTART:');
+    expect(body).toContain('DTEND:');
+    expect(body).toContain('TRIGGER:-PT30M');
+  });
+
+  it('returns .ics file with all-day events when schedule has no time', async () => {
+    mockBBDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        id: BURN_BUDDY_ID,
+        uid1: TEST_UID,
+        uid2: OTHER_UID,
+        workoutSchedule: { days: ['Tue', 'Thu'] },
+        createdAt: '2026-01-01T00:00:00.000Z',
+      }),
+    });
+    mockUsersDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ uid: OTHER_UID, displayName: PARTNER_NAME, email: 'jane@test.com' }),
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-buddies/${BURN_BUDDY_ID}/calendar`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('text/calendar');
+
+    const body = res.text;
+    expect(body).toContain('BEGIN:VCALENDAR');
+    expect(body).toContain(`SUMMARY:🔥 Workout with ${PARTNER_NAME}`);
+    expect(body).toContain('RRULE:FREQ=WEEKLY;BYDAY=TU,TH');
+    expect(body).toContain('DTSTART;VALUE=DATE:');
+  });
+
+  it('falls back to "Buddy" when partner user doc not found', async () => {
+    mockBBDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        id: BURN_BUDDY_ID,
+        uid1: TEST_UID,
+        uid2: OTHER_UID,
+        workoutSchedule: { days: ['Mon'] },
+        createdAt: '2026-01-01T00:00:00.000Z',
+      }),
+    });
+    mockUsersDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .get(`/burn-buddies/${BURN_BUDDY_ID}/calendar`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('SUMMARY:🔥 Workout with Buddy');
   });
 });
