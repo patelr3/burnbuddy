@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../lib/auth-context';
 import { apiGet } from '../lib/api';
+import { Avatar } from '../components/Avatar';
 import type { BurnBuddy, GroupWorkout } from '@burnbuddy/shared';
 
 interface Props {
@@ -58,6 +59,7 @@ export default function BurnBuddyDetailScreen({ buddyId, onBack }: Props) {
   const { user } = useAuth();
   const [buddy, setBuddy] = useState<BurnBuddy | null>(null);
   const [partnerName, setPartnerName] = useState('');
+  const [partnerPictureUrl, setPartnerPictureUrl] = useState<string | undefined>();
   const [streaks, setStreaks] = useState<Streaks>({ burnStreak: 0, supernovaStreak: 0 });
   const [groupWorkouts, setGroupWorkouts] = useState<GroupWorkout[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,10 +84,12 @@ export default function BurnBuddyDetailScreen({ buddyId, onBack }: Props) {
       setGroupWorkouts(buddyWorkouts);
 
       const partnerUid = buddyData.uid1 === user.uid ? buddyData.uid2 : buddyData.uid1;
-      const profile = await apiGet<{ displayName: string }>(`/users/${partnerUid}`).catch(() => ({
+      const profile = await apiGet<{ displayName: string; profilePictureUrl?: string }>(`/users/${partnerUid}`).catch(() => ({
         displayName: partnerUid,
+        profilePictureUrl: undefined as string | undefined,
       }));
       setPartnerName(profile.displayName);
+      setPartnerPictureUrl(profile.profilePictureUrl);
     } catch {
       setError('Failed to load Burn Buddy details');
     } finally {
@@ -136,6 +140,14 @@ export default function BurnBuddyDetailScreen({ buddyId, onBack }: Props) {
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+        <View style={styles.partnerHeader}>
+          <Avatar
+            displayName={partnerName}
+            profilePictureUrl={partnerPictureUrl}
+            size="lg"
+          />
+        </View>
+
         <View style={styles.badge}>
           <Text style={styles.badgeText}>Burn Buddy</Text>
         </View>
@@ -210,6 +222,10 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#333', flex: 1, textAlign: 'center' },
   content: { flex: 1 },
   contentContainer: { padding: 16 },
+  partnerHeader: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   errorText: { color: '#ef4444', margin: 16 },
   badge: {
     backgroundColor: '#fff3e0',

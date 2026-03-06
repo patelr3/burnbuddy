@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../lib/auth-context';
 import { apiGet, apiPut, apiDelete } from '../lib/api';
+import { Avatar } from '../components/Avatar';
 import type { BurnSquad, GroupWorkout, WorkoutSchedule } from '@burnbuddy/shared';
 
 interface Props {
@@ -23,6 +24,7 @@ interface MemberProfile {
   uid: string;
   displayName: string;
   email: string;
+  profilePictureUrl?: string;
 }
 
 interface Streaks {
@@ -359,10 +361,12 @@ export default function BurnSquadDetailScreen({ squadId, onBack }: Props) {
           <Text style={styles.sectionLabel}>Members ({squad.memberUids.length})</Text>
           {members.map((member) => (
             <View key={member.uid} style={styles.memberRow}>
-              <View style={styles.memberAvatar}>
-                <Text style={styles.memberAvatarText}>
-                  {member.displayName.charAt(0).toUpperCase()}
-                </Text>
+              <View style={styles.memberAvatarWrapper}>
+                <Avatar
+                  displayName={member.displayName}
+                  profilePictureUrl={member.profilePictureUrl}
+                  size="sm"
+                />
               </View>
               <View style={styles.memberInfo}>
                 <View style={styles.memberNameRow}>
@@ -565,16 +569,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
   },
-  memberAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#e0e7ff',
-    alignItems: 'center',
-    justifyContent: 'center',
+  memberAvatarWrapper: {
     marginRight: 12,
   },
-  memberAvatarText: { fontSize: 15, fontWeight: '700', color: '#4338ca' },
   memberInfo: { flex: 1 },
   memberNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   memberName: { fontSize: 14, fontWeight: '500', color: '#333' },
