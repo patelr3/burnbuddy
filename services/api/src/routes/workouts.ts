@@ -3,6 +3,7 @@ import { Router, type Request, type Response } from 'express';
 import type { ActivePartnerWorkout, BurnBuddy, BurnSquad, UserProfile, Workout, WorkoutType } from '@burnbuddy/shared';
 import { GROUP_WORKOUT_WINDOW_MS } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
+import { cacheControl } from '../middleware/cache-control';
 import { getDb } from '../lib/firestore';
 import { detectGroupWorkouts } from '../services/group-workout-detection';
 import { sendWorkoutStartedNotifications } from '../services/push-notifications';
@@ -17,7 +18,7 @@ const AUTO_END_MS = 90 * 60 * 1000; // 1.5 hours in milliseconds
  * Returns burn buddies and squad members who have active workouts
  * within the group workout window (20 minutes).
  */
-router.get('/partner-active', requireAuth, async (req: Request, res: Response): Promise<void> => {
+router.get('/partner-active', requireAuth, cacheControl(5), async (req: Request, res: Response): Promise<void> => {
   const uid = req.user!.uid;
   const db = getDb();
   const cutoff = new Date(Date.now() - GROUP_WORKOUT_WINDOW_MS).toISOString();

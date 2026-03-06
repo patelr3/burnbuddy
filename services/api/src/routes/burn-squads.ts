@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { Router, type Request, type Response } from 'express';
 import type { BurnSquad, BurnSquadJoinRequest, GroupWorkout } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
+import { cacheControl } from '../middleware/cache-control';
 import { getDb } from '../lib/firestore';
 import { calculateStreaks, calculateGroupStats } from '../services/streak-calculator';
 
@@ -75,7 +76,7 @@ router.post('/', requireAuth, async (req: Request, res: Response): Promise<void>
  * GET /burn-squads
  * Returns all Burn Squads the authenticated user is a member of.
  */
-router.get('/', requireAuth, async (req: Request, res: Response): Promise<void> => {
+router.get('/', requireAuth, cacheControl(30), async (req: Request, res: Response): Promise<void> => {
   const uid = req.user!.uid;
   const db = getDb();
 

@@ -8,6 +8,7 @@ import type {
   ProfileStats,
 } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
+import { cacheControl } from '../middleware/cache-control';
 import { getDb } from '../lib/firestore';
 import { generateUniqueUsername, validateUsername } from '../lib/username';
 import { calculateStreaks, calculateHighestStreakEver } from '../services/streak-calculator';
@@ -125,7 +126,7 @@ router.post('/', requireAuth, async (req: Request, res: Response): Promise<void>
  * GET /users/me
  * Returns the authenticated user's Firestore profile, or 404 if not yet created.
  */
-router.get('/me', requireAuth, async (req: Request, res: Response): Promise<void> => {
+router.get('/me', requireAuth, cacheControl(0), async (req: Request, res: Response): Promise<void> => {
   const uid = req.user!.uid;
   const db = getDb();
   const doc = await db.collection('users').doc(uid).get();

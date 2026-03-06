@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import type { GroupWorkout } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
+import { cacheControl } from '../middleware/cache-control';
 import { getDb } from '../lib/firestore';
 
 const router = Router();
@@ -9,7 +10,7 @@ const router = Router();
  * GET /group-workouts
  * Returns all group workouts where the authenticated user is a member.
  */
-router.get('/', requireAuth, async (req: Request, res: Response): Promise<void> => {
+router.get('/', requireAuth, cacheControl(5), async (req: Request, res: Response): Promise<void> => {
   const uid = req.user!.uid;
   const db = getDb();
 
