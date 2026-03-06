@@ -19,6 +19,7 @@ You will be given a specific `prd-<branch-suffix>.json` file to work on. This fi
    ```bash
    ./scripts/ralph/ralph.sh --prd <prd-file> --tool copilot <max_iterations>
    ```
+   Set `<max_iterations>` to the number of user stories in the PRD file **plus 1–5** buffer iterations. For example, a PRD with 6 stories should use 8–11 iterations. This gives enough headroom for retries without wasting resources on runaway loops.
 5. **Monitor completion**: Ralph.sh exits 0 when all stories pass and the PR is created/merged
 
 ## Progress File
