@@ -21,24 +21,6 @@ You will be given a specific `prd-<branch-suffix>.json` file to work on. This fi
    ```
 5. **Monitor completion**: Ralph.sh exits 0 when all stories pass and the PR is created/merged
 
-## Alternatively (Direct Execution)
-
-If ralph.sh is not suitable (e.g., running inside a sub-agent without shell access), you can implement the PRD directly:
-
-1. Read the PRD file and progress file
-2. Set up the worktree: `git worktree add ../burnbuddy-<branch-suffix> -b <branchName> origin/main`
-3. Work in the worktree directory
-4. For each user story (in priority order, where `passes: false`):
-   a. Implement the story
-   b. Run quality checks (typecheck, tests)
-   c. Commit: `feat: [Story ID] - [Story Title]`
-   d. Update `passes: true` in the PRD file
-   e. Append progress to the progress file
-5. When all stories pass:
-   a. Push the branch: `git push -u origin <branchName>`
-   b. Create PR: `gh pr create --base main --title "<feature>" --body "<story list>"`
-   c. Auto-merge: `gh pr merge --auto --squash`
-
 ## Progress File
 
 The progress file (`progress-<suffix>.txt`) tracks learnings across iterations:
