@@ -2,6 +2,7 @@
   "project": "BurnBuddy",
   "branchName": "ralph/join-workout-button",
   "description": "Join Workout Button with Countdown Timer - Show a Join Workout button with live countdown on buddy/squad cards when a partner has an active workout within the 20-minute group workout window",
+  "dependsOn": [],
   "userStories": [
     {
       "id": "US-001",
