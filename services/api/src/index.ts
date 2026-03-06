@@ -2,6 +2,7 @@ import './instrumentation'; // must be first — initializes OpenTelemetry SDK
 
 import 'express-async-errors'; // patches Express to forward async errors to error handler
 import express from 'express';
+import compression from 'compression';
 import cors from 'cors';
 import { initFirebase } from './lib/firebase';
 import { logger } from './lib/logger';
@@ -19,6 +20,7 @@ initFirebase();
 const app = express();
 const PORT = process.env.PORT ?? 3001;
 
+app.use(compression());
 app.use(express.json());
 
 // CORS — allow web origins to call the API from the browser
