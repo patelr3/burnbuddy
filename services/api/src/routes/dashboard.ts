@@ -45,7 +45,10 @@ interface DashboardResponse {
   burnBuddies: EnrichedBurnBuddy[];
   burnSquads: EnrichedBurnSquad[];
   groupWorkouts: GroupWorkout[];
-  buddyRequests: { incoming: BurnBuddyRequest[]; outgoing: BurnBuddyRequest[] };
+  buddyRequests: {
+    incoming: (BurnBuddyRequest & { fromDisplayName?: string })[];
+    outgoing: BurnBuddyRequest[];
+  };
   squadJoinRequests: {
     incoming: (BurnSquadJoinRequest & { squadName?: string })[];
     outgoing: (BurnSquadJoinRequest & { squadName?: string })[];
@@ -147,6 +150,22 @@ router.get('/', requireAuth, cacheControl(5), async (req: Request, res: Response
     const partnerRefs = partnerUids.map((pUid) => db.collection('users').doc(pUid));
     const partnerDocs = await db.getAll(...partnerRefs);
     partnerDocs.forEach((doc: { exists: boolean; data: () => unknown }) => {
+      if (doc.exists) {
+        const data = doc.data() as UserProfile;
+        partnerNames[data.uid] = data.displayName;
+      }
+    });
+  }
+
+  // ── Phase 2b: Enrich incoming buddy requests with sender display names ───
+  const requestFromUids = buddyRequests.incoming
+    .map((r) => r.fromUid)
+    .filter((fuid) => !partnerNames[fuid]);
+
+  if (requestFromUids.length > 0) {
+    const reqRefs = requestFromUids.map((fuid) => db.collection('users').doc(fuid));
+    const reqDocs = await db.getAll(...reqRefs);
+    reqDocs.forEach((doc: { exists: boolean; data: () => unknown }) => {
       if (doc.exists) {
         const data = doc.data() as UserProfile;
         partnerNames[data.uid] = data.displayName;
@@ -267,12 +286,20 @@ router.get('/', requireAuth, cacheControl(5), async (req: Request, res: Response
   }
 
   // ── Build response ────────────────────────────────────────────────────────
+  const enrichedBuddyRequests = {
+    incoming: buddyRequests.incoming.map((r) => ({
+      ...r,
+      fromDisplayName: partnerNames[r.fromUid],
+    })),
+    outgoing: buddyRequests.outgoing,
+  };
+
   const response: DashboardResponse = {
     user,
     burnBuddies: enrichedBuddies,
     burnSquads: enrichedSquads,
     groupWorkouts,
-    buddyRequests,
+    buddyRequests: enrichedBuddyRequests,
     squadJoinRequests,
     activeWorkout,
     partnerActivity: {

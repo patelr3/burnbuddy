@@ -29,7 +29,10 @@ export interface DashboardData {
   burnBuddies: EnrichedBurnBuddy[];
   burnSquads: EnrichedBurnSquad[];
   groupWorkouts: GroupWorkout[];
-  buddyRequests: { incoming: BurnBuddyRequest[]; outgoing: BurnBuddyRequest[] };
+  buddyRequests: {
+    incoming: (BurnBuddyRequest & { fromDisplayName?: string })[];
+    outgoing: BurnBuddyRequest[];
+  };
   squadJoinRequests: {
     incoming: (BurnSquadJoinRequest & { squadName?: string })[];
     outgoing: (BurnSquadJoinRequest & { squadName?: string })[];
@@ -50,10 +53,11 @@ export const queryKeys = {
 
 // ── Hooks ────────────────────────────────────────────────────────────────────
 
-export function useDashboard() {
+export function useDashboard(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.dashboard,
     queryFn: () => apiGet<DashboardData>('/dashboard'),
+    enabled: options?.enabled,
   });
 }
 
