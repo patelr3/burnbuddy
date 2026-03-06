@@ -7,6 +7,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { NavBar } from '@/components/NavBar';
 import { StatCard } from '@/components/StatCard';
+import { AddToCalendarButton } from '@/components/AddToCalendarButton';
 import type { BurnSquad, GroupWorkout, GroupStats, WorkoutSchedule } from '@burnbuddy/shared';
 
 interface MemberProfile {
@@ -347,9 +348,12 @@ export default function BurnSquadDetailPage() {
 
         {/* Schedule display */}
         {!editing && squad.settings.workoutSchedule && squad.settings.workoutSchedule.days.length > 0 && (
-          <div className="mb-5 rounded-md border border-violet-200 bg-violet-50 px-3.5 py-2.5 text-[13px] text-violet-800">
-            Schedule: {squad.settings.workoutSchedule.days.join(', ')}
-            {squad.settings.workoutSchedule.time && ` at ${squad.settings.workoutSchedule.time}`}
+          <div className="mb-5 flex items-center gap-3">
+            <div className="flex-1 rounded-md border border-violet-200 bg-violet-50 px-3.5 py-2.5 text-[13px] text-violet-800">
+              Schedule: {squad.settings.workoutSchedule.days.join(', ')}
+              {squad.settings.workoutSchedule.time && ` at ${squad.settings.workoutSchedule.time}`}
+            </div>
+            <AddToCalendarButton endpoint={`/burn-squads/${id}/calendar`} />
           </div>
         )}
 
