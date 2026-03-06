@@ -4,6 +4,7 @@ import type { BurnSquad, BurnSquadJoinRequest, GroupWorkout } from '@burnbuddy/s
 import { requireAuth } from '../middleware/auth';
 import { getDb } from '../lib/firestore';
 import { calculateStreaks, calculateGroupStats } from '../services/streak-calculator';
+import { generateIcs } from '../lib/ics-generator';
 
 const router = Router();
 
@@ -463,6 +464,50 @@ router.delete(
 
     await db.collection('burnSquads').doc(squadId).delete();
     res.status(204).send();
+  },
+);
+
+/**
+ * GET /burn-squads/:id/calendar
+ * Downloads an .ics calendar file for the workout schedule of this Burn Squad.
+ */
+router.get(
+  '/:id/calendar',
+  requireAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    const uid = req.user!.uid;
+    const squadId = req.params['id'] as string;
+    const db = getDb();
+
+    const squadDoc = await db.collection('burnSquads').doc(squadId).get();
+
+    if (!squadDoc.exists) {
+      res.status(404).json({ error: 'Burn Squad not found' });
+      return;
+    }
+
+    const squad = squadDoc.data() as BurnSquad;
+
+    if (!squad.memberUids.includes(uid)) {
+      res.status(404).json({ error: 'Burn Squad not found' });
+      return;
+    }
+
+    const schedule = squad.settings?.workoutSchedule;
+    if (!schedule || !schedule.days || schedule.days.length === 0) {
+      res.status(400).json({ error: 'No workout schedule configured' });
+      return;
+    }
+
+    const icsContent = generateIcs({
+      days: schedule.days,
+      time: schedule.time,
+      title: `🔥 ${squad.name} Workout`,
+    });
+
+    res.setHeader('Content-Type', 'text/calendar');
+    res.setHeader('Content-Disposition', 'attachment; filename="burnbuddy-workout.ics"');
+    res.send(icsContent);
   },
 );
 
