@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { apiGet, apiPost, apiDelete } from '@/lib/api';
 import { NavBar } from '@/components/NavBar';
+import { Avatar } from '@/components/Avatar';
 import Link from 'next/link';
 import type { FriendRequest, BurnBuddy, BurnBuddyRequest } from '@burnbuddy/shared';
 
@@ -12,6 +13,7 @@ interface FriendWithProfile {
   displayName: string;
   email: string;
   username?: string;
+  profilePictureUrl?: string;
   createdAt: string;
 }
 
@@ -20,6 +22,7 @@ interface UserSearchResult {
   displayName: string;
   email: string;
   username?: string;
+  profilePictureUrl?: string;
 }
 
 interface EnrichedFriendRequest extends FriendRequest {
@@ -253,13 +256,18 @@ export default function FriendsPage() {
                     onClick={() => handleSelectUser(u)}
                     className="cursor-pointer px-3 py-2.5 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
                   >
-                    <div>
-                      <strong className="text-gray-900">{u.displayName}</strong>
-                      <span className="ml-2 text-sm text-gray-500">{u.email}</span>
+                    <div className="flex items-center gap-2.5">
+                      <Avatar displayName={u.displayName} profilePictureUrl={u.profilePictureUrl} size="sm" />
+                      <div>
+                        <div>
+                          <strong className="text-gray-900">{u.displayName}</strong>
+                          <span className="ml-2 text-sm text-gray-500">{u.email}</span>
+                        </div>
+                        {u.username && (
+                          <div className="text-xs text-gray-400">@{u.username}</div>
+                        )}
+                      </div>
                     </div>
-                    {u.username && (
-                      <div className="text-xs text-gray-400">@{u.username}</div>
-                    )}
                   </li>
                 ))}
               </ul>
@@ -339,11 +347,14 @@ export default function FriendsPage() {
                     key={req.id}
                     className="flex items-center justify-between rounded-lg border border-gray-100 bg-white p-3 mb-2 shadow-sm"
                   >
-                    <div>
-                      <strong className="text-gray-900">{req.displayName ?? req.fromUid}</strong>
-                      <span className="ml-2 inline-block rounded-full bg-green-50 px-2 py-0.5 text-xs text-success">
-                        incoming
-                      </span>
+                    <div className="flex items-center gap-2.5">
+                      <Avatar displayName={req.displayName ?? req.fromUid} size="sm" />
+                      <div>
+                        <strong className="text-gray-900">{req.displayName ?? req.fromUid}</strong>
+                        <span className="ml-2 inline-block rounded-full bg-green-50 px-2 py-0.5 text-xs text-success">
+                          incoming
+                        </span>
+                      </div>
                     </div>
                     <div className="flex gap-2">
                       <button
@@ -369,11 +380,14 @@ export default function FriendsPage() {
                     key={req.id}
                     className="flex items-center justify-between rounded-lg border border-gray-100 bg-white p-3 mb-2 shadow-sm"
                   >
-                    <div>
-                      <strong className="text-gray-900">{req.displayName ?? req.toUid}</strong>
-                      <span className="ml-2 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
-                        pending
-                      </span>
+                    <div className="flex items-center gap-2.5">
+                      <Avatar displayName={req.displayName ?? req.toUid} size="sm" />
+                      <div>
+                        <strong className="text-gray-900">{req.displayName ?? req.toUid}</strong>
+                        <span className="ml-2 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+                          pending
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -399,11 +413,16 @@ export default function FriendsPage() {
                         href={`/profile/${friend.uid}`}
                         className="min-w-0 flex-1 no-underline"
                       >
-                        <strong className="text-gray-900">{friend.displayName}</strong>
-                        {friend.username && (
-                          <span className="ml-1.5 text-sm text-gray-400">@{friend.username}</span>
-                        )}
-                        <div className="text-xs text-gray-500">{friend.email}</div>
+                        <div className="flex items-center gap-2.5">
+                          <Avatar displayName={friend.displayName} profilePictureUrl={friend.profilePictureUrl} size="sm" />
+                          <div>
+                            <strong className="text-gray-900">{friend.displayName}</strong>
+                            {friend.username && (
+                              <span className="ml-1.5 text-sm text-gray-400">@{friend.username}</span>
+                            )}
+                            <div className="text-xs text-gray-500">{friend.email}</div>
+                          </div>
+                        </div>
                       </Link>
                       <div className="flex items-center gap-2">
                         {bbStatus === 'buddy' && (

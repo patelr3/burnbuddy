@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth-context';
 import { apiGet, apiPost, apiPut, apiPatch } from '@/lib/api';
 import { GettingStartedCard } from '@/components/GettingStartedCard';
 import { NavBar } from '@/components/NavBar';
+import { Avatar } from '@/components/Avatar';
 import Link from 'next/link';
 import type { UserProfile, BurnBuddy, BurnSquad, GroupWorkout, BurnBuddyRequest, BurnSquadJoinRequest, Workout, WorkoutType, WorkoutSchedule, ActivePartnerWorkout } from '@burnbuddy/shared';
 
@@ -36,6 +37,7 @@ interface CombinedItem {
   type: 'buddy' | 'squad';
   id: string;
   name: string;
+  profilePictureUrl?: string;
   burnStreak: number;
   lastGroupWorkout: string | null;
   workoutSchedule?: WorkoutSchedule;
@@ -183,7 +185,7 @@ export default function Home() {
       const buddyPromises = buddies.map(async (b): Promise<CombinedItem> => {
         const partnerUid = b.uid1 === user.uid ? b.uid2 : b.uid1;
         const [partnerProfile, streaks] = await Promise.all([
-          apiGet<{ uid: string; displayName: string; email: string }>(
+          apiGet<{ uid: string; displayName: string; email: string; profilePictureUrl?: string }>(
             `/users/${partnerUid}`,
           ).catch(() => null),
           apiGet<Streaks>(`/burn-buddies/${b.id}/streaks`).catch(() => ({
@@ -195,6 +197,7 @@ export default function Home() {
           type: 'buddy',
           id: b.id,
           name: partnerProfile?.displayName ?? partnerUid,
+          profilePictureUrl: partnerProfile?.profilePictureUrl,
           burnStreak: streaks.burnStreak,
           lastGroupWorkout: lastWorkoutMap.get(b.id) ?? null,
           workoutSchedule: b.workoutSchedule,
@@ -540,47 +543,52 @@ export default function Home() {
               className="block no-underline text-inherit"
             >
               <div className="flex cursor-pointer items-center justify-between rounded-lg border border-slate-100 p-3.5 shadow-sm hover:bg-gray-50 mb-2">
-                <div>
-                  <div className="mb-1 flex items-center gap-2">
-                    <strong>{item.name}</strong>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[11px] ${
-                        item.type === 'buddy'
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-blue-100 text-blue-800'
-                      }`}
-                    >
-                      {item.type === 'buddy' ? 'Buddy' : 'Squad'}
-                    </span>
-                  </div>
-                  <div className="text-[13px] text-gray-500">
-                    {timeAgo(item.lastGroupWorkout)}
-                  </div>
-                  {(() => {
-                    const next = getNextWorkout(item.workoutSchedule);
-                    return next ? (
-                      <div className="mt-0.5 text-[12px] text-gray-400">
-                        Next: {next}
-                      </div>
-                    ) : null;
-                  })()}
-                  {!activeWorkout && countdowns[item.id] != null && (
-                    <div className="mt-1.5 flex items-center gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          setShowWorkoutSelector(true);
-                        }}
-                        className="cursor-pointer rounded bg-green-500 px-3 py-1.5 text-[13px] font-bold text-white hover:bg-green-600"
+                <div className="flex items-center gap-3">
+                  {item.type === 'buddy' && (
+                    <Avatar displayName={item.name} profilePictureUrl={item.profilePictureUrl} size="sm" />
+                  )}
+                  <div>
+                    <div className="mb-1 flex items-center gap-2">
+                      <strong>{item.name}</strong>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] ${
+                          item.type === 'buddy'
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-blue-100 text-blue-800'
+                        }`}
                       >
-                        Join Workout
-                      </button>
-                      <span className={`text-[13px] font-medium ${countdowns[item.id] < 300000 ? 'text-red-600' : 'text-gray-500'}`}>
-                        {formatCountdown(countdowns[item.id])}
+                        {item.type === 'buddy' ? 'Buddy' : 'Squad'}
                       </span>
                     </div>
-                  )}
+                    <div className="text-[13px] text-gray-500">
+                      {timeAgo(item.lastGroupWorkout)}
+                    </div>
+                    {(() => {
+                      const next = getNextWorkout(item.workoutSchedule);
+                      return next ? (
+                        <div className="mt-0.5 text-[12px] text-gray-400">
+                          Next: {next}
+                        </div>
+                      ) : null;
+                    })()}
+                    {!activeWorkout && countdowns[item.id] != null && (
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            setShowWorkoutSelector(true);
+                          }}
+                          className="cursor-pointer rounded bg-green-500 px-3 py-1.5 text-[13px] font-bold text-white hover:bg-green-600"
+                        >
+                          Join Workout
+                        </button>
+                        <span className={`text-[13px] font-medium ${countdowns[item.id] < 300000 ? 'text-red-600' : 'text-gray-500'}`}>
+                          {formatCountdown(countdowns[item.id])}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="text-right">
                   <div className="text-[22px] font-bold text-orange-500">

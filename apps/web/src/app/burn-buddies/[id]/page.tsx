@@ -7,12 +7,14 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { NavBar } from '@/components/NavBar';
 import { StatCard } from '@/components/StatCard';
+import { Avatar } from '@/components/Avatar';
 import type { BurnBuddy, GroupWorkout, GroupStats, WorkoutSchedule } from '@burnbuddy/shared';
 
 interface PartnerProfile {
   uid: string;
   displayName: string;
   email: string;
+  profilePictureUrl?: string;
 }
 
 interface Streaks {
@@ -201,6 +203,7 @@ export default function BurnBuddyDetailPage() {
             <Link href="/" className="text-sm text-gray-500 no-underline hover:text-gray-700">
               ← Back
             </Link>
+            {partner && <Avatar displayName={partner.displayName} profilePictureUrl={partner.profilePictureUrl} size="sm" />}
             <h1 className="m-0 text-xl font-bold">{partnerName}</h1>
             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-800">
               Buddy

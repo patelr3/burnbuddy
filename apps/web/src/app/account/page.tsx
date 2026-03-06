@@ -7,6 +7,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase-client';
 import { useRouter } from 'next/navigation';
 import { NavBar } from '@/components/NavBar';
+import { Avatar } from '@/components/Avatar';
 import type { UserProfile } from '@burnbuddy/shared';
 
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,30}$/;
@@ -122,15 +123,18 @@ export default function AccountPage() {
             {/* Profile info */}
             <section className="mb-5 rounded-lg border border-gray-200 p-5">
               <h2 className="mb-4 text-base font-semibold text-gray-700">Profile</h2>
-              <div className="mb-3">
-                <div className="mb-0.5 text-xs text-gray-400">Display Name</div>
-                <div className="text-base font-bold">
-                  {user?.displayName ?? profile?.displayName ?? '—'}
+              <div className="mb-4 flex items-center gap-4">
+                <Avatar
+                  displayName={user?.displayName ?? profile?.displayName ?? '?'}
+                  profilePictureUrl={profile?.profilePictureUrl}
+                  size="lg"
+                />
+                <div>
+                  <div className="text-base font-bold">
+                    {user?.displayName ?? profile?.displayName ?? '—'}
+                  </div>
+                  <div className="text-sm text-gray-500">{user?.email ?? profile?.email ?? '—'}</div>
                 </div>
-              </div>
-              <div>
-                <div className="mb-0.5 text-xs text-gray-400">Email</div>
-                <div className="text-base">{user?.email ?? profile?.email ?? '—'}</div>
               </div>
             </section>
 

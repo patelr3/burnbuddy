@@ -44,7 +44,7 @@ router.get('/search', requireAuth, async (req: Request, res: Response): Promise<
     }
 
     const user = snapshot.docs[0].data() as UserProfile;
-    res.json({ uid: user.uid, displayName: user.displayName, email: user.email, username: user.username });
+    res.json({ uid: user.uid, displayName: user.displayName, email: user.email, username: user.username, profilePictureUrl: user.profilePictureUrl });
     return;
   }
 
@@ -75,13 +75,13 @@ router.get('/search', requireAuth, async (req: Request, res: Response): Promise<
 
   // Merge and deduplicate by uid
   const seen = new Set<string>();
-  const results: Array<{ uid: string; displayName: string; email: string; username?: string }> = [];
+  const results: Array<{ uid: string; displayName: string; email: string; username?: string; profilePictureUrl?: string }> = [];
 
   for (const doc of [...emailSnapshot.docs, ...usernameSnapshot.docs]) {
     const u = doc.data() as UserProfile;
     if (u.uid === currentUid || seen.has(u.uid)) continue;
     seen.add(u.uid);
-    results.push({ uid: u.uid, displayName: u.displayName, email: u.email, username: u.username });
+    results.push({ uid: u.uid, displayName: u.displayName, email: u.email, username: u.username, profilePictureUrl: u.profilePictureUrl });
     if (results.length >= 10) break;
   }
 
@@ -494,6 +494,7 @@ router.get('/:uid/profile', requireAuth, async (req: Request, res: Response): Pr
   const profileStats: ProfileStats = {
     displayName: profile.displayName,
     username: profile.username,
+    profilePictureUrl: profile.profilePictureUrl,
     highestActiveStreak,
     highestStreakEver,
     firstWorkoutDate,
@@ -520,7 +521,7 @@ router.get('/:uid', requireAuth, async (req: Request, res: Response): Promise<vo
   }
 
   const profile = doc.data() as UserProfile;
-  res.json({ uid: profile.uid, displayName: profile.displayName, email: profile.email });
+  res.json({ uid: profile.uid, displayName: profile.displayName, email: profile.email, profilePictureUrl: profile.profilePictureUrl });
 });
 
 export default router;
