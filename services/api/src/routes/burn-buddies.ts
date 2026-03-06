@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { Router, type Request, type Response } from 'express';
 import type { BurnBuddy, BurnBuddyRequest, GroupWorkout, UserProfile, WorkoutSchedule } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
+import { cacheControl } from '../middleware/cache-control';
 import { getDb } from '../lib/firestore';
 import { calculateStreaks, calculateGroupStats } from '../services/streak-calculator';
 import { generateIcs } from '../lib/ics-generator';
@@ -136,7 +137,7 @@ router.post(
  * GET /burn-buddies
  * Returns all accepted Burn Buddies for the authenticated user.
  */
-router.get('/', requireAuth, async (req: Request, res: Response): Promise<void> => {
+router.get('/', requireAuth, cacheControl(30), async (req: Request, res: Response): Promise<void> => {
   const uid = req.user!.uid;
   const db = getDb();
 

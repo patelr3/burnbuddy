@@ -2,6 +2,7 @@ import './instrumentation'; // must be first — initializes OpenTelemetry SDK
 
 import 'express-async-errors'; // patches Express to forward async errors to error handler
 import express from 'express';
+import compression from 'compression';
 import cors from 'cors';
 import { initFirebase } from './lib/firebase';
 import { logger } from './lib/logger';
@@ -12,6 +13,8 @@ import burnBuddiesRouter from './routes/burn-buddies';
 import burnSquadsRouter from './routes/burn-squads';
 import workoutsRouter, { autoEndStaleWorkouts } from './routes/workouts';
 import groupWorkoutsRouter from './routes/group-workouts';
+import dashboardRouter from './routes/dashboard';
+import metricsRouter from './routes/metrics';
 
 // Initialize Firebase Admin on startup
 initFirebase();
@@ -19,6 +22,7 @@ initFirebase();
 const app = express();
 const PORT = process.env.PORT ?? 3001;
 
+app.use(compression());
 app.use(express.json());
 
 // CORS — allow web origins to call the API from the browser
@@ -37,6 +41,8 @@ app.use('/burn-buddies', burnBuddiesRouter);
 app.use('/burn-squads', burnSquadsRouter);
 app.use('/workouts', workoutsRouter);
 app.use('/group-workouts', groupWorkoutsRouter);
+app.use('/dashboard', dashboardRouter);
+app.use('/metrics', metricsRouter);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });

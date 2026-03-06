@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth-context';
-import { apiGet, apiPost, apiPut, apiPatch } from '@/lib/api';
+import { useDashboard, queryKeys, type DashboardData } from '@/lib/queries';
+import { apiPost, apiPut, apiPatch } from '@/lib/api';
 import { GettingStartedCard } from '@/components/GettingStartedCard';
 import { NavBar } from '@/components/NavBar';
 import Link from 'next/link';
-import type { UserProfile, BurnBuddy, BurnSquad, GroupWorkout, BurnBuddyRequest, BurnSquadJoinRequest, Workout, WorkoutType, WorkoutSchedule, ActivePartnerWorkout } from '@burnbuddy/shared';
+import type { Workout, WorkoutType, WorkoutSchedule } from '@burnbuddy/shared';
 
 const WORKOUT_TYPES: WorkoutType[] = [
   'Weightlifting', 'Running', 'Cycling', 'Yoga', 'Barre', 'Swimming', 'HIIT', 'Custom',
@@ -27,11 +29,6 @@ function formatCountdown(ms: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-interface Streaks {
-  burnStreak: number;
-  supernovaStreak: number;
-}
-
 interface CombinedItem {
   type: 'buddy' | 'squad';
   id: string;
@@ -47,13 +44,10 @@ const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 function getNextWorkout(schedule?: WorkoutSchedule): string | null {
   if (!schedule || schedule.days.length === 0) return null;
   const now = new Date();
-  const currentDayIndex = now.getDay(); // 0=Sun ... 6=Sat
-  const currentDayName = DAY_NAMES[currentDayIndex];
   const [schedHour, schedMin] = schedule.time
     ? schedule.time.split(':').map(Number)
     : [0, 0];
 
-  // Check today and next 7 days
   for (let offset = 0; offset <= 7; offset++) {
     const candidate = new Date(now);
     candidate.setDate(now.getDate() + offset);
@@ -61,13 +55,12 @@ function getNextWorkout(schedule?: WorkoutSchedule): string | null {
     if (!schedule.days.includes(dayName as typeof schedule.days[number])) continue;
 
     if (offset === 0) {
-      // Today: only show if the scheduled time hasn't passed
       if (schedule.time) {
         const scheduledToday = new Date(now);
         scheduledToday.setHours(schedHour, schedMin, 0, 0);
         if (now >= scheduledToday) continue;
       } else {
-        continue; // No time set, skip today
+        continue;
       }
     }
 
@@ -82,14 +75,6 @@ function getNextWorkout(schedule?: WorkoutSchedule): string | null {
   return null;
 }
 
-interface EnrichedBurnBuddyRequest extends BurnBuddyRequest {
-  displayName?: string;
-}
-
-interface EnrichedSquadJoinRequest extends BurnSquadJoinRequest {
-  squadName: string;
-}
-
 function timeAgo(isoString: string | null): string {
   if (!isoString) return 'No group workouts yet';
   const ms = Date.now() - new Date(isoString).getTime();
@@ -101,147 +86,104 @@ function timeAgo(isoString: string | null): string {
   return `${days}d ago`;
 }
 
+function DashboardSkeleton() {
+  return (
+    <div className="animate-pulse">
+      <div className="mb-6 h-14 rounded-lg bg-gray-200" />
+      <div className="mb-6 flex items-center justify-between">
+        <div className="h-6 w-48 rounded bg-gray-200" />
+        <div className="flex gap-2">
+          <div className="h-8 w-24 rounded bg-gray-200" />
+          <div className="h-8 w-24 rounded bg-gray-200" />
+        </div>
+      </div>
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="mb-2 flex items-center justify-between rounded-lg border border-slate-100 p-3.5">
+          <div>
+            <div className="mb-2 h-5 w-32 rounded bg-gray-200" />
+            <div className="h-4 w-20 rounded bg-gray-200" />
+          </div>
+          <div className="h-8 w-12 rounded bg-gray-200" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Home() {
   const { user, loading } = useAuth();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [showCard, setShowCard] = useState(false);
-  const [items, setItems] = useState<CombinedItem[]>([]);
-  const [incomingBuddyRequests, setIncomingBuddyRequests] = useState<EnrichedBurnBuddyRequest[]>([]);
-  const [incomingSquadRequests, setIncomingSquadRequests] = useState<EnrichedSquadJoinRequest[]>([]);
-  const [dataLoading, setDataLoading] = useState(true);
-  const [activeWorkout, setActiveWorkout] = useState<Workout | null>(null);
+  const { data: dashboard, isLoading: dataLoading } = useDashboard({
+    enabled: !!user,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
+  });
+  const queryClient = useQueryClient();
+
+  // UI-only state
+  const [showCardDismissed, setShowCardDismissed] = useState(false);
   const [showWorkoutSelector, setShowWorkoutSelector] = useState(false);
   const [selectedType, setSelectedType] = useState<WorkoutType | ''>('');
   const [customType, setCustomType] = useState('');
   const [elapsed, setElapsed] = useState(0);
-  const [groupWorkoutWindowMs, setGroupWorkoutWindowMs] = useState(0);
   const [countdowns, setCountdowns] = useState<Record<string, number>>({});
 
-  const loadData = useCallback(async () => {
-    if (!user) return;
-    setDataLoading(true);
-    try {
-      const [userProfile, buddies, squads, groupWorkouts, buddyRequests, squadRequests, workouts, partnerActiveData] = await Promise.all([
-        apiGet<UserProfile>('/users/me').catch(() => null),
-        apiGet<BurnBuddy[]>('/burn-buddies').catch(() => [] as BurnBuddy[]),
-        apiGet<BurnSquad[]>('/burn-squads').catch(() => [] as BurnSquad[]),
-        apiGet<GroupWorkout[]>('/group-workouts').catch(() => [] as GroupWorkout[]),
-        apiGet<{ incoming: BurnBuddyRequest[]; outgoing: BurnBuddyRequest[] }>(
-          '/burn-buddies/requests',
-        ).catch(() => ({ incoming: [], outgoing: [] })),
-        apiGet<{ incoming: EnrichedSquadJoinRequest[]; outgoing: EnrichedSquadJoinRequest[] }>(
-          '/burn-squads/join-requests',
-        ).catch(() => ({ incoming: [], outgoing: [] })),
-        apiGet<Workout[]>('/workouts').catch(() => [] as Workout[]),
-        apiGet<{ groupWorkoutWindowMs: number; activePartnerWorkouts: ActivePartnerWorkout[] }>(
-          '/workouts/partner-active',
-        ).catch(() => ({ groupWorkoutWindowMs: 0, activePartnerWorkouts: [] as ActivePartnerWorkout[] })),
-      ]);
+  // Derived state from dashboard data
+  const profile = dashboard?.user ?? null;
+  const activeWorkout = dashboard?.activeWorkout ?? null;
+  const showCard = profile ? !profile.gettingStartedDismissed && !showCardDismissed : false;
+  const groupWorkoutWindowMs = dashboard?.partnerActivity?.groupWorkoutWindowMs ?? 0;
+  const incomingBuddyRequests = dashboard?.buddyRequests?.incoming ?? [];
+  const incomingSquadRequests = dashboard?.squadJoinRequests?.incoming ?? [];
 
-      setGroupWorkoutWindowMs(partnerActiveData.groupWorkoutWindowMs);
-      const activePartnerMap = new Map<string, string>();
-      for (const apw of partnerActiveData.activePartnerWorkouts) {
-        activePartnerMap.set(apw.referenceId, apw.earliestStartedAt);
-      }
+  // Derive combined buddy/squad list from dashboard data
+  const items = useMemo((): CombinedItem[] => {
+    if (!dashboard || !user) return [];
 
-      const active = workouts.find((w) => w.status === 'active') ?? null;
-      setActiveWorkout(active);
-
-      if (userProfile) {
-        setProfile(userProfile);
-        setShowCard(!userProfile.gettingStartedDismissed);
-      } else {
-        setShowCard(true);
-      }
-
-      // Enrich incoming burn buddy requests with display names
-      const enrichedIncoming = await Promise.all(
-        buddyRequests.incoming.map(async (req): Promise<EnrichedBurnBuddyRequest> => {
-          try {
-            const p = await apiGet<{ uid: string; displayName: string; email: string }>(
-              `/users/${req.fromUid}`,
-            );
-            return { ...req, displayName: p.displayName };
-          } catch {
-            return { ...req };
-          }
-        }),
-      );
-      setIncomingBuddyRequests(enrichedIncoming);
-      setIncomingSquadRequests(squadRequests.incoming);
-
-      // Build a map of referenceId -> most recent group workout startedAt
-      const lastWorkoutMap = new Map<string, string>();
-      for (const gw of groupWorkouts) {
-        const existing = lastWorkoutMap.get(gw.referenceId);
-        if (!existing || gw.startedAt > existing) {
-          lastWorkoutMap.set(gw.referenceId, gw.startedAt);
-        }
-      }
-
-      // Fetch partner profiles and streaks for each burn buddy in parallel
-      const buddyPromises = buddies.map(async (b): Promise<CombinedItem> => {
-        const partnerUid = b.uid1 === user.uid ? b.uid2 : b.uid1;
-        const [partnerProfile, streaks] = await Promise.all([
-          apiGet<{ uid: string; displayName: string; email: string }>(
-            `/users/${partnerUid}`,
-          ).catch(() => null),
-          apiGet<Streaks>(`/burn-buddies/${b.id}/streaks`).catch(() => ({
-            burnStreak: 0,
-            supernovaStreak: 0,
-          })),
-        ]);
-        return {
-          type: 'buddy',
-          id: b.id,
-          name: partnerProfile?.displayName ?? partnerUid,
-          burnStreak: streaks.burnStreak,
-          lastGroupWorkout: lastWorkoutMap.get(b.id) ?? null,
-          workoutSchedule: b.workoutSchedule,
-          activePartnerStartedAt: activePartnerMap.get(b.id),
-        };
-      });
-
-      // Fetch streaks for each burn squad in parallel
-      const squadPromises = squads.map(async (s): Promise<CombinedItem> => {
-        const streaks = await apiGet<Streaks>(`/burn-squads/${s.id}/streaks`).catch(() => ({
-          burnStreak: 0,
-          supernovaStreak: 0,
-        }));
-        return {
-          type: 'squad',
-          id: s.id,
-          name: s.name,
-          burnStreak: streaks.burnStreak,
-          lastGroupWorkout: lastWorkoutMap.get(s.id) ?? null,
-          workoutSchedule: s.settings?.workoutSchedule,
-          activePartnerStartedAt: activePartnerMap.get(s.id),
-        };
-      });
-
-      const combined = await Promise.all([...buddyPromises, ...squadPromises]);
-
-      // Sort: items with lastGroupWorkout first (desc), then items without
-      combined.sort((a, b) => {
-        if (a.lastGroupWorkout && b.lastGroupWorkout) {
-          return b.lastGroupWorkout.localeCompare(a.lastGroupWorkout);
-        }
-        if (a.lastGroupWorkout) return -1;
-        if (b.lastGroupWorkout) return 1;
-        return 0;
-      });
-
-      setItems(combined);
-    } catch {
-      // Keep empty state on error
-    } finally {
-      setDataLoading(false);
+    const activePartnerMap = new Map<string, string>();
+    for (const apw of dashboard.partnerActivity.activePartnerWorkouts) {
+      activePartnerMap.set(apw.referenceId, apw.earliestStartedAt);
     }
-  }, [user]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+    const lastWorkoutMap = new Map<string, string>();
+    for (const gw of dashboard.groupWorkouts) {
+      const existing = lastWorkoutMap.get(gw.referenceId);
+      if (!existing || gw.startedAt > existing) {
+        lastWorkoutMap.set(gw.referenceId, gw.startedAt);
+      }
+    }
+
+    const buddyItems: CombinedItem[] = dashboard.burnBuddies.map((bb) => ({
+      type: 'buddy',
+      id: bb.id,
+      name: bb.partnerDisplayName,
+      burnStreak: bb.streaks.burnStreak,
+      lastGroupWorkout: lastWorkoutMap.get(bb.id) ?? null,
+      workoutSchedule: bb.workoutSchedule,
+      activePartnerStartedAt: activePartnerMap.get(bb.id),
+    }));
+
+    const squadItems: CombinedItem[] = dashboard.burnSquads.map((sq) => ({
+      type: 'squad',
+      id: sq.id,
+      name: sq.name,
+      burnStreak: sq.streaks.burnStreak,
+      lastGroupWorkout: lastWorkoutMap.get(sq.id) ?? null,
+      workoutSchedule: sq.settings?.workoutSchedule,
+      activePartnerStartedAt: activePartnerMap.get(sq.id),
+    }));
+
+    const combined = [...buddyItems, ...squadItems];
+    combined.sort((a, b) => {
+      if (a.lastGroupWorkout && b.lastGroupWorkout) {
+        return b.lastGroupWorkout.localeCompare(a.lastGroupWorkout);
+      }
+      if (a.lastGroupWorkout) return -1;
+      if (b.lastGroupWorkout) return 1;
+      return 0;
+    });
+
+    return combined;
+  }, [dashboard, user]);
 
   // Update elapsed time every second while a workout is active
   useEffect(() => {
@@ -255,33 +197,6 @@ export default function Home() {
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, [activeWorkout]);
-
-  // Poll partner-active every 30 seconds (skip while user has an active workout)
-  useEffect(() => {
-    if (!user || activeWorkout) return;
-    const poll = async () => {
-      try {
-        const data = await apiGet<{ groupWorkoutWindowMs: number; activePartnerWorkouts: ActivePartnerWorkout[] }>(
-          '/workouts/partner-active',
-        );
-        setGroupWorkoutWindowMs(data.groupWorkoutWindowMs);
-        const newMap = new Map<string, string>();
-        for (const apw of data.activePartnerWorkouts) {
-          newMap.set(apw.referenceId, apw.earliestStartedAt);
-        }
-        setItems((prev) =>
-          prev.map((item) => ({
-            ...item,
-            activePartnerStartedAt: newMap.get(item.id),
-          })),
-        );
-      } catch {
-        // Non-fatal — keep existing state
-      }
-    };
-    const interval = setInterval(poll, 30000);
-    return () => clearInterval(interval);
-  }, [user, activeWorkout]);
 
   // Countdown timer: update every second for items with active partner workouts
   useEffect(() => {
@@ -305,10 +220,9 @@ export default function Home() {
   }, [items, groupWorkoutWindowMs]);
 
   const handleDismiss = async () => {
-    setShowCard(false);
+    setShowCardDismissed(true);
     try {
       await apiPut('/users/me', { gettingStartedDismissed: true });
-      if (profile) setProfile({ ...profile, gettingStartedDismissed: true });
     } catch {
       // Non-fatal — dismissed in UI even if API call fails
     }
@@ -317,7 +231,7 @@ export default function Home() {
   const handleAcceptBuddyRequest = async (requestId: string) => {
     try {
       await apiPost(`/burn-buddies/requests/${requestId}/accept`);
-      await loadData();
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
     } catch {
       // ignore
     }
@@ -326,7 +240,7 @@ export default function Home() {
   const handleAcceptSquadRequest = async (squadId: string, requestId: string) => {
     try {
       await apiPost(`/burn-squads/${squadId}/join-requests/${requestId}/accept`);
-      await loadData();
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
     } catch {
       // ignore
     }
@@ -337,10 +251,14 @@ export default function Home() {
     if (!type) return;
     try {
       const workout = await apiPost<Workout>('/workouts', { type });
-      setActiveWorkout(workout);
+      // Optimistic update so the active workout banner appears immediately
+      queryClient.setQueryData<DashboardData>(queryKeys.dashboard, (old) =>
+        old ? { ...old, activeWorkout: workout } : old,
+      );
       setShowWorkoutSelector(false);
       setSelectedType('');
       setCustomType('');
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
     } catch {
       // ignore
     }
@@ -350,7 +268,11 @@ export default function Home() {
     if (!activeWorkout) return;
     try {
       await apiPatch(`/workouts/${activeWorkout.id}/end`);
-      setActiveWorkout(null);
+      // Optimistic update so the banner disappears immediately
+      queryClient.setQueryData<DashboardData>(queryKeys.dashboard, (old) =>
+        old ? { ...old, activeWorkout: null } : old,
+      );
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
     } catch {
       // ignore
     }
@@ -461,7 +383,7 @@ export default function Home() {
               className="mb-2 flex items-center justify-between rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-3"
             >
               <div>
-                <strong>{req.displayName ?? req.fromUid}</strong>
+                <strong>{req.fromDisplayName ?? req.fromUid}</strong>
                 <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
                   wants to be your Burn Buddy
                 </span>
@@ -526,7 +448,7 @@ export default function Home() {
 
       {/* Combined list */}
       {dataLoading ? (
-        <p className="text-gray-500">Loading...</p>
+        <DashboardSkeleton />
       ) : items.length === 0 ? (
         <p className="text-gray-400">
           No Burn Buddies or Burn Squads yet. Create one above!

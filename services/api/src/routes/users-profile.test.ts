@@ -26,6 +26,8 @@ const {
   // burnBuddyRequests — query chain
   mockBBRequestQueryGet,
   mockBBRequestQueryChain,
+  // db.getAll — batched multi-doc reads
+  mockGetAll,
   // usernames — doc operations (needed for other users.ts routes)
   mockUsernamesDocGet,
   mockUsernamesDocRef,
@@ -80,6 +82,9 @@ const {
     get: mockBBRequestQueryGet,
   };
 
+  // db.getAll — batched multi-doc reads
+  const mockGetAll = vi.fn();
+
   // usernames — doc (needed for PUT /users/me which is part of the same router)
   const mockUsernamesDocGet = vi.fn();
   const mockUsernamesDocRef = vi.fn(() => ({
@@ -104,6 +109,7 @@ const {
     mockWorkoutsQueryChain,
     mockBBRequestQueryGet,
     mockBBRequestQueryChain,
+    mockGetAll,
     mockUsernamesDocGet,
     mockUsernamesDocRef,
   };
@@ -148,6 +154,7 @@ vi.mock('../lib/firestore', () => ({
       }
       return {};
     },
+    getAll: mockGetAll,
     batch: () => ({
       set: vi.fn(),
       delete: vi.fn(),
@@ -291,12 +298,14 @@ describe('GET /users/:uid/profile', () => {
     mockBBQueryGet.mockResolvedValueOnce({ docs: [] }); // uid2 query
     // No squads
     mockSquadsQueryGet.mockResolvedValueOnce({ docs: [] });
-    // Partner profile lookup (requester is the partner since target is uid2)
-    mockUsersDocGet.mockResolvedValueOnce({
-      exists: true,
-      data: () => ({ uid: REQUESTER_UID, displayName: 'Requester User' }),
-    });
-    // Group workouts for this buddy
+    // Partner profile batch lookup via getAll
+    mockGetAll.mockResolvedValueOnce([
+      {
+        exists: true,
+        data: () => ({ uid: REQUESTER_UID, displayName: 'Requester User' }),
+      },
+    ]);
+    // Group workouts for this buddy (single batched 'in' query)
     mockGroupWorkoutsQueryGet.mockResolvedValueOnce({
       docs: [
         {
@@ -457,12 +466,16 @@ describe('GET /users/:uid/profile', () => {
     mockBBQueryGet.mockResolvedValueOnce({ docs: [{ data: () => bb1 }] }); // uid2 query
     // Squads
     mockSquadsQueryGet.mockResolvedValueOnce({ docs: [{ data: () => squad1 }] });
-    // Partner profile lookup
-    mockUsersDocGet.mockResolvedValueOnce({
-      exists: true,
-      data: () => ({ uid: PARTNER_UID, displayName: 'Partner User' }),
-    });
-    // Group workouts for buddy (1 workout today)
+    // Partner profile batch lookup via getAll
+    mockGetAll.mockResolvedValueOnce([
+      {
+        exists: true,
+        data: () => ({ uid: PARTNER_UID, displayName: 'Partner User' }),
+      },
+    ]);
+    // Group workouts for buddy AND squad (single batched 'in' query returns all)
+    const yesterday = new Date(now.getTime() - 86400000).toISOString().substring(0, 10);
+    const dayBefore = new Date(now.getTime() - 2 * 86400000).toISOString().substring(0, 10);
     mockGroupWorkoutsQueryGet.mockResolvedValueOnce({
       docs: [
         {
@@ -475,13 +488,6 @@ describe('GET /users/:uid/profile', () => {
             workoutIds: ['w1', 'w2'],
           }),
         },
-      ],
-    });
-    // Group workouts for squad (3 workouts — higher streak)
-    const yesterday = new Date(now.getTime() - 86400000).toISOString().substring(0, 10);
-    const dayBefore = new Date(now.getTime() - 2 * 86400000).toISOString().substring(0, 10);
-    mockGroupWorkoutsQueryGet.mockResolvedValueOnce({
-      docs: [
         {
           data: () => ({
             id: 'gw-sq-1',
@@ -531,5 +537,64 @@ describe('GET /users/:uid/profile', () => {
     expect(res.body.highestStreakEver.value).toBe(3);
     expect(res.body.highestStreakEver.name).toBe('Morning Crew');
     expect(res.body.buddyRelationshipStatus).toBe('none');
+  });
+
+  it('uses batched getAll for partner lookups and in-query for group workouts', async () => {
+    const now = new Date();
+    const today = now.toISOString().substring(0, 10);
+
+    const bb1 = { id: 'bb-001', uid1: REQUESTER_UID, uid2: TARGET_UID, createdAt: '2025-01-01T00:00:00.000Z' };
+    const bb2 = { id: 'bb-002', uid1: TARGET_UID, uid2: PARTNER_UID, createdAt: '2025-02-01T00:00:00.000Z' };
+
+    // Target user profile
+    mockUsersDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ uid: TARGET_UID, displayName: 'Target User', username: 'targetuser' }),
+    });
+    // Friendship check
+    mockFriendsDocGet.mockResolvedValueOnce({ exists: true });
+    // Burn buddies: uid1 returns bb1, uid2 returns bb2
+    mockBBQueryGet.mockResolvedValueOnce({ docs: [{ data: () => bb1 }] });
+    mockBBQueryGet.mockResolvedValueOnce({ docs: [{ data: () => bb2 }] });
+    // No squads
+    mockSquadsQueryGet.mockResolvedValueOnce({ docs: [] });
+    // Partner batch lookup via getAll: returns both partners
+    mockGetAll.mockResolvedValueOnce([
+      { exists: true, data: () => ({ uid: REQUESTER_UID, displayName: 'Requester User' }) },
+      { exists: true, data: () => ({ uid: PARTNER_UID, displayName: 'Partner User' }) },
+    ]);
+    // Group workouts for both buddies in a single batched 'in' query
+    mockGroupWorkoutsQueryGet.mockResolvedValueOnce({
+      docs: [
+        {
+          data: () => ({
+            id: 'gw-1', type: 'buddy', referenceId: 'bb-001',
+            memberUids: [REQUESTER_UID, TARGET_UID],
+            startedAt: `${today}T10:00:00.000Z`, workoutIds: ['w1', 'w2'],
+          }),
+        },
+        {
+          data: () => ({
+            id: 'gw-2', type: 'buddy', referenceId: 'bb-002',
+            memberUids: [TARGET_UID, PARTNER_UID],
+            startedAt: `${today}T11:00:00.000Z`, workoutIds: ['w3', 'w4'],
+          }),
+        },
+      ],
+    });
+    // Individual workouts
+    mockWorkoutsQueryGet.mockResolvedValueOnce({ docs: [] });
+
+    const res = await request(buildApp())
+      .get(`/users/${TARGET_UID}/profile`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.buddyRelationshipStatus).toBe('buddies');
+    // Verify getAll was called once with 2 doc refs (batched, not per-partner)
+    expect(mockGetAll).toHaveBeenCalledTimes(1);
+    expect(mockGetAll.mock.calls[0]).toHaveLength(2);
+    // Verify group workouts query used a single 'in' query (not per-referenceId)
+    expect(mockGroupWorkoutsQueryGet).toHaveBeenCalledTimes(1);
   });
 });

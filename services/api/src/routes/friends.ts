@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { Router, type Request, type Response } from 'express';
 import type { Friend, FriendRequest, UserProfile } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
+import { cacheControl } from '../middleware/cache-control';
 import { getDb } from '../lib/firestore';
 
 const router = Router();
@@ -124,7 +125,7 @@ router.post(
  * GET /friends
  * Returns all accepted friends for the authenticated user, enriched with profile data.
  */
-router.get('/', requireAuth, async (req: Request, res: Response): Promise<void> => {
+router.get('/', requireAuth, cacheControl(30), async (req: Request, res: Response): Promise<void> => {
   const uid = req.user!.uid;
   const db = getDb();
 
