@@ -33,7 +33,7 @@ Always APPEND to the progress file, never replace it.
 
 When all stories have `passes: true` AND the PR is created/merged, output:
 ```
-<promise>COMPLETE</promise>
+<promise>PRD-COMPLETE</promise>
 ```
 
 ## Key Rules

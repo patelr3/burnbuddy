@@ -55,7 +55,7 @@ task(
 ### Phase 5: Completion Detection
 
 A PRD is **complete** when:
-1. The sub-agent reports `<promise>COMPLETE</promise>` (read via `read_agent`)
+1. The sub-agent reports `<promise>PRD-COMPLETE</promise>` (read via `read_agent`)
 2. The PR has been merged to main (verify with `gh pr list --state merged --head <branchName>`)
 
 When a PRD completes:

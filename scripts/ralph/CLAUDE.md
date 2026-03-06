@@ -97,7 +97,7 @@ If ALL stories are complete and passing:
 1. Push all changes to the remote branch
 2. Create a pull request against main using `gh pr create` with a descriptive title listing all completed stories
 3. Enable auto-merge on the PR using `gh pr merge --auto --squash`
-4. Reply with: <promise>COMPLETE</promise>
+4. Reply with: <promise>PRD-COMPLETE</promise>
 
 If there are still stories with `passes: false`, end your response normally (another iteration will pick up the next story).
 
