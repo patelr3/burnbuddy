@@ -100,22 +100,37 @@ Be explicit and unambiguous.
 ### 5. Non-Goals (Out of Scope)
 What this feature will NOT include. Critical for managing scope.
 
-### 6. Design Considerations (Optional)
+### 6. Dependencies
+List any PRDs that must be completed before this one can begin. If this PRD has no dependencies, include an empty section.
+
+**Format:**
+```markdown
+## Dependencies
+- prd-friend-search-and-usernames.md
+```
+
+Or if no dependencies:
+```markdown
+## Dependencies
+None
+```
+
+### 7. Design Considerations (Optional)
 - UI/UX requirements
 - Link to mockups if available
 - Relevant existing components to reuse
 
-### 7. Technical Considerations (Optional)
+### 8. Technical Considerations (Optional)
 - Known constraints or dependencies
 - Integration points with existing systems
 - Performance requirements
 
-### 8. Success Metrics
+### 9. Success Metrics
 How will success be measured?
 - "Reduce time to complete X by 50%"
 - "Increase conversion rate by 10%"
 
-### 9. Open Questions
+### 10. Open Questions
 Remaining questions or areas needing clarification.
 
 ---
@@ -135,7 +150,7 @@ The PRD reader may be a junior developer or AI agent. Therefore:
 ## Output
 
 - **Format:** Markdown (`.md`)
-- **Location:** `tasks/`
+- **Location:** `docs/prds/`
 - **Filename:** `prd-[feature-name].md` (kebab-case)
 
 ---
@@ -209,6 +224,10 @@ Add priority levels to tasks so users can focus on what matters most. Tasks can 
 - No automatic priority assignment based on due date
 - No priority inheritance for subtasks
 
+## Dependencies
+
+None
+
 ## Technical Considerations
 
 - Reuse existing badge component with color variants
@@ -238,4 +257,5 @@ Before saving the PRD:
 - [ ] User stories are small and specific
 - [ ] Functional requirements are numbered and unambiguous
 - [ ] Non-goals section defines clear boundaries
+- [ ] Dependencies section lists prerequisite PRDs (or "None")
 - [ ] Saved to `docs/prds/prd-[feature-name].md`
