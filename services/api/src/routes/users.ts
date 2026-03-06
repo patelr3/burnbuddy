@@ -202,6 +202,34 @@ router.post(
 );
 
 /**
+ * DELETE /users/me/profile-picture
+ * Removes the user's profile picture from Firebase Storage and clears the Firestore field.
+ * Returns 204 on success (idempotent — succeeds even if no picture existed).
+ */
+router.delete('/me/profile-picture', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const uid = req.user!.uid;
+  const bucket = admin.storage().bucket();
+  const filePath = `profile-pictures/${uid}/avatar.webp`;
+  const storageFile = bucket.file(filePath);
+
+  // Delete from Storage — ignore "not found" errors for idempotency
+  try {
+    await storageFile.delete();
+  } catch (err: unknown) {
+    const code = (err as { code?: number }).code;
+    if (code !== 404) throw err;
+  }
+
+  // Clear the profilePictureUrl field in Firestore
+  const db = getDb();
+  await db.collection('users').doc(uid).update({
+    profilePictureUrl: admin.firestore.FieldValue.delete(),
+  });
+
+  res.status(204).send();
+});
+
+/**
  * PUT /users/me
  * Upserts the authenticated user's profile.
  * Updates provided fields if the profile exists; creates it if it does not.
