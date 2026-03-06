@@ -1,0 +1,197 @@
+{
+  "project": "burnbuddy",
+  "branchName": "ralph/profile-pictures",
+  "description": "Profile Pictures - Upload, anime-style conversion, and display of user profile pictures across web and mobile",
+  "dependsOn": [],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add profilePictureUrl to UserProfile type",
+      "description": "As a developer, I need the UserProfile type and Firestore documents to support a profile picture URL so the field can be read and written across all platforms.",
+      "acceptanceCriteria": [
+        "Add `profilePictureUrl?: string` field to `UserProfile` in `packages/shared/src/types.ts`",
+        "Rebuild shared package (`cd packages/shared && yarn build`)",
+        "Typecheck passes across all workspaces (`yarn typecheck`)"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Set up Firebase Storage bucket and security rules",
+      "description": "As a developer, I need a Firebase Storage bucket configured so profile images can be uploaded and served securely.",
+      "acceptanceCriteria": [
+        "Firebase Storage security rules file exists at `storage.rules` in the project root",
+        "Rules allow authenticated users to upload only to their own path (`profile-pictures/{uid}/*`)",
+        "Rules enforce max file size (5 MB) and allowed content types (`image/jpeg`, `image/png`, `image/webp`)",
+        "Rules deny reading other users' raw uploads",
+        "`firebase.json` references the storage rules file",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Anime filter pipeline using sharp",
+      "description": "As a developer, I need a reusable image processing function that transforms a photo into an anime/cartoon art style using sharp, with no external API dependencies.",
+      "acceptanceCriteria": [
+        "Create `services/api/src/lib/anime-filter.ts` exporting `animeFilter(inputBuffer: Buffer): Promise<Buffer>`",
+        "Pipeline applies: (1) posterize via blur sigma:2 + saturation:1.8, (2) edge detection via greyscale + Sobel convolution + threshold, (3) composite edges onto posterized with multiply blend, (4) resize to 256x256 cover/crop and output as WebP",
+        "Function operates entirely on in-memory buffers (no temp files)",
+        "Function is deterministic — same input always produces same output",
+        "Install `sharp` as a dependency in `services/api/package.json`",
+        "Unit tests verify the pipeline produces a valid image buffer of correct dimensions",
+        "Unit tests verify the pipeline handles JPEG, PNG, and WebP inputs",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "API endpoint to upload profile picture with anime conversion",
+      "description": "As a user, I want to upload a profile picture through the API so it's converted into an anime-style avatar and stored.",
+      "acceptanceCriteria": [
+        "`POST /users/me/profile-picture` accepts a multipart file upload (field name: `picture`) using multer with memoryStorage and 5 MB limit",
+        "Rejects files over 5 MB with 413 status",
+        "Rejects non-image content types with 400 status",
+        "Runs uploaded image through `animeFilter()` from `lib/anime-filter.ts`",
+        "Uploads the anime-styled image to Firebase Storage at `profile-pictures/{uid}/avatar.webp`",
+        "The original photo is not stored — only the anime-converted version",
+        "Generates a public download URL for the anime-styled image",
+        "Updates the user's Firestore document with `profilePictureUrl` set to the anime image URL",
+        "Returns `{ profilePictureUrl: string }` with 200 status",
+        "Install `multer` and `@types/multer` as dependencies in `services/api/package.json`",
+        "Unit tests cover success, oversized file, and invalid content type cases",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "API endpoint to remove profile picture",
+      "description": "As a user, I want to remove my profile picture so I revert to the default avatar.",
+      "acceptanceCriteria": [
+        "`DELETE /users/me/profile-picture` removes the image from Firebase Storage at `profile-pictures/{uid}/avatar.webp`",
+        "Sets `profilePictureUrl` to null (or deletes the field) in the user's Firestore document",
+        "Returns 204 on success",
+        "Returns 204 even if no picture existed (idempotent)",
+        "Unit tests cover both cases (picture exists, no picture)",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Create reusable Avatar component (web)",
+      "description": "As a user, I want to see profile pictures or initials wherever a user is displayed in the web app.",
+      "acceptanceCriteria": [
+        "Avatar component at `apps/web/src/components/Avatar.tsx`",
+        "Props: `displayName: string`, `profilePictureUrl?: string | null`, `size?: 'sm' | 'md' | 'lg'`",
+        "When `profilePictureUrl` is set, renders a circular `<img>` with the URL",
+        "When `profilePictureUrl` is absent, renders a circular div with the user's initials (first letter of first + last name, or first two letters of display name)",
+        "Initials avatar uses a deterministic background color based on the user's name (hash to 8-10 color palette)",
+        "Handles image load errors gracefully by falling back to initials",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Add Avatar to all user-facing surfaces (web)",
+      "description": "As a user, I want to see profile pictures everywhere users appear — buddy lists, workout feeds, profile pages, squad member lists, and search results.",
+      "acceptanceCriteria": [
+        "Avatar shown on the profile page (`apps/web/src/app/profile/[uid]/page.tsx`)",
+        "Avatar shown on the account page (`apps/web/src/app/account/page.tsx`)",
+        "Avatar shown in buddy/friend list items",
+        "Avatar shown in workout feed entries (next to workout author)",
+        "Avatar shown in squad member lists",
+        "Avatar shown in user search results",
+        "All surfaces pass `profilePictureUrl` from the user data to the Avatar component",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Profile picture upload UI (web)",
+      "description": "As a user, I want to upload or change my profile picture from my account page.",
+      "acceptanceCriteria": [
+        "Account page shows current Avatar (large size) with an 'Edit' or camera icon overlay",
+        "Clicking triggers a file picker filtered to image types (`image/jpeg`, `image/png`, `image/webp`)",
+        "Shows a fun '✨ Anime-fying...' animation/state while the image is being uploaded and processed",
+        "On success, updates the displayed avatar immediately without page reload",
+        "On error (file too large, wrong type, network), shows a user-friendly error message",
+        "'Remove photo' option visible when a profile picture is set",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Create reusable Avatar component (mobile)",
+      "description": "As a mobile user, I want to see profile pictures wherever users are displayed in the app.",
+      "acceptanceCriteria": [
+        "Avatar component at `apps/mobile/src/components/Avatar.tsx`",
+        "Same props interface as web: `displayName`, `profilePictureUrl`, `size`",
+        "Renders circular `<Image>` from React Native when URL is present",
+        "Renders initials fallback with deterministic background color when URL is absent",
+        "Handles image load errors gracefully by falling back to initials",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Profile picture upload UI (mobile)",
+      "description": "As a mobile user, I want to upload or change my profile picture from my account screen.",
+      "acceptanceCriteria": [
+        "Account screen shows current Avatar with an edit/camera overlay",
+        "Tapping triggers image picker (camera roll / take photo) using `expo-image-picker`",
+        "Shows a fun '✨ Anime-fying...' loading state during upload and processing",
+        "On success, updates avatar immediately",
+        "On error, shows an alert with a user-friendly message",
+        "'Remove photo' option available when a picture is set",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Add Avatar to all user-facing surfaces (mobile)",
+      "description": "As a mobile user, I want to see profile pictures everywhere users appear in the app.",
+      "acceptanceCriteria": [
+        "Avatar shown on account screen",
+        "Avatar shown in buddy/friend lists",
+        "Avatar shown in workout feed entries",
+        "Avatar shown in squad member lists",
+        "All surfaces pass `profilePictureUrl` from user data to Avatar component",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
