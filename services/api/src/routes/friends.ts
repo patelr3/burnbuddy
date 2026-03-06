@@ -143,7 +143,7 @@ router.get('/', requireAuth, cacheControl(30), async (req: Request, res: Respons
       const userDoc = await db.collection('users').doc(otherUid).get();
       if (!userDoc.exists) return null;
       const profile = userDoc.data() as UserProfile;
-      return { uid: otherUid, displayName: profile.displayName, email: profile.email, username: profile.username, createdAt: friend.createdAt };
+      return { uid: otherUid, displayName: profile.displayName, email: profile.email, username: profile.username, profilePictureUrl: profile.profilePictureUrl, createdAt: friend.createdAt };
     }),
   );
 

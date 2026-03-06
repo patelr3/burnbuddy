@@ -17,6 +17,7 @@ import type {
 interface EnrichedBurnBuddy extends BurnBuddy {
   partnerUid: string;
   partnerDisplayName: string;
+  partnerProfilePictureUrl?: string;
   streaks: { burnStreak: number; supernovaStreak: number };
 }
 

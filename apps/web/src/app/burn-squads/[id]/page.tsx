@@ -7,6 +7,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { NavBar } from '@/components/NavBar';
 import { StatCard } from '@/components/StatCard';
+import { Avatar } from '@/components/Avatar';
 import { AddToCalendarButton } from '@/components/AddToCalendarButton';
 import type { BurnSquad, GroupWorkout, GroupStats, WorkoutSchedule } from '@burnbuddy/shared';
 
@@ -14,6 +15,7 @@ interface MemberProfile {
   uid: string;
   displayName: string;
   email: string;
+  profilePictureUrl?: string;
 }
 
 interface Streaks {
@@ -386,9 +388,7 @@ export default function BurnSquadDetailPage() {
               key={member.uid}
               className="flex items-center gap-3 border-b border-gray-100 py-2.5"
             >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">
-                {member.displayName.charAt(0).toUpperCase()}
-              </div>
+              <Avatar displayName={member.displayName} profilePictureUrl={member.profilePictureUrl} size="sm" />
               <div>
                 <div className="text-sm font-medium">
                   {member.displayName}

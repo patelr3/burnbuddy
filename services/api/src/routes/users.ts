@@ -1,4 +1,5 @@
-import { Router, type Request, type Response } from 'express';
+import { Router, type Request, type Response, type NextFunction } from 'express';
+import multer from 'multer';
 import type {
   UserProfile,
   BurnBuddy,
@@ -8,10 +9,19 @@ import type {
   ProfileStats,
 } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
+import { admin } from '../lib/firebase';
 import { cacheControl } from '../middleware/cache-control';
 import { getDb } from '../lib/firestore';
 import { generateUniqueUsername, validateUsername } from '../lib/username';
+import { animeFilter } from '../lib/anime-filter';
 import { calculateStreaks, calculateHighestStreakEver } from '../services/streak-calculator';
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+});
+
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 /**
  * GET /users/search?q=<query>   — typeahead prefix search (returns array)
@@ -35,7 +45,7 @@ router.get('/search', requireAuth, async (req: Request, res: Response): Promise<
     }
 
     const user = snapshot.docs[0].data() as UserProfile;
-    res.json({ uid: user.uid, displayName: user.displayName, email: user.email, username: user.username });
+    res.json({ uid: user.uid, displayName: user.displayName, email: user.email, username: user.username, profilePictureUrl: user.profilePictureUrl });
     return;
   }
 
@@ -66,13 +76,13 @@ router.get('/search', requireAuth, async (req: Request, res: Response): Promise<
 
   // Merge and deduplicate by uid
   const seen = new Set<string>();
-  const results: Array<{ uid: string; displayName: string; email: string; username?: string }> = [];
+  const results: Array<{ uid: string; displayName: string; email: string; username?: string; profilePictureUrl?: string }> = [];
 
   for (const doc of [...emailSnapshot.docs, ...usernameSnapshot.docs]) {
     const u = doc.data() as UserProfile;
     if (u.uid === currentUid || seen.has(u.uid)) continue;
     seen.add(u.uid);
-    results.push({ uid: u.uid, displayName: u.displayName, email: u.email, username: u.username });
+    results.push({ uid: u.uid, displayName: u.displayName, email: u.email, username: u.username, profilePictureUrl: u.profilePictureUrl });
     if (results.length >= 10) break;
   }
 
@@ -137,6 +147,87 @@ router.get('/me', requireAuth, cacheControl(0), async (req: Request, res: Respon
   }
 
   res.json(doc.data() as UserProfile);
+});
+
+/**
+ * POST /users/me/profile-picture
+ * Uploads a profile picture, converts it to anime style, stores it in Firebase Storage,
+ * and updates the user's Firestore document with the download URL.
+ */
+router.post(
+  '/me/profile-picture',
+  requireAuth,
+  (req: Request, res: Response, next: NextFunction) => {
+    upload.single('picture')(req, res, (err: unknown) => {
+      if (err && err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+        res.status(413).json({ error: 'File too large. Maximum size is 5 MB.' });
+        return;
+      }
+      if (err) { next(err); return; }
+      next();
+    });
+  },
+  async (req: Request, res: Response): Promise<void> => {
+    if (!req.file) {
+      res.status(400).json({ error: 'No file uploaded' });
+      return;
+    }
+
+    if (!ALLOWED_IMAGE_TYPES.includes(req.file.mimetype)) {
+      res.status(400).json({ error: 'Invalid file type. Only JPEG, PNG, and WebP are allowed.' });
+      return;
+    }
+
+    const uid = req.user!.uid;
+    const animeBuffer = await animeFilter(req.file.buffer);
+
+    const bucket = admin.storage().bucket();
+    const filePath = `profile-pictures/${uid}/avatar.webp`;
+    const storageFile = bucket.file(filePath);
+
+    await storageFile.save(animeBuffer, {
+      contentType: 'image/webp',
+      metadata: { cacheControl: 'public, max-age=86400' },
+    });
+
+    const [url] = await storageFile.getSignedUrl({
+      action: 'read',
+      expires: '2099-12-31',
+    });
+
+    const db = getDb();
+    await db.collection('users').doc(uid).update({ profilePictureUrl: url });
+
+    res.json({ profilePictureUrl: url });
+  },
+);
+
+/**
+ * DELETE /users/me/profile-picture
+ * Removes the user's profile picture from Firebase Storage and clears the Firestore field.
+ * Returns 204 on success (idempotent — succeeds even if no picture existed).
+ */
+router.delete('/me/profile-picture', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const uid = req.user!.uid;
+  const bucket = admin.storage().bucket();
+  const filePath = `profile-pictures/${uid}/avatar.webp`;
+  const storageFile = bucket.file(filePath);
+
+  // Delete from Storage — ignore "not found" errors for idempotency
+  try {
+    await storageFile.delete();
+  } catch (err: unknown) {
+    const code = (err as { code?: number }).code;
+    if (code !== 404) throw err;
+  }
+
+  // Clear the profilePictureUrl field in Firestore
+  const db = getDb();
+  await db.collection('users').doc(uid).update({
+    profilePictureUrl: admin.firestore.FieldValue.delete(),
+  });
+
+  res.status(204).send();
 });
 
 /**
@@ -413,6 +504,7 @@ router.get('/:uid/profile', requireAuth, async (req: Request, res: Response): Pr
   const profileStats: ProfileStats = {
     displayName: profile.displayName,
     username: profile.username,
+    profilePictureUrl: profile.profilePictureUrl,
     highestActiveStreak,
     highestStreakEver,
     firstWorkoutDate,
@@ -439,7 +531,7 @@ router.get('/:uid', requireAuth, async (req: Request, res: Response): Promise<vo
   }
 
   const profile = doc.data() as UserProfile;
-  res.json({ uid: profile.uid, displayName: profile.displayName, email: profile.email });
+  res.json({ uid: profile.uid, displayName: profile.displayName, email: profile.email, profilePictureUrl: profile.profilePictureUrl });
 });
 
 export default router;

@@ -33,6 +33,7 @@ function chunk<T>(arr: T[], size: number): T[][] {
 interface EnrichedBurnBuddy extends BurnBuddy {
   partnerUid: string;
   partnerDisplayName: string;
+  partnerProfilePictureUrl?: string;
   streaks: { burnStreak: number; supernovaStreak: number };
 }
 
@@ -145,6 +146,7 @@ router.get('/', requireAuth, cacheControl(5), async (req: Request, res: Response
   // ── Phase 2: Enrich buddies with partner names (batched multi-get) ────────
   const partnerUids = burnBuddies.map((bb) => (bb.uid1 === uid ? bb.uid2 : bb.uid1));
   const partnerNames: Record<string, string> = {};
+  const partnerPictures: Record<string, string> = {};
 
   if (partnerUids.length > 0) {
     const partnerRefs = partnerUids.map((pUid) => db.collection('users').doc(pUid));
@@ -153,6 +155,7 @@ router.get('/', requireAuth, cacheControl(5), async (req: Request, res: Response
       if (doc.exists) {
         const data = doc.data() as UserProfile;
         partnerNames[data.uid] = data.displayName;
+        if (data.profilePictureUrl) partnerPictures[data.uid] = data.profilePictureUrl;
       }
     });
   }
@@ -186,7 +189,7 @@ router.get('/', requireAuth, cacheControl(5), async (req: Request, res: Response
     const partnerDisplayName = partnerNames[partnerUid] ?? 'Unknown';
     const gws = gwByRef[bb.id] ?? [];
     const streaks = calculateStreaks(gws);
-    return { ...bb, partnerUid, partnerDisplayName, streaks };
+    return { ...bb, partnerUid, partnerDisplayName, partnerProfilePictureUrl: partnerPictures[partnerUid], streaks };
   });
 
   const enrichedSquads: EnrichedBurnSquad[] = burnSquads.map((sq) => {

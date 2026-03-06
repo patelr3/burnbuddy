@@ -15,6 +15,7 @@ import { auth } from '../lib/firebase';
 import { useAuth } from '../lib/auth-context';
 import { apiGet, apiPost, apiPut, apiPatch } from '../lib/api';
 import GettingStartedCard from '../components/GettingStartedCard';
+import { Avatar } from '../components/Avatar';
 import BurnBuddyDetailScreen from './BurnBuddyDetailScreen';
 import NewBurnBuddyScreen from './NewBurnBuddyScreen';
 import BurnSquadDetailScreen from './BurnSquadDetailScreen';
@@ -34,6 +35,7 @@ import type {
 
 interface EnrichedBurnBuddy extends BurnBuddy {
   partnerDisplayName: string;
+  partnerProfilePictureUrl?: string;
   burnStreak: number;
   lastGroupWorkout?: string;
 }
@@ -162,8 +164,9 @@ function HomeListView({
         rawBuddies.map(async (buddy) => {
           const partnerUid = buddy.uid1 === user.uid ? buddy.uid2 : buddy.uid1;
           const [partnerProfile, streaks] = await Promise.all([
-            apiGet<{ displayName: string }>(`/users/${partnerUid}`).catch(() => ({
+            apiGet<{ displayName: string; profilePictureUrl?: string }>(`/users/${partnerUid}`).catch(() => ({
               displayName: partnerUid,
+              profilePictureUrl: undefined as string | undefined,
             })),
             apiGet<{ burnStreak: number; supernovaStreak: number }>(
               `/burn-buddies/${buddy.id}/streaks`,
@@ -172,6 +175,7 @@ function HomeListView({
           return {
             ...buddy,
             partnerDisplayName: partnerProfile.displayName,
+            partnerProfilePictureUrl: partnerProfile.profilePictureUrl,
             burnStreak: streaks.burnStreak,
             lastGroupWorkout: lastGW.get(buddy.id),
           };
@@ -444,7 +448,14 @@ function HomeListView({
                         testID={`home-buddy-item-${buddy.id}`}
                       >
                         <View style={styles.listCardLeft}>
-                          <Text style={styles.listCardName}>{buddy.partnerDisplayName}</Text>
+                          <View style={styles.listCardNameRow}>
+                            <Avatar
+                              displayName={buddy.partnerDisplayName}
+                              profilePictureUrl={buddy.partnerProfilePictureUrl}
+                              size="sm"
+                            />
+                            <Text style={styles.listCardName}>{buddy.partnerDisplayName}</Text>
+                          </View>
                           <View style={styles.listCardBadge}>
                             <Text style={styles.listCardBadgeText}>Burn Buddy</Text>
                           </View>
@@ -691,7 +702,8 @@ const styles = StyleSheet.create({
     borderColor: '#f1f5f9',
   },
   listCardLeft: { flex: 1 },
-  listCardName: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 4 },
+  listCardNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  listCardName: { fontSize: 16, fontWeight: '600', color: '#333' },
   listCardBadge: {
     backgroundColor: '#fff3e0',
     paddingHorizontal: 8,

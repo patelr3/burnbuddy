@@ -1,15 +1,17 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { apiGet, apiPut } from '@/lib/api';
+import { apiGet, apiPut, apiDelete, apiUploadFile } from '@/lib/api';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase-client';
 import { useRouter } from 'next/navigation';
 import { NavBar } from '@/components/NavBar';
+import { Avatar } from '@/components/Avatar';
 import type { UserProfile } from '@burnbuddy/shared';
 
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,30}$/;
+const ACCEPTED_IMAGE_TYPES = 'image/jpeg,image/png,image/webp';
 
 function validateUsernameClient(username: string): string | null {
   if (username.length < 3) return 'Username must be at least 3 characters';
@@ -21,6 +23,7 @@ function validateUsernameClient(username: string): string | null {
 export default function AccountPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [dataLoading, setDataLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -30,6 +33,10 @@ export default function AccountPage() {
   const [usernameSaving, setUsernameSaving] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [usernameFeedback, setUsernameFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   const loadProfile = useCallback(async () => {
     if (!user) return;
@@ -107,6 +114,41 @@ export default function AccountPage() {
 
   if (loading) return null;
 
+  const handlePictureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Reset input so the same file can be re-selected
+    e.target.value = '';
+
+    setUploadError(null);
+    setUploading(true);
+    try {
+      const result = await apiUploadFile<{ profilePictureUrl: string }>(
+        '/users/me/profile-picture',
+        'picture',
+        file,
+      );
+      setProfile((prev) => prev ? { ...prev, profilePictureUrl: result.profilePictureUrl } : prev);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handlePictureRemove = async () => {
+    setUploadError(null);
+    setRemoving(true);
+    try {
+      await apiDelete('/users/me/profile-picture');
+      setProfile((prev) => prev ? { ...prev, profilePictureUrl: undefined } : prev);
+    } catch {
+      setUploadError('Failed to remove photo. Please try again.');
+    } finally {
+      setRemoving(false);
+    }
+  };
+
   const isUsernameDirty = username.trim() !== (profile?.username ?? '');
 
   return (
@@ -119,19 +161,69 @@ export default function AccountPage() {
           <p className="text-gray-500">Loading...</p>
         ) : (
           <>
-            {/* Profile info */}
+            {/* Profile info with picture upload */}
             <section className="mb-5 rounded-lg border border-gray-200 p-5">
               <h2 className="mb-4 text-base font-semibold text-gray-700">Profile</h2>
-              <div className="mb-3">
-                <div className="mb-0.5 text-xs text-gray-400">Display Name</div>
-                <div className="text-base font-bold">
-                  {user?.displayName ?? profile?.displayName ?? '—'}
+              <div className="mb-4 flex items-center gap-4">
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="group relative cursor-pointer rounded-full border-none bg-transparent p-0 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:cursor-not-allowed"
+                    aria-label="Change profile picture"
+                  >
+                    {uploading ? (
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-pink-400">
+                        <span className="animate-bounce text-lg">✨</span>
+                      </div>
+                    ) : (
+                      <Avatar
+                        displayName={user?.displayName ?? profile?.displayName ?? '?'}
+                        profilePictureUrl={profile?.profilePictureUrl}
+                        size="lg"
+                      />
+                    )}
+                    {!uploading && (
+                      <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/0 text-white/0 transition-all group-hover:bg-black/40 group-hover:text-white/100">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A2 2 0 0011.172 3H8.828a2 2 0 00-1.414.586L6.293 4.707A1 1 0 015.586 5H4z" />
+                          <path d="M10 12a3 3 0 100-6 3 3 0 000 6z" />
+                        </svg>
+                      </span>
+                    )}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={ACCEPTED_IMAGE_TYPES}
+                    onChange={handlePictureUpload}
+                    className="hidden"
+                    aria-hidden="true"
+                  />
+                </div>
+                <div>
+                  <div className="text-base font-bold">
+                    {user?.displayName ?? profile?.displayName ?? '—'}
+                  </div>
+                  <div className="text-sm text-gray-500">{user?.email ?? profile?.email ?? '—'}</div>
+                  {uploading && (
+                    <p className="mt-1 text-xs font-medium text-purple-600">✨ Anime-fying your photo…</p>
+                  )}
+                  {uploadError && (
+                    <p className="mt-1 text-xs text-danger">{uploadError}</p>
+                  )}
                 </div>
               </div>
-              <div>
-                <div className="mb-0.5 text-xs text-gray-400">Email</div>
-                <div className="text-base">{user?.email ?? profile?.email ?? '—'}</div>
-              </div>
+              {profile?.profilePictureUrl && !uploading && (
+                <button
+                  onClick={handlePictureRemove}
+                  disabled={removing}
+                  className="cursor-pointer rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {removing ? 'Removing…' : 'Remove photo'}
+                </button>
+              )}
             </section>
 
             {/* Username editing */}

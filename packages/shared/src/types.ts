@@ -4,6 +4,7 @@ export interface UserProfile {
   displayName: string;
   username?: string;
   usernameLower?: string;
+  profilePictureUrl?: string;
   fcmToken?: string;
   gettingStartedDismissed?: boolean;
   createdAt: string;
@@ -111,6 +112,7 @@ export interface ActivePartnerWorkout {
 export interface ProfileStats {
   displayName: string;
   username?: string;
+  profilePictureUrl?: string;
   highestActiveStreak: { value: number; name: string } | null;
   highestStreakEver: { value: number; date: string; name: string } | null;
   firstWorkoutDate: string | null;

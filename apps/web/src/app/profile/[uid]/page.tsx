@@ -7,6 +7,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { NavBar } from '@/components/NavBar';
 import { StatCard } from '@/components/StatCard';
+import { Avatar } from '@/components/Avatar';
 import type { ProfileStats } from '@burnbuddy/shared';
 
 export default function FriendProfilePage() {
@@ -83,11 +84,14 @@ export default function FriendProfilePage() {
           <>
             {/* Header with name and burn buddy action */}
             <div className="mb-6 flex items-start justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">{profile.displayName}</h1>
-                {profile.username && (
-                  <p className="mt-0.5 text-sm text-gray-400">@{profile.username}</p>
-                )}
+              <div className="flex items-center gap-3">
+                <Avatar displayName={profile.displayName} profilePictureUrl={profile.profilePictureUrl} size="lg" />
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">{profile.displayName}</h1>
+                  {profile.username && (
+                    <p className="mt-0.5 text-sm text-gray-400">@{profile.username}</p>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 {profile.buddyRelationshipStatus === 'buddies' && (

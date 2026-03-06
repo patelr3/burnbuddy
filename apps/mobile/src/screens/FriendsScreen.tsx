@@ -12,12 +12,14 @@ import {
 } from 'react-native';
 import { useAuth } from '../lib/auth-context';
 import { apiGet, apiPost, apiDelete } from '../lib/api';
+import { Avatar } from '../components/Avatar';
 import type { FriendRequest } from '@burnbuddy/shared';
 
 interface FriendWithProfile {
   uid: string;
   displayName: string;
   email: string;
+  profilePictureUrl?: string;
   createdAt: string;
 }
 
@@ -25,10 +27,12 @@ interface UserSearchResult {
   uid: string;
   displayName: string;
   email: string;
+  profilePictureUrl?: string;
 }
 
 interface EnrichedFriendRequest extends FriendRequest {
   displayName?: string;
+  profilePictureUrl?: string;
 }
 
 export default function FriendsScreen() {
@@ -65,7 +69,7 @@ export default function FriendsScreen() {
       ): Promise<EnrichedFriendRequest> => {
         try {
           const profile = await apiGet<UserSearchResult>(`/users/${req[uidField]}`);
-          return { ...req, displayName: profile.displayName };
+          return { ...req, displayName: profile.displayName, profilePictureUrl: profile.profilePictureUrl };
         } catch {
           return { ...req };
         }
@@ -211,8 +215,17 @@ export default function FriendsScreen() {
                 style={styles.searchResultCard}
                 testID="friends-search-result"
               >
-                <Text style={styles.searchResultName}>{searchResult.displayName}</Text>
-                <Text style={styles.searchResultEmail}>{searchResult.email}</Text>
+                <View style={styles.searchResultRow}>
+                  <Avatar
+                    displayName={searchResult.displayName}
+                    profilePictureUrl={searchResult.profilePictureUrl}
+                    size="sm"
+                  />
+                  <View style={styles.searchResultInfo}>
+                    <Text style={styles.searchResultName}>{searchResult.displayName}</Text>
+                    <Text style={styles.searchResultEmail}>{searchResult.email}</Text>
+                  </View>
+                </View>
               </TouchableOpacity>
             )}
           </View>
@@ -228,6 +241,11 @@ export default function FriendsScreen() {
                 <Text style={styles.sectionLabel}>Pending Requests</Text>
                 {incoming.map((req) => (
                   <View key={req.id} style={styles.requestRow} testID={`friends-request-item-${req.id}`}>
+                    <Avatar
+                      displayName={req.displayName ?? req.fromUid}
+                      profilePictureUrl={req.profilePictureUrl}
+                      size="sm"
+                    />
                     <View style={styles.requestInfo}>
                       <Text style={styles.requestName}>{req.displayName ?? req.fromUid}</Text>
                       <View style={styles.incomingBadge}>
@@ -250,7 +268,12 @@ export default function FriendsScreen() {
                 ))}
                 {outgoing.map((req) => (
                   <View key={req.id} style={styles.requestRow}>
-                    <Text style={styles.requestName}>{req.displayName ?? req.toUid}</Text>
+                    <Avatar
+                      displayName={req.displayName ?? req.toUid}
+                      profilePictureUrl={req.profilePictureUrl}
+                      size="sm"
+                    />
+                    <Text style={[styles.requestName, { marginLeft: 8 }]}>{req.displayName ?? req.toUid}</Text>
                     <View style={styles.pendingBadge}>
                       <Text style={styles.pendingBadgeText}>pending</Text>
                     </View>
@@ -269,6 +292,11 @@ export default function FriendsScreen() {
               ) : (
                 friends.map((friend) => (
                   <View key={friend.uid} style={styles.friendRow} testID={`friends-friend-item-${friend.uid}`}>
+                    <Avatar
+                      displayName={friend.displayName}
+                      profilePictureUrl={friend.profilePictureUrl}
+                      size="sm"
+                    />
                     <View style={styles.friendInfo}>
                       <Text style={styles.friendName}>{friend.displayName}</Text>
                       <Text style={styles.friendEmail}>{friend.email}</Text>
@@ -386,6 +414,8 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     padding: 12,
   },
+  searchResultRow: { flexDirection: 'row', alignItems: 'center' },
+  searchResultInfo: { marginLeft: 10, flex: 1 },
   searchResultName: { fontWeight: '600', fontSize: 15, color: '#333' },
   searchResultEmail: { fontSize: 13, color: '#6b7280', marginTop: 2 },
 
@@ -400,7 +430,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
   },
-  requestInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  requestInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 8 },
   requestName: { fontSize: 15, fontWeight: '500', color: '#333' },
   requestActions: { flexDirection: 'row', gap: 6 },
   acceptButton: {
@@ -441,7 +471,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
   },
-  friendInfo: { flex: 1 },
+  friendInfo: { flex: 1, marginLeft: 10 },
   friendName: { fontSize: 15, fontWeight: '500', color: '#333' },
   friendEmail: { fontSize: 13, color: '#6b7280', marginTop: 1 },
   removeButton: {
