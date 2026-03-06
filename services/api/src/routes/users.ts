@@ -10,6 +10,7 @@ import type {
 } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
 import { admin } from '../lib/firebase';
+import { cacheControl } from '../middleware/cache-control';
 import { getDb } from '../lib/firestore';
 import { generateUniqueUsername, validateUsername } from '../lib/username';
 import { animeFilter } from '../lib/anime-filter';
@@ -135,7 +136,7 @@ router.post('/', requireAuth, async (req: Request, res: Response): Promise<void>
  * GET /users/me
  * Returns the authenticated user's Firestore profile, or 404 if not yet created.
  */
-router.get('/me', requireAuth, async (req: Request, res: Response): Promise<void> => {
+router.get('/me', requireAuth, cacheControl(0), async (req: Request, res: Response): Promise<void> => {
   const uid = req.user!.uid;
   const db = getDb();
   const doc = await db.collection('users').doc(uid).get();
@@ -376,31 +377,40 @@ router.get('/:uid/profile', requireAuth, async (req: Request, res: Response): Pr
   ];
   const burnSquads = squadSnap.docs.map((d) => d.data() as BurnSquad);
 
-  // 4. Get partner display names for buddy relationships
+  // 4. Get partner display names using batched multi-get (single round trip)
   const partnerUids = burnBuddies.map((bb) => (bb.uid1 === targetUid ? bb.uid2 : bb.uid1));
-  const partnerDocs = await Promise.all(
-    partnerUids.map((uid) => db.collection('users').doc(uid).get()),
-  );
   const partnerNames: Record<string, string> = {};
-  partnerDocs.forEach((doc, i) => {
-    if (doc.exists) {
-      partnerNames[partnerUids[i]!] = (doc.data() as UserProfile).displayName;
-    }
-  });
+  if (partnerUids.length > 0) {
+    const partnerRefs = partnerUids.map((uid) => db.collection('users').doc(uid));
+    const partnerDocs = await db.getAll(...partnerRefs);
+    partnerDocs.forEach((doc) => {
+      if (doc.exists) {
+        const data = doc.data() as UserProfile;
+        partnerNames[data.uid] = data.displayName;
+      }
+    });
+  }
 
-  // 5. Get group workouts for all buddy/squad relationships
+  // 5. Get group workouts using batched 'in' queries (max 30 per query)
   const allReferenceIds = [
     ...burnBuddies.map((bb) => bb.id),
     ...burnSquads.map((sq) => sq.id),
   ];
 
   const groupWorkoutsByRef: Record<string, GroupWorkout[]> = {};
-  await Promise.all(
-    allReferenceIds.map(async (refId) => {
-      const snap = await db.collection('groupWorkouts').where('referenceId', '==', refId).get();
-      groupWorkoutsByRef[refId] = snap.docs.map((d) => d.data() as GroupWorkout);
-    }),
-  );
+  for (const refId of allReferenceIds) {
+    groupWorkoutsByRef[refId] = [];
+  }
+
+  const CHUNK_SIZE = 30;
+  for (let i = 0; i < allReferenceIds.length; i += CHUNK_SIZE) {
+    const chunk = allReferenceIds.slice(i, i + CHUNK_SIZE);
+    const snap = await db.collection('groupWorkouts').where('referenceId', 'in', chunk).get();
+    for (const doc of snap.docs) {
+      const gw = doc.data() as GroupWorkout;
+      groupWorkoutsByRef[gw.referenceId]?.push(gw);
+    }
+  }
 
   // 6. Calculate highest active streak and highest streak ever across all relationships
   let highestActiveStreak: ProfileStats['highestActiveStreak'] = null;

@@ -3053,6 +3053,18 @@
     postcss "^8.5.6"
     tailwindcss "4.2.1"
 
+"@tanstack/query-core@5.90.20":
+  version "5.90.20"
+  resolved "https://registry.yarnpkg.com/@tanstack/query-core/-/query-core-5.90.20.tgz#e12128e39210715d4ce4fb299c33498ac297771e"
+  integrity sha512-OMD2HLpNouXEfZJWcKeVKUgQ5n+n3A2JFmBaScpNDUqSrQSjiveC7dKMe53uJUg1nDG16ttFPz2xfilz6i2uVg==
+
+"@tanstack/react-query@^5.90.21":
+  version "5.90.21"
+  resolved "https://registry.yarnpkg.com/@tanstack/react-query/-/react-query-5.90.21.tgz#e0eb40831a76510be438109435b8807ef63ab1b9"
+  integrity sha512-0Lu6y5t+tvlTJMTO7oh5NSpJfpg/5D41LlThfepTixPYkJ0sE2Jj0m0f6yYqujBwIXlId87e234+MxG3D3g7kg==
+  dependencies:
+    "@tanstack/query-core" "5.90.20"
+
 "@testing-library/jest-native@^5.4.3":
   version "5.4.3"
   resolved "https://registry.yarnpkg.com/@testing-library/jest-native/-/jest-native-5.4.3.tgz#9334c68eaf45db9eb20d0876728cc5d7fc2c3ea2"
@@ -3139,6 +3151,14 @@
   dependencies:
     "@types/deep-eql" "*"
     assertion-error "^2.0.1"
+
+"@types/compression@^1.8.1":
+  version "1.8.1"
+  resolved "https://registry.yarnpkg.com/@types/compression/-/compression-1.8.1.tgz#57cd1a5c0c585aca56124ab4daef1d254d6f5a7d"
+  integrity sha512-kCFuWS0ebDbmxs0AXYn6e2r2nrGAb5KwQhknjSPSPgJcGd8+HVSILlUyFhGqML2gk39HcG7D1ydW9/qpYkN00Q==
+  dependencies:
+    "@types/express" "*"
+    "@types/node" "*"
 
 "@types/connect@*":
   version "3.4.38"
@@ -4159,7 +4179,7 @@ compressible@~2.0.18:
   dependencies:
     mime-db ">= 1.43.0 < 2"
 
-compression@^1.7.4:
+compression@^1.7.4, compression@^1.8.1:
   version "1.8.1"
   resolved "https://registry.yarnpkg.com/compression/-/compression-1.8.1.tgz#4a45d909ac16509195a9a28bd91094889c180d79"
   integrity sha512-9mAqGPHLakhCLeNyxPkK4xVo746zQ/czLH1Ky+vkitMnWfWZps8r0qXuwhwizagCRttsL4lfG4pIOvaWLpAP0w==
@@ -9012,6 +9032,11 @@ web-vitals@^4.2.4:
   version "4.2.4"
   resolved "https://registry.yarnpkg.com/web-vitals/-/web-vitals-4.2.4.tgz#1d20bc8590a37769bd0902b289550936069184b7"
   integrity sha512-r4DIlprAGwJ7YM11VZp4R884m0Vmgr6EAKe3P+kO0PPj3Unqyvv59rczf6UiGcb9Z8QxZVcqKNwv/g0WNdWwsw==
+
+web-vitals@^5.1.0:
+  version "5.1.0"
+  resolved "https://registry.yarnpkg.com/web-vitals/-/web-vitals-5.1.0.tgz#2f117e92c8c4eeb107cb163cbb482ac20d685ebd"
+  integrity sha512-ArI3kx5jI0atlTtmV0fWU3fjpLmq/nD3Zr1iFFlJLaqa5wLBkUSzINwBPySCX/8jRyjlmy1Volw1kz1g9XE4Jg==
 
 webidl-conversions@^3.0.0:
   version "3.0.1"

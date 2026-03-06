@@ -965,3 +965,131 @@ describe('DELETE /burn-squads/:id', () => {
     expect(mockSquadDocDelete).toHaveBeenCalledOnce();
   });
 });
+
+// ── GET /burn-squads/:id/calendar ─────────────────────────────────────────────
+
+describe('GET /burn-squads/:id/calendar', () => {
+  it('returns 401 when unauthenticated', async () => {
+    const res = await request(buildApp()).get(`/burn-squads/${SQUAD_ID}/calendar`);
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 when squad not found', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}/calendar`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 404 when user is not a member', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        ...SAMPLE_SQUAD,
+        memberUids: ['other-user-1', 'other-user-2'],
+      }),
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}/calendar`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 400 when no workout schedule is configured', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        ...SAMPLE_SQUAD,
+        settings: { onlyAdminsCanAddMembers: false },
+      }),
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}/calendar`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: expect.stringContaining('schedule') });
+  });
+
+  it('returns 400 when workout schedule has empty days', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        ...SAMPLE_SQUAD,
+        settings: {
+          onlyAdminsCanAddMembers: false,
+          workoutSchedule: { days: [] },
+        },
+      }),
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}/calendar`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: expect.stringContaining('schedule') });
+  });
+
+  it('returns .ics file with timed events when schedule has time', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        ...SAMPLE_SQUAD,
+        settings: {
+          onlyAdminsCanAddMembers: false,
+          workoutSchedule: { days: ['Mon', 'Wed', 'Fri'], time: '07:00' },
+        },
+      }),
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}/calendar`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('text/calendar');
+    expect(res.headers['content-disposition']).toBe('attachment; filename="burnbuddy-workout.ics"');
+
+    const body = res.text;
+    expect(body).toContain('BEGIN:VCALENDAR');
+    expect(body).toContain('END:VCALENDAR');
+    expect(body).toContain('SUMMARY:🔥 Test Squad Workout');
+    expect(body).toContain('RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR');
+    expect(body).toContain('DTSTART:');
+    expect(body).toContain('DTEND:');
+    expect(body).toContain('TRIGGER:-PT30M');
+  });
+
+  it('returns .ics file with all-day events when schedule has no time', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        ...SAMPLE_SQUAD,
+        settings: {
+          onlyAdminsCanAddMembers: false,
+          workoutSchedule: { days: ['Tue', 'Thu'] },
+        },
+      }),
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}/calendar`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('text/calendar');
+
+    const body = res.text;
+    expect(body).toContain('BEGIN:VCALENDAR');
+    expect(body).toContain('SUMMARY:🔥 Test Squad Workout');
+    expect(body).toContain('RRULE:FREQ=WEEKLY;BYDAY=TU,TH');
+    expect(body).toContain('DTSTART;VALUE=DATE:');
+  });
+});

@@ -1,9 +1,11 @@
 import { randomUUID } from 'crypto';
 import { Router, type Request, type Response } from 'express';
-import type { BurnBuddy, BurnBuddyRequest, GroupWorkout, WorkoutSchedule } from '@burnbuddy/shared';
+import type { BurnBuddy, BurnBuddyRequest, GroupWorkout, UserProfile, WorkoutSchedule } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
+import { cacheControl } from '../middleware/cache-control';
 import { getDb } from '../lib/firestore';
 import { calculateStreaks, calculateGroupStats } from '../services/streak-calculator';
+import { generateIcs } from '../lib/ics-generator';
 
 const router = Router();
 
@@ -135,7 +137,7 @@ router.post(
  * GET /burn-buddies
  * Returns all accepted Burn Buddies for the authenticated user.
  */
-router.get('/', requireAuth, async (req: Request, res: Response): Promise<void> => {
+router.get('/', requireAuth, cacheControl(30), async (req: Request, res: Response): Promise<void> => {
   const uid = req.user!.uid;
   const db = getDb();
 
@@ -301,6 +303,53 @@ router.delete('/:id', requireAuth, async (req: Request, res: Response): Promise<
 
   await db.collection('burnBuddies').doc(id).delete();
   res.status(204).send();
+});
+
+/**
+ * GET /burn-buddies/:id/calendar
+ * Downloads an .ics calendar file for the workout schedule of this Burn Buddy.
+ */
+router.get('/:id/calendar', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const uid = req.user!.uid;
+  const id = req.params['id'] as string;
+  const db = getDb();
+
+  const burnBuddyDoc = await db.collection('burnBuddies').doc(id).get();
+
+  if (!burnBuddyDoc.exists) {
+    res.status(404).json({ error: 'Burn Buddy not found' });
+    return;
+  }
+
+  const burnBuddy = burnBuddyDoc.data() as BurnBuddy;
+
+  if (burnBuddy.uid1 !== uid && burnBuddy.uid2 !== uid) {
+    res.status(404).json({ error: 'Burn Buddy not found' });
+    return;
+  }
+
+  const schedule = burnBuddy.workoutSchedule;
+  if (!schedule || !schedule.days || schedule.days.length === 0) {
+    res.status(400).json({ error: 'No workout schedule configured' });
+    return;
+  }
+
+  // Look up the partner's display name
+  const partnerUid = burnBuddy.uid1 === uid ? burnBuddy.uid2 : burnBuddy.uid1;
+  const partnerDoc = await db.collection('users').doc(partnerUid).get();
+  const partnerName = partnerDoc.exists
+    ? (partnerDoc.data() as UserProfile).displayName
+    : 'Buddy';
+
+  const icsContent = generateIcs({
+    days: schedule.days,
+    time: schedule.time,
+    title: `🔥 Workout with ${partnerName}`,
+  });
+
+  res.setHeader('Content-Type', 'text/calendar');
+  res.setHeader('Content-Disposition', 'attachment; filename="burnbuddy-workout.ics"');
+  res.send(icsContent);
 });
 
 export default router;

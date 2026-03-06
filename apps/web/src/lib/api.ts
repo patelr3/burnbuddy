@@ -76,3 +76,16 @@ export async function apiUploadFile<T>(path: string, fieldName: string, file: Fi
   if (!res.ok) throw new Error('Upload failed. Please try again.');
   return res.json() as Promise<T>;
 }
+
+export async function apiDownloadBlob(path: string, filename: string): Promise<void> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}${path}`, { headers });
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
