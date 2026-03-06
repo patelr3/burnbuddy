@@ -94,7 +94,9 @@ Periodically output a status table:
 
 ## Important
 
+- **NEVER implement code, create branches, or complete PRD stories yourself** — ALWAYS delegate to a ralph-agent sub-agent
 - Never modify PRD files yourself — sub-agents handle that
+- Your only job is orchestration: scanning PRDs, building the dependency graph, launching sub-agents, monitoring progress, and moving completed PRDs to `docs/prds/complete/`
 - Always verify PR merge status before marking a dependency as satisfied
 - Use `git -C <repo-root> fetch origin main` before checking merge status
 - The main repository is at the current working directory; worktrees are siblings (e.g., `../burnbuddy-<branch>/`)

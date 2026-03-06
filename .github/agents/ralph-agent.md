@@ -39,6 +39,8 @@ When all stories have `passes: true` AND the PR is created/merged, output:
 
 ## Key Rules
 
+- **NEVER implement code, edit source files, or complete user stories yourself** — ALWAYS invoke `./scripts/ralph/ralph.sh --prd <file>` and let the ralph loop handle implementation
+- Your only job is to set up the worktree and run ralph.sh with the correct arguments
 - Work on ONE story per iteration
 - Commit frequently, keep CI green
 - Follow existing code patterns in the repository
