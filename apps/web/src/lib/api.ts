@@ -58,3 +58,21 @@ export async function apiDelete(path: string): Promise<void> {
   });
   if (!res.ok) throw new Error(`API error: ${res.status}`);
 }
+
+export async function apiUploadFile<T>(path: string, fieldName: string, file: File): Promise<T> {
+  const headers = await getAuthHeaders();
+  const form = new FormData();
+  form.append(fieldName, file);
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers,
+    body: form,
+  });
+  if (res.status === 413) throw new Error('File is too large. Maximum size is 5 MB.');
+  if (res.status === 400) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error ?? 'Invalid file. Please use JPEG, PNG, or WebP.');
+  }
+  if (!res.ok) throw new Error('Upload failed. Please try again.');
+  return res.json() as Promise<T>;
+}
