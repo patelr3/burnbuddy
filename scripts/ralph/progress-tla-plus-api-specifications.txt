@@ -44,3 +44,34 @@ Started: 2026-03-07
   - CrossDomainInvariants runs from specs/tla/ (root) while other specs run from subdirectories
   - Use fail-fast: false so all specs are checked even if one fails
 ---
+
+## 2026-03-07T20:25 - US-010
+- Created specs/tla/VERIFICATION_REPORT.md mapping all 54 TLA+ invariants to API code
+- Analyzed 7 route files, 2 service files, 1 middleware file, and 1 utility file
+- Identified 4 gaps with severity ratings:
+  - G-1 (Critical): AtMostOneBuddyPerPair — burn-buddies.ts uses randomUUID instead of sorted composite key
+  - G-2 (Low): NoSelfInvites — POST /:id/members lacks explicit self-check (indirectly prevented)
+  - G-3 (Medium): UsernameUniqueness — generateUniqueUsername reads then writes without transaction
+  - G-4 (Critical): ProfileRequiredForSocialActions (CDI-1) — no route checks profile existence
+- Files changed: specs/tla/VERIFICATION_REPORT.md
+- **Learnings for future iterations:**
+  - Friends use sorted composite key (uid1_uid2) for dedup — burn buddies use randomUUID (design inconsistency)
+  - Username reservation uses batch but the read-check-write isn't transactional
+  - Push notifications and group workout detection are fire-and-forget (.catch swallows errors)
+  - All social routes rely solely on Firebase Auth — no Firestore profile check
+  - Pre-existing typecheck failures in mobile app are expected; use `yarn workspace @burnbuddy/shared build` then `cd services/api && npx tsc --noEmit` for validation
+---
+
+## 2026-03-07T20:55 - US-011
+- Implemented 8 automated tests covering all 4 gaps from VERIFICATION_REPORT.md
+- G-1 (Critical): 2 tests in burn-buddies.test.ts documenting AtMostOneBuddyPerPair gap (random UUID doc ID, no existing-pair check)
+- G-2 (Low): 1 test in burn-squads.test.ts documenting NoSelfInvites gap (falls through to friendship check, no explicit self guard)
+- G-3 (Medium): 1 test in users.test.ts documenting UsernameUniqueness race condition (read outside transaction, write via batch)
+- G-4 (Critical): 4 tests across friends/burn-buddies/burn-squads/workouts documenting ProfileRequiredForSocialActions gap (CDI-1)
+- All 337 tests pass (329 existing + 8 new)
+- Files changed: burn-buddies.test.ts, burn-squads.test.ts, users.test.ts, friends.test.ts, workouts.test.ts
+- **Learnings for future iterations:**
+  - Squad creation POST /burn-squads returns `{ squad, joinRequests }` (wrapped response), not flat squad object
+  - POST /workouts fetches user doc AFTER creation (for notification displayName), so profile existence check needs to be a separate pre-condition guard
+  - Tests should verify absence of checks (e.g., mockUsersDocGet not called) to document missing guards
+---

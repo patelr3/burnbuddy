@@ -182,7 +182,7 @@
         "Typecheck passes"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on all TLA+ specs and CI workflow being complete."
     },
     {
@@ -196,7 +196,7 @@
         "Tests pass"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-010 verification report identifying the gaps."
     }
   ]
