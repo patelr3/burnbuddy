@@ -1,64 +1,77 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { apiGet, apiPost } from '@/lib/api';
+import { apiPost } from '@/lib/api';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import { NavBar } from '@/components/NavBar';
 import { StatCard } from '@/components/StatCard';
 import { Avatar } from '@/components/Avatar';
-import type { ProfileStats } from '@burnbuddy/shared';
+import { useProfile, queryKeys } from '@/lib/queries';
+
+function ProfileSkeleton() {
+  return (
+    <div className="animate-pulse">
+      {/* Header: avatar + name + badge */}
+      <div className="mb-6 flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <div className="h-16 w-16 rounded-full bg-gray-200" />
+          <div>
+            <div className="mb-2 h-7 w-40 rounded bg-gray-200" />
+            <div className="h-4 w-24 rounded bg-gray-200" />
+          </div>
+        </div>
+        <div className="h-8 w-28 rounded-full bg-gray-200" />
+      </div>
+
+      {/* Stats grid */}
+      <div className="grid grid-cols-2 gap-3">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="rounded-lg border border-slate-100 p-3.5">
+            <div className="mb-2 h-4 w-24 rounded bg-gray-200" />
+            <div className="h-6 w-16 rounded bg-gray-200" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function FriendProfilePage() {
-  const { user, loading } = useAuth();
+  const { loading } = useAuth();
   const params = useParams();
   const uid = params['uid'] as string;
+  const queryClient = useQueryClient();
 
-  const [profile, setProfile] = useState<ProfileStats | null>(null);
-  const [dataLoading, setDataLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: profile, isLoading: dataLoading, error } = useProfile(uid);
+
   const [sendingRequest, setSendingRequest] = useState(false);
   const [requestSent, setRequestSent] = useState(false);
-
-  const loadProfile = useCallback(async () => {
-    if (!user) return;
-    setDataLoading(true);
-    setError(null);
-    try {
-      const data = await apiGet<ProfileStats>(`/users/${uid}/profile`);
-      setProfile(data);
-    } catch (err: unknown) {
-      const msg = (err as { message?: string })?.message ?? '';
-      if (msg.includes('404')) {
-        setError('User not found.');
-      } else if (msg.includes('403')) {
-        setError('You can only view profiles of your friends.');
-      } else {
-        setError('Failed to load profile.');
-      }
-    } finally {
-      setDataLoading(false);
-    }
-  }, [user, uid]);
-
-  useEffect(() => {
-    loadProfile();
-  }, [loadProfile]);
+  const [mutationError, setMutationError] = useState<string | null>(null);
 
   const handleRequestBurnBuddy = async () => {
     setSendingRequest(true);
+    setMutationError(null);
     try {
       await apiPost('/burn-buddies/requests', { toUid: uid });
       setRequestSent(true);
-      // Refresh profile to update buddyRelationshipStatus
-      await loadProfile();
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile(uid) });
     } catch {
-      setError('Failed to send Burn Buddy request.');
+      setMutationError('Failed to send Burn Buddy request.');
     } finally {
       setSendingRequest(false);
     }
   };
+
+  const errorMessage = error
+    ? (error.message?.includes('404')
+        ? 'User not found.'
+        : error.message?.includes('403')
+          ? 'You can only view profiles of your friends.'
+          : 'Failed to load profile.')
+    : mutationError;
 
   if (loading) return null;
 
@@ -72,11 +85,11 @@ export default function FriendProfilePage() {
           </Link>
         </div>
 
-        {dataLoading && <p className="text-gray-500">Loading…</p>}
+        {dataLoading && <ProfileSkeleton />}
 
-        {!dataLoading && error && (
+        {!dataLoading && errorMessage && (
           <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-danger">
-            {error}
+            {errorMessage}
           </div>
         )}
 
