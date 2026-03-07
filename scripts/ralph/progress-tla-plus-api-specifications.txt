@@ -1,3 +1,114 @@
 # Ralph Progress Log — TLA+ Formal Specifications for BurnBuddy API
 Started: 2026-03-07
+
+## Codebase Patterns
+- TLA+ specs live under `specs/tla/` with one subdirectory per domain
+- `Common.tla` is the shared module — all domain specs should `EXTENDS Common`
+- Each domain spec needs a `.tla` file and a `.cfg` TLC config file
+- Typecheck is `yarn typecheck` — mobile workspace has pre-existing errors (Expo), ignore those; check api/web/shared workspaces individually if needed
+- TLA+ files are not part of TypeScript typecheck — they are verified separately via TLC (`java -cp tla2tools.jar tlc2.TLC`)
+- TLC run command: `cd specs/tla/<domain>/ && java -XX:+UseParallelGC -cp ../tla2tools.jar tlc2.TLC <Spec>.tla -config <Spec>.cfg -workers auto`
+- TLA+ model values don't support `<` — use unordered sets `{u1, u2}` instead of ordered pairs for UID canonicalization
+- For cross-domain dependencies (e.g., friendship before buddy), include simplified prerequisite actions rather than importing full specs
+- Always parenthesize TLA+ arithmetic — `*` and `\div` have precedence conflicts
+- Use `INVARIANT` in `.cfg` for state predicates (not `PROPERTY []Pred`)
+- Model friendships as unordered sets `{u1, u2}` for natural symmetry; directional requests as records `[fromUid, toUid, status]`
+- `tla2tools.jar` and `states/` directories are gitignored
+- Entities with their own identity (squads, workouts) need a separate `CONSTANT` for IDs (e.g., `SquadId`) — keep the count small (1-2) to avoid state space explosion
+- Use `CHOOSE s \in set : s.id = sid` for record lookup but always guard with an existence check first
+- Defensive cleanup in spec actions (e.g., removing pending requests on delete) maintains state invariants even if the real API doesn't clean up — document as findings for VERIFICATION_REPORT
+- Existing specs do NOT extend Common.tla — they extend standard modules (Integers, FiniteSets, TLC) directly and define types inline
+- Common.tla has TLA+ parse errors (`--` not valid comment syntax) — never actually imported by TLC
+- Use `{ pair \in SUBSET S : Cardinality(pair) = 2 }` for unordered pairs — avoids TLC parse errors with nested set comprehensions
+- Time-based specs need `CHECK_DEADLOCK FALSE` in cfg — bounded time leads to terminal states
+- Use 0 as sentinel for "not set" timestamp fields, start time at 1 so `endedAt > 0` invariant works
+- Use addition-based range checks `~(a <= b + W /\ b <= a + W)` instead of subtraction to avoid Nat underflow
+- TLC cannot compare records with non-records for fingerprinting — use decomposed state (separate set for existence + separate functions per field) instead of record-or-sentinel functions
+- Use `CHOOSE u \in Set : TRUE` for irrelevant initial function values when domain elements may not yet be active
+---
+
+## 2026-03-07T07:15 - US-001
+- What was implemented: TLA+ project structure with `specs/tla/` directory, subdirectories for all 6 domains (friends, burn-buddies, burn-squads, workouts, users, notifications), `Common.tla` shared module, and `README.md`
+- Files changed: `specs/tla/Common.tla`, `specs/tla/README.md`, `.gitkeep` files in all 6 subdirectories
+- **Learnings for future iterations:**
+  - Domain types in `packages/shared/src/types.ts` are the source of truth for modeling in TLA+
+  - `Common.tla` defines `Uid` as a CONSTANT (model values), `Timestamp` as `Nat`, and string-enum sets for Status/WorkoutType/WorkoutStatus
+  - The `OrderedPair` operator in Common.tla handles the uid1 < uid2 sorting convention used by BurnBuddy relationships
+  - `yarn typecheck` runs all workspaces — mobile will fail with pre-existing Expo errors, this is expected
+---
+
+## 2026-03-07T07:20 - US-002
+- What was implemented: FriendManagement TLA+ spec modeling friend request lifecycle (send/accept/decline) and friendship management (create/delete). Includes TLC config with 3 model-value UIDs.
+- Files changed: `specs/tla/friends/FriendManagement.tla`, `specs/tla/friends/FriendManagement.cfg`, `.gitignore` (added TLC state dirs and tla2tools.jar)
+- TLC results: 14.4M states generated, 1.4M distinct states, 0 violations, depth 37
+- **Learnings for future iterations:**
+  - TLA+ `*` and `\div` have precedence conflicts — always parenthesize arithmetic expressions
+  - TLC `.cfg` files use `INVARIANT` for state predicates (checked at every state), not `PROPERTY []Pred` — that syntax requires defining a named temporal formula in the `.tla` file
+  - Friendships are modeled as unordered sets `{u1, u2}` which naturally captures symmetry without needing explicit bidirectional checks
+  - Friend requests use directional records `[fromUid |-> u1, toUid |-> u2, status |-> s]` which correctly models the API's per-direction duplicate checking
+  - `tla2tools.jar` downloaded to `specs/tla/` — added to `.gitignore`; TLC generates `states/` dirs that must also be gitignored
+  - Pre-existing typecheck errors in mobile/shared/api workspaces are unrelated to TLA+ work (worktree doesn't have deps built)
+---
+
+## 2026-03-07T07:27 - US-003
+- What was implemented: BurnBuddyManagement TLA+ spec modeling burn buddy request lifecycle (send/accept/decline) and relationship management (update schedule/delete) with friendship dependency enforcement.
+- Files changed: `specs/tla/burn-buddies/BurnBuddyManagement.tla`, `specs/tla/burn-buddies/BurnBuddyManagement.cfg`
+- TLC results: 26.3M states generated, 1.73M distinct states, 0 violations, depth 40
+- **Learnings for future iterations:**
+  - TLA+ model values don't support `<` ordering — cannot use `OrderedPair(a,b) == IF a < b THEN ...` with model values. Use unordered sets `{u1, u2}` instead of ordered pairs when UIDs are model values.
+  - The uid1 < uid2 sorting convention is a Firestore storage detail; the uniqueness property is naturally captured by set equality `{A,B} = {B,A}`.
+  - When modeling cross-domain dependencies (e.g., friendship required for buddy), include simplified versions of the prerequisite actions (CreateFriendship/DeleteFriendship) rather than importing full specs.
+  - Friendship deletion must cascade-clean pending buddy requests to maintain the invariant, even though the real API may not enforce this — document as "defensive modeling."
+  - Invariants on pending requests (not all historical records) avoids false violations from stale accepted/declined records after friendship deletion.
+---
+
+## 2026-03-07T07:52 - US-004
+- What was implemented: BurnSquadManagement TLA+ spec modeling squad lifecycle (create/delete), membership via join requests (invite/accept/decline), admin permission enforcement (onlyAdminsCanAddMembers), and settings management. Includes TLC config with 3 model-value UIDs and 1 squad ID.
+- Files changed: `specs/tla/burn-squads/BurnSquadManagement.tla`, `specs/tla/burn-squads/BurnSquadManagement.cfg`
+- TLC results: 8.9M states generated, 917K distinct states, 0 violations, depth 39
+- **Learnings for future iterations:**
+  - Squads require a `SquadId` CONSTANT (model values) in addition to `Uid` — each entity with its own identity needs a separate constant
+  - With 3 users and 2 squad IDs, the state space explodes beyond practical verification; 3 users + 1 squad ID (917K states) provides sufficient coverage for permission/membership invariants
+  - Squad specs need defensive cleanup in UpdateSettings (clean non-admin pending requests when enabling restriction) and DeleteSquad (clean pending requests for deleted squad) to maintain state invariants
+  - The `CHOOSE` operator requires existence guard (`SquadExists(sid)`) before `SquadById(sid)` — otherwise TLC throws an error for undefined CHOOSE
+  - Squads model membership as `SUBSET Uid` (sets) rather than sequences, giving natural idempotency for member addition
+  - The API has no explicit "decline join request" endpoint, but the shared type supports it — included for completeness
+---
+
+## 2026-03-07T08:05 - US-005
+- What was implemented: WorkoutLifecycle TLA+ spec modeling workout start/end lifecycle, auto-end stale workouts (90-min threshold via StaleThreshold=2), and concurrent group workout detection for buddy pairs and squads. Uses abstract time (1..MaxTime), WindowSize=1 for the 20-minute detection window, and symmetry sets for users and workout IDs.
+- Files changed: `specs/tla/workouts/WorkoutLifecycle.tla`, `specs/tla/workouts/WorkoutLifecycle.cfg`
+- TLC results: 155K states generated, 75K distinct states, 0 violations, depth 15
+- **Learnings for future iterations:**
+  - Existing domain specs (Friends, BurnBuddy, BurnSquad) do NOT extend Common.tla — they define everything inline. Common.tla has TLA+ parse errors (`--` is not a valid comment syntax) and was never actually imported. Future specs should extend standard modules directly.
+  - Time-based specs need `CHECK_DEADLOCK FALSE` in cfg — bounded time naturally leads to terminal states when MaxTime is reached and all IDs are used.
+  - Use `{ pair \in SUBSET Uid : Cardinality(pair) = 2 }` for unordered pairs instead of `{ {a, b} : a \in S, b \in S \ {a} }` — the latter causes TLC parse errors with variable scoping in set comprehensions.
+  - Pre-configured relationships (buddies, squads) in Init simplifies workout-focused specs — no need to model relationship creation/deletion here.
+  - 0 as sentinel for "endedAt not set" requires time to start at 1 (not 0) so the invariant `endedAt > 0` works for completed workouts.
+  - Use addition-based range check `~(a <= b + W /\ b <= a + W)` instead of subtraction `|a-b| > W` to avoid Nat underflow in TLA+.
+  - TLC SYMMETRY with `Permutations(Uid) \cup Permutations(WorkoutId)` significantly reduces state space when users and IDs are interchangeable.
+---
+
+## 2026-03-07T08:11 - US-006
+- What was implemented: UserProfileManagement TLA+ spec modeling profile creation with idempotency (409 guard), username reservation mechanism (usernames collection), atomic username changes (batch write), and profile picture upload/delete lifecycle. Includes TLC config with 3 model-value UIDs and 4 usernames.
+- Files changed: `specs/tla/users/UserProfileManagement.tla`, `specs/tla/users/UserProfileManagement.cfg`
+- TLC results: 15.7K states generated, 1.2K distinct states, 0 violations, depth 10
+- **Learnings for future iterations:**
+  - TLC cannot compare records with non-records (e.g., `[username |-> x] = "none"` fails fingerprinting). Use decomposed state variables (separate set for existence, separate functions for fields) instead of record-or-sentinel functions.
+  - When modeling optional/absent state, use a separate `SUBSET Uid` set for existence tracking rather than sentinel values in a function that also holds records.
+  - `CHOOSE u \in Username : TRUE` is needed to initialize function values for UIDs that don't yet have profiles — the initial value is irrelevant but TLC requires it.
+  - Username model values represent case-insensitive equivalence classes; real case-sensitivity is an implementation detail abstracted away.
+  - Bounded retry count (0..3) keeps state space small while still modeling the generateUniqueUsername collision-retry behavior.
+---
+
+## 2026-03-07T08:17 - US-007
+- What was implemented: PushNotifications TLA+ spec modeling the fire-and-forget notification pattern triggered by workout creation. Models background notification process with recipient collection (buddy partners + squad members), FCM token filtering, and error isolation. Uses non-deterministic Init for complete coverage across all possible relationship/token configurations.
+- Files changed: `specs/tla/notifications/PushNotifications.tla`, `specs/tla/notifications/PushNotifications.cfg`
+- TLC results: 195K states generated, 69K distinct states, 0 violations, depth 13
+- **Learnings for future iterations:**
+  - Non-deterministic Init (e.g., `buddyPairs \in SUBSET {pair \in SUBSET Uid : Cardinality(pair) = 2}`) is practical for small models — 1024 initial states with 3 users and 1 squad, verifying invariants across ALL possible relationship configurations
+  - SYMMETRY on Uid works well with non-deterministic Init — TLC identifies isomorphic states across permutations
+  - Use `CONSTANT Uid = {u1, u2, u3}` (not `CONSTANTS u1 = u1 ...`) in cfg files — TLC needs the set definition for CONSTANT parameters
+  - Fire-and-forget pattern modeled by making response-send atomic with workout-start, while notification actions are separate disjuncts in Next
+  - For specs focused on a single background process pattern, decompose into phases (idle → notifying → done/failed) with per-recipient processing actions
 ---

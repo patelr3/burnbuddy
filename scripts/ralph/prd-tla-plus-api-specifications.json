@@ -1,7 +1,7 @@
 {
   "project": "BurnBuddy",
   "branchName": "ralph/tla-plus-api-specifications",
-  "description": "TLA+ Formal Specifications for BurnBuddy API — model request/response protocols, concurrent operations, Firestore state transitions, and background processes to verify safety invariants",
+  "description": "TLA+ Formal Specifications for BurnBuddy API \u2014 model request/response protocols, concurrent operations, Firestore state transitions, and background processes to verify safety invariants",
   "dependsOn": [
     "ralph/site-performance-non-dashboard"
   ],
@@ -18,7 +18,7 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -37,7 +37,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -56,7 +56,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -75,7 +75,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -94,8 +94,8 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": "Most complex spec — uses TLA+ processes for background tasks, abstract time states to avoid state space explosion. Use symmetry sets for users where possible."
+      "passes": true,
+      "notes": "Most complex spec \u2014 uses TLA+ processes for background tasks, abstract time states to avoid state space explosion. Use symmetry sets for users where possible."
     },
     {
       "id": "US-006",
@@ -113,7 +113,7 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -132,7 +132,7 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -141,7 +141,7 @@
       "description": "As a developer, I need a spec that verifies invariants spanning multiple domains so I can catch relationship dependency violations.",
       "acceptanceCriteria": [
         "Create specs/tla/CrossDomainInvariants.tla that imports all domain specs (Friends, BurnBuddies, BurnSquads, Workouts, Users)",
-        "Define cross-domain invariants: deleting friend prevents new burn buddy request, deleting burn buddy orphans associated GroupWorkouts (by design — document), deleting burn squad orphans associated GroupWorkouts (by design — document), GroupWorkout references valid buddy/squad (referenceId exists), GroupWorkout.memberUids matches referenced buddy/squad membership at creation time, profile must exist before user can create friends/buddies/squads/workouts",
+        "Define cross-domain invariants: deleting friend prevents new burn buddy request, deleting burn buddy orphans associated GroupWorkouts (by design \u2014 document), deleting burn squad orphans associated GroupWorkouts (by design \u2014 document), GroupWorkout references valid buddy/squad (referenceId exists), GroupWorkout.memberUids matches referenced buddy/squad membership at creation time, profile must exist before user can create friends/buddies/squads/workouts",
         "Create specs/tla/CrossDomainInvariants.cfg TLC config",
         "TLC verifies all cross-domain invariants with no violations",
         "Document any discrepancies found as inline comments",
@@ -176,7 +176,7 @@
       "acceptanceCriteria": [
         "Create specs/tla/VERIFICATION_REPORT.md",
         "For each domain spec, create a checklist mapping invariants to code locations in services/api/src/routes/*.ts",
-        "For each invariant, document: code file and function, status (✅ correctly implemented, ⚠️ partially implemented, ❌ not enforced), and any discrepancies",
+        "For each invariant, document: code file and function, status (\u2705 correctly implemented, \u26a0\ufe0f partially implemented, \u274c not enforced), and any discrepancies",
         "Summary section listing all gaps requiring fixes with severity (critical/medium/low)",
         "Reference specific line numbers in route handlers",
         "Typecheck passes"
@@ -190,7 +190,7 @@
       "title": "Automated tests for gaps found in verification report",
       "description": "As a developer, I need automated tests covering any gaps found during spec verification so future regressions are caught.",
       "acceptanceCriteria": [
-        "For each gap identified in VERIFICATION_REPORT.md with status ⚠️ or ❌, create or update test in services/api/src/routes/*.test.ts",
+        "For each gap identified in VERIFICATION_REPORT.md with status \u26a0\ufe0f or \u274c, create or update test in services/api/src/routes/*.test.ts",
         "Each test verifies the invariant holds (or documents why it doesn't) with a comment referencing the TLA+ spec and invariant name",
         "All new/updated tests pass: cd services/api && yarn test",
         "Tests pass"
