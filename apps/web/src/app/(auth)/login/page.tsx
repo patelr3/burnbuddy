@@ -23,12 +23,14 @@ export default function LoginPage() {
   if (loading || user) return null;
 
   return (
-    <main className="max-w-md mx-auto mt-20 px-4">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-primary">🔥 BurnBuddy</h1>
-        <p className="text-gray-500 mt-2">Motivate your buddies to burn calories</p>
+    <main className="flex min-h-screen flex-col items-center justify-center px-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-primary">🔥 BurnBuddy</h1>
+          <p className="text-gray-400 mt-2">Motivate your buddies to burn calories</p>
+        </div>
+        <FirebaseAuthWidget />
       </div>
-      <FirebaseAuthWidget />
     </main>
   );
 }

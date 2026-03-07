@@ -6,7 +6,6 @@ import { useAuth } from '@/lib/auth-context';
 import { useDashboard, queryKeys, type DashboardData } from '@/lib/queries';
 import { apiPost, apiPut, apiPatch } from '@/lib/api';
 import { GettingStartedCard } from '@/components/GettingStartedCard';
-import { NavBar } from '@/components/NavBar';
 import { Avatar } from '@/components/Avatar';
 import Link from 'next/link';
 import type { Workout, WorkoutType, WorkoutSchedule } from '@burnbuddy/shared';
@@ -91,21 +90,21 @@ function timeAgo(isoString: string | null): string {
 function DashboardSkeleton() {
   return (
     <div className="animate-pulse">
-      <div className="mb-6 h-14 rounded-lg bg-gray-200" />
+      <div className="mb-6 h-14 rounded-lg bg-gray-800" />
       <div className="mb-6 flex items-center justify-between">
-        <div className="h-6 w-48 rounded bg-gray-200" />
+        <div className="h-6 w-48 rounded bg-gray-800" />
         <div className="flex gap-2">
-          <div className="h-8 w-24 rounded bg-gray-200" />
-          <div className="h-8 w-24 rounded bg-gray-200" />
+          <div className="h-8 w-24 rounded bg-gray-800" />
+          <div className="h-8 w-24 rounded bg-gray-800" />
         </div>
       </div>
       {[1, 2, 3].map((i) => (
-        <div key={i} className="mb-2 flex items-center justify-between rounded-lg border border-slate-100 p-3.5">
+        <div key={i} className="mb-2 flex items-center justify-between rounded-lg border border-gray-700 p-3.5">
           <div>
-            <div className="mb-2 h-5 w-32 rounded bg-gray-200" />
-            <div className="h-4 w-20 rounded bg-gray-200" />
+            <div className="mb-2 h-5 w-32 rounded bg-gray-800" />
+            <div className="h-4 w-20 rounded bg-gray-800" />
           </div>
-          <div className="h-8 w-12 rounded bg-gray-200" />
+          <div className="h-8 w-12 rounded bg-gray-800" />
         </div>
       ))}
     </div>
@@ -284,20 +283,18 @@ export default function Home() {
   if (loading) return null;
 
   return (
-    <>
-      <NavBar />
       <main className="mx-auto max-w-xl px-4">
 
       {showCard && <GettingStartedCard onDismiss={handleDismiss} />}
 
       {/* Active Workout Banner */}
       {activeWorkout && (
-        <div className="mb-5 flex items-center justify-between rounded-lg border border-yellow-300 bg-yellow-100 px-4 py-3.5 shadow">
+        <div className="mb-5 flex items-center justify-between rounded-lg border border-accent-pink bg-surface px-4 py-3.5 shadow">
           <div>
-            <div className="text-[15px] font-bold text-yellow-900">
+            <div className="text-[15px] font-bold text-accent-pink">
               🔥 Active Workout: {activeWorkout.type}
             </div>
-            <div className="mt-0.5 text-[13px] text-yellow-800">
+            <div className="mt-0.5 text-[13px] text-gray-300">
               {formatElapsed(elapsed)}
             </div>
           </div>
@@ -315,7 +312,7 @@ export default function Home() {
         <div className="mb-6">
           <button
             onClick={() => setShowWorkoutSelector(true)}
-            className="w-full cursor-pointer rounded-lg bg-orange-500 p-4 text-base font-semibold text-white hover:bg-orange-600"
+            className="w-full cursor-pointer rounded-lg bg-primary p-4 text-base font-semibold text-white hover:bg-green-600"
           >
             🔥 Start Workout
           </button>
@@ -325,8 +322,8 @@ export default function Home() {
       {/* Workout Type Selector */}
       {showWorkoutSelector && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-[90%] max-w-[400px] rounded-xl bg-white p-6">
-            <h2 className="mb-4 text-lg font-semibold">Choose Workout Type</h2>
+          <div className="w-[90%] max-w-[400px] rounded-xl bg-surface p-6">
+            <h2 className="mb-4 text-lg font-semibold text-white">Choose Workout Type</h2>
             <div className="mb-4 grid grid-cols-2 gap-2">
               {WORKOUT_TYPES.map((wt) => (
                 <button
@@ -334,8 +331,8 @@ export default function Home() {
                   onClick={() => setSelectedType(wt)}
                   className={`cursor-pointer rounded-md border-2 px-2 py-3 text-sm ${
                     selectedType === wt
-                      ? 'border-orange-500 bg-orange-50 font-bold text-orange-700'
-                      : 'border-slate-200 bg-white font-normal text-gray-700 hover:border-gray-300'
+                      ? 'border-primary bg-primary/20 font-bold text-primary'
+                      : 'border-gray-600 bg-surface-elevated font-normal text-gray-300 hover:border-gray-500'
                   }`}
                 >
                   {wt}
@@ -348,7 +345,7 @@ export default function Home() {
                 placeholder="Enter custom workout type"
                 value={customType}
                 onChange={(e) => setCustomType(e.target.value)}
-                className="mb-4 box-border w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                className="mb-4 box-border w-full rounded-md border border-gray-600 bg-surface-elevated px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:ring-2 focus:ring-primary focus:outline-none"
               />
             )}
             <div className="flex justify-end gap-2">
@@ -358,14 +355,14 @@ export default function Home() {
                   setSelectedType('');
                   setCustomType('');
                 }}
-                className="cursor-pointer rounded-md border border-slate-200 bg-white px-5 py-2.5 text-sm hover:bg-gray-50"
+                className="cursor-pointer rounded-md border border-gray-600 bg-surface-elevated px-5 py-2.5 text-sm text-gray-300 hover:bg-gray-700"
               >
                 Cancel
               </button>
               <button
                 onClick={handleStartWorkout}
                 disabled={!selectedType || (selectedType === 'Custom' && !customType.trim())}
-                className="cursor-pointer rounded-md bg-orange-500 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-600 disabled:opacity-50"
+                className="cursor-pointer rounded-md bg-primary px-5 py-2.5 text-sm font-bold text-white hover:bg-green-600 disabled:opacity-50"
               >
                 Start Workout
               </button>
@@ -377,23 +374,23 @@ export default function Home() {
       {/* Pending Burn Buddy Requests */}
       {incomingBuddyRequests.length > 0 && (
         <section className="mb-6">
-          <h2 className="mb-3 text-base text-gray-500">
+          <h2 className="mb-3 text-base text-white">
             Pending Burn Buddy Requests
           </h2>
           {incomingBuddyRequests.map((req) => (
             <div
               key={req.id}
-              className="mb-2 flex items-center justify-between rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-3"
+              className="mb-2 flex items-center justify-between rounded-lg border border-amber-500/30 bg-surface px-3.5 py-3"
             >
               <div>
-                <strong>{req.fromDisplayName ?? req.fromUid}</strong>
-                <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
+                <strong className="text-white">{req.fromDisplayName ?? req.fromUid}</strong>
+                <span className="ml-2 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-400">
                   wants to be your Burn Buddy
                 </span>
               </div>
               <button
                 onClick={() => handleAcceptBuddyRequest(req.id)}
-                className="cursor-pointer rounded bg-orange-500 px-3.5 py-1.5 text-[13px] text-white hover:bg-orange-600"
+                className="cursor-pointer rounded bg-primary px-3.5 py-1.5 text-[13px] text-white hover:bg-green-600"
               >
                 Accept
               </button>
@@ -405,23 +402,23 @@ export default function Home() {
       {/* Pending Burn Squad Join Requests */}
       {incomingSquadRequests.length > 0 && (
         <section className="mb-6">
-          <h2 className="mb-3 text-base text-gray-500">
+          <h2 className="mb-3 text-base text-white">
             Pending Squad Invitations
           </h2>
           {incomingSquadRequests.map((req) => (
             <div
               key={req.id}
-              className="mb-2 flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-3"
+              className="mb-2 flex items-center justify-between rounded-lg border border-secondary/30 bg-surface px-3.5 py-3"
             >
               <div>
-                <strong>{req.squadName}</strong>
-                <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-800">
+                <strong className="text-white">{req.squadName}</strong>
+                <span className="ml-2 rounded-full bg-secondary/20 px-2 py-0.5 text-xs text-secondary">
                   squad invitation
                 </span>
               </div>
               <button
                 onClick={() => handleAcceptSquadRequest(req.squadId, req.id)}
-                className="cursor-pointer rounded bg-blue-500 px-3.5 py-1.5 text-[13px] text-white hover:bg-blue-600"
+                className="cursor-pointer rounded bg-secondary px-3.5 py-1.5 text-[13px] text-white hover:bg-blue-600"
               >
                 Accept
               </button>
@@ -432,7 +429,7 @@ export default function Home() {
 
       {/* Header with create buttons */}
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="m-0 text-lg font-semibold">Burn Buddies &amp; Squads</h2>
+        <h2 className="m-0 text-lg font-semibold text-white">Burn Buddies &amp; Squads</h2>
         <div className="flex gap-2">
           <Link
             href="/burn-buddies/new"
@@ -464,31 +461,31 @@ export default function Home() {
               href={`/${item.type === 'buddy' ? 'burn-buddies' : 'burn-squads'}/${item.id}`}
               className="block no-underline text-inherit"
             >
-              <div className="flex cursor-pointer items-center justify-between rounded-lg border border-slate-100 p-3.5 shadow-sm hover:bg-gray-50 mb-2">
+              <div className="flex cursor-pointer items-center justify-between rounded-lg border border-gray-700 bg-surface p-3.5 hover:bg-surface-elevated mb-2">
                 <div className="flex items-center gap-3">
                   {item.type === 'buddy' && (
                     <Avatar displayName={item.name} profilePictureUrl={item.profilePictureUrl} size="sm" />
                   )}
                   <div>
                     <div className="mb-1 flex items-center gap-2">
-                      <strong>{item.name}</strong>
+                      <strong className="text-white">{item.name}</strong>
                       <span
                         className={`rounded-full px-2 py-0.5 text-[11px] ${
                           item.type === 'buddy'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-blue-100 text-blue-800'
+                            ? 'bg-amber-500/20 text-amber-400'
+                            : 'bg-secondary/20 text-secondary'
                         }`}
                       >
                         {item.type === 'buddy' ? 'Buddy' : 'Squad'}
                       </span>
                     </div>
-                    <div className="text-[13px] text-gray-500">
+                    <div className="text-[13px] text-gray-400">
                       {timeAgo(item.lastGroupWorkout)}
                     </div>
                     {(() => {
                       const next = getNextWorkout(item.workoutSchedule);
                       return next ? (
-                        <div className="mt-0.5 text-[12px] text-gray-400">
+                        <div className="mt-0.5 text-[12px] text-gray-500">
                           Next: {next}
                         </div>
                       ) : null;
@@ -501,11 +498,11 @@ export default function Home() {
                             e.preventDefault();
                             setShowWorkoutSelector(true);
                           }}
-                          className="cursor-pointer rounded bg-green-500 px-3 py-1.5 text-[13px] font-bold text-white hover:bg-green-600"
+                          className="cursor-pointer rounded bg-primary px-3 py-1.5 text-[13px] font-bold text-white hover:bg-green-600"
                         >
                           Join Workout
                         </button>
-                        <span className={`text-[13px] font-medium ${countdowns[item.id] < 300000 ? 'text-red-600' : 'text-gray-500'}`}>
+                        <span className={`text-[13px] font-medium ${countdowns[item.id] < 300000 ? 'text-red-500' : 'text-gray-400'}`}>
                           {formatCountdown(countdowns[item.id])}
                         </span>
                       </div>
@@ -513,7 +510,7 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-[22px] font-bold text-orange-500">
+                  <div className="text-[22px] font-bold text-primary">
                     🔥{item.burnStreak}
                   </div>
                 </div>
@@ -523,6 +520,5 @@ export default function Home() {
         </div>
       )}
     </main>
-    </>
   );
 }

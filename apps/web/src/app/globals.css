@@ -2,8 +2,163 @@
 @import "firebaseui/dist/firebaseui.css";
 
 @theme {
-  --color-primary: #f97316;
-  --color-secondary: #3b82f6;
+  --color-primary: #30D158;
+  --color-secondary: #0A84FF;
+  --color-surface: #1C1C1E;
+  --color-surface-elevated: #2C2C2E;
+  --color-accent-pink: #FF2D55;
   --color-success: #22c55e;
   --color-danger: #ef4444;
+}
+
+body {
+  background-color: #000;
+  color: #fff;
+}
+
+/* Firebase Auth Widget dark theme overrides */
+.firebaseui-container {
+  background: transparent !important;
+  max-width: 100% !important;
+}
+
+.firebaseui-card-content {
+  background: #1C1C1E !important;
+  border-radius: 0.75rem !important;
+  padding: 1.5rem !important;
+}
+
+.firebaseui-card-header {
+  background: transparent !important;
+  padding: 1rem 1.5rem 0 !important;
+}
+
+.firebaseui-card-actions {
+  background: transparent !important;
+}
+
+.firebaseui-card-footer {
+  background: transparent !important;
+}
+
+/* Text colors */
+.firebaseui-title,
+.firebaseui-subtitle {
+  color: #fff !important;
+}
+
+.firebaseui-text {
+  color: #9ca3af !important;
+}
+
+.firebaseui-label {
+  color: #9ca3af !important;
+}
+
+.firebaseui-error {
+  color: #ef4444 !important;
+}
+
+/* Input fields */
+.firebaseui-textfield.mdl-textfield .firebaseui-input,
+.firebaseui-textfield.mdl-textfield .firebaseui-input-invalid {
+  background: #2C2C2E !important;
+  color: #fff !important;
+  border-color: #4b5563 !important;
+  border-radius: 0.5rem !important;
+  padding: 0.75rem !important;
+}
+
+.mdl-textfield__label {
+  color: #6b7280 !important;
+}
+
+.mdl-textfield--floating-label.is-focused .mdl-textfield__label,
+.mdl-textfield--floating-label.is-dirty .mdl-textfield__label {
+  color: #30D158 !important;
+}
+
+.firebaseui-textfield.mdl-textfield .mdl-textfield__label::after {
+  background-color: #30D158 !important;
+}
+
+/* Primary action buttons (Sign In, Continue) */
+.firebaseui-form-actions .mdl-button--raised.mdl-button--colored {
+  background-color: #30D158 !important;
+  color: #fff !important;
+  border-radius: 0.5rem !important;
+  text-transform: none !important;
+  font-weight: 600 !important;
+}
+
+.firebaseui-form-actions .mdl-button--raised.mdl-button--colored:hover {
+  background-color: #16a34a !important;
+}
+
+/* Secondary buttons (Cancel, Back) */
+.firebaseui-form-actions .mdl-button--primary {
+  color: #30D158 !important;
+}
+
+/* Provider buttons (Google, Email, etc.) */
+.firebaseui-idp-button {
+  border-radius: 0.5rem !important;
+  max-width: 100% !important;
+}
+
+.firebaseui-idp-text {
+  font-weight: 500 !important;
+}
+
+/* List box / provider list */
+.firebaseui-list-box-dialog {
+  background: #1C1C1E !important;
+  border: 1px solid #374151 !important;
+  border-radius: 0.75rem !important;
+}
+
+.firebaseui-list-box-dialog .firebaseui-list-box-actions {
+  background: transparent !important;
+}
+
+/* Links */
+.firebaseui-link {
+  color: #0A84FF !important;
+}
+
+/* Terms of service / footer text */
+.firebaseui-tos {
+  color: #6b7280 !important;
+}
+
+.firebaseui-tos a {
+  color: #0A84FF !important;
+}
+
+/* Info bar (toast) */
+.firebaseui-info-bar {
+  background: #2C2C2E !important;
+  border: 1px solid #374151 !important;
+  color: #fff !important;
+}
+
+/* Busy indicator */
+.firebaseui-busy-indicator {
+  background: transparent !important;
+}
+
+/* Dialog (password recovery, etc.) */
+.mdl-dialog {
+  background: #1C1C1E !important;
+  border: 1px solid #374151 !important;
+  border-radius: 0.75rem !important;
+  color: #fff !important;
+}
+
+.mdl-dialog__title {
+  color: #fff !important;
+}
+
+.mdl-dialog__content {
+  color: #9ca3af !important;
 }
