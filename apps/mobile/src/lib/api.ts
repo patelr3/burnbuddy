@@ -59,7 +59,13 @@ export async function apiDelete(path: string): Promise<void> {
   if (!res.ok && res.status !== 204) throw new Error(`API error: ${res.status}`);
 }
 
-export async function apiUploadFile<T>(path: string, fieldName: string, fileUri: string, mimeType: string): Promise<T> {
+export async function apiUploadFile<T>(
+  path: string,
+  fieldName: string,
+  fileUri: string,
+  mimeType: string,
+  options?: { signal?: AbortSignal },
+): Promise<T> {
   const headers = await getAuthHeaders();
   const form = new FormData();
   form.append(fieldName, {
@@ -67,11 +73,39 @@ export async function apiUploadFile<T>(path: string, fieldName: string, fileUri:
     type: mimeType,
     name: `upload.${mimeType.split('/')[1] ?? 'jpg'}`,
   } as unknown as Blob);
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: 'POST',
-    headers,
-    body: form,
-  });
+
+  const controller = new AbortController();
+  const timeoutMs = 20_000;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  // If the caller provides an external signal, forward its abort
+  if (options?.signal) {
+    if (options.signal.aborted) {
+      clearTimeout(timeoutId);
+      controller.abort();
+    } else {
+      options.signal.addEventListener('abort', () => controller.abort(), { once: true });
+    }
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      method: 'POST',
+      headers,
+      body: form,
+      signal: controller.signal,
+    });
+  } catch (err: unknown) {
+    clearTimeout(timeoutId);
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error('Upload timed out. Please try again with a smaller image.');
+    }
+    throw new Error('Network error. Please check your connection and try again.');
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
   if (res.status === 413) throw new Error('File is too large. Maximum size is 5 MB.');
   if (res.status === 400) {
     const data = await res.json().catch(() => null);
