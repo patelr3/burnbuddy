@@ -109,3 +109,4 @@ If there are still stories with `passes: false`, end your response normally (ano
 - Read the Codebase Patterns section in the progress file before starting
 - Use the file paths from Runtime Configuration — do NOT hardcode `prd.json` or `progress.txt`
 - You may be working in a git worktree — this is normal, treat it as your working directory
+- If port configuration is provided in Runtime Configuration, use those ports when starting dev servers (e.g., `PORT=<api-port> yarn dev:api`, `yarn dev:web --port <web-port>`)

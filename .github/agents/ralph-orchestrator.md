@@ -32,6 +32,11 @@ You manage the lifecycle of multiple features being developed simultaneously. Ea
 
 ### Phase 3: Launch Wave
 
+Assign each sub-agent a **port offset** so parallel worktrees don't collide on dev server ports. Use increments of 10 (first agent: 10, second: 20, third: 30, etc.). The offset is passed to `ralph.sh` via `--port-offset N`, which sets:
+- API port: `3001 + N` (e.g., 3011, 3021, 3031)
+- Web port: `3000 + N` (e.g., 3010, 3020, 3030)
+- `NEXT_PUBLIC_API_URL`: `http://localhost:<API port>`
+
 For each independent PRD, launch a sub-agent using the `task` tool:
 
 ```
@@ -39,13 +44,14 @@ task(
   agent_type: "general-purpose",
   mode: "background",
   description: "Ralph: <feature-name>",
-  prompt: "<ralph-agent instructions with specific PRD file>"
+  prompt: "<ralph-agent instructions with specific PRD file and port offset>"
 )
 ```
 
 **The sub-agent prompt must include:**
 - The full ralph-agent instructions (read from `.github/agents/ralph-agent.md`)
 - The specific PRD file to work on (e.g., `prd-task-status.json`)
+- The assigned port offset (e.g., `--port-offset 10`)
 - The working directory context
 
 ### Phase 4: Monitor & Progress
@@ -65,8 +71,23 @@ A PRD is **complete** when:
 
 When a PRD completes:
 1. Move its source PRD.md from `docs/prds/` to `docs/prds/complete/` (if it exists there)
-2. Update the dependency graph — check if any blocked PRDs are now unblocked
-3. Launch newly-unblocked PRDs (back to Phase 3)
+2. **Remove the git worktree** to free disk space and avoid stale worktrees:
+   ```bash
+   git -C <repo-root> worktree remove ../burnbuddy-<branch-suffix>/ --force
+   git -C <repo-root> worktree prune
+   ```
+   If `worktree remove` fails, fall back to `rm -rf ../burnbuddy-<branch-suffix>/` then `git worktree prune`.
+3. **Archive the PRD and progress files** — move them out of the active directory:
+   ```bash
+   SUFFIX="<branch-suffix>"  # e.g., "calendar-sync"
+   DATE=$(date +%Y-%m-%d)
+   mkdir -p scripts/ralph/archive/${DATE}-${SUFFIX}
+   mv scripts/ralph/prd-${SUFFIX}.json scripts/ralph/archive/${DATE}-${SUFFIX}/
+   mv scripts/ralph/progress-${SUFFIX}.txt scripts/ralph/archive/${DATE}-${SUFFIX}/
+   ```
+   Commit the archive move to main so the working directory stays clean.
+4. Update the dependency graph — check if any blocked PRDs are now unblocked
+5. Launch newly-unblocked PRDs (back to Phase 3)
 
 ### Phase 6: Repeat Until Done
 
@@ -101,7 +122,8 @@ Periodically output a status table:
 
 - **NEVER implement code, create branches, or complete PRD stories yourself** — ALWAYS delegate to a ralph-agent sub-agent
 - Never modify PRD files yourself — sub-agents handle that
-- Your only job is orchestration: scanning PRDs, building the dependency graph, launching sub-agents, monitoring progress, and moving completed PRDs to `docs/prds/complete/`
+- Your only job is orchestration: scanning PRDs, building the dependency graph, launching sub-agents, monitoring progress, cleaning up worktrees, and archiving completed PRDs
 - Always verify PR merge status before marking a dependency as satisfied
 - Use `git -C <repo-root> fetch origin main` before checking merge status
 - The main repository is at the current working directory; worktrees are siblings (e.g., `../burnbuddy-<branch>/`)
+- Assign unique port offsets (10, 20, 30, …) to each parallel sub-agent to avoid port collisions
