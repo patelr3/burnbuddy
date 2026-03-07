@@ -31,6 +31,10 @@ const {
   // burnSquadJoinRequests — query (for GET /join-requests)
   mockJoinRequestQueryGet,
   mockJoinRequestQueryChain,
+  // db.getAll() for batched profile fetches
+  mockGetAll,
+  // users — doc (for profile lookups)
+  mockUsersDocRef,
 } = vi.hoisted(() => {
   const mockVerifyIdToken = vi.fn();
 
@@ -88,6 +92,12 @@ const {
     get: mockGroupWorkoutsQueryGet,
   };
 
+  // db.getAll() for batched profile fetches
+  const mockGetAll = vi.fn();
+
+  // users — doc ref (for profile lookups via getAll)
+  const mockUsersDocRef = vi.fn((id: string) => ({ id }));
+
   return {
     mockVerifyIdToken,
     mockSquadDocGet,
@@ -109,6 +119,8 @@ const {
     mockGroupWorkoutsQueryChain,
     mockJoinRequestQueryGet,
     mockJoinRequestQueryChain,
+    mockGetAll,
+    mockUsersDocRef,
   };
 });
 
@@ -143,8 +155,12 @@ vi.mock('../lib/firestore', () => ({
       if (name === 'groupWorkouts') {
         return { where: () => mockGroupWorkoutsQueryChain };
       }
+      if (name === 'users') {
+        return { doc: mockUsersDocRef };
+      }
       return {};
     },
+    getAll: mockGetAll,
   }),
 }));
 
@@ -421,11 +437,16 @@ describe('GET /burn-squads/:id', () => {
     expect(res.status).toBe(403);
   });
 
-  it('returns the squad when user is a member', async () => {
+  it('returns the squad with enriched members when user is a member', async () => {
     mockSquadDocGet.mockResolvedValueOnce({
       exists: true,
       data: () => SAMPLE_SQUAD,
     });
+
+    // getAll returns member profile
+    mockGetAll.mockResolvedValueOnce([
+      { exists: true, data: () => ({ uid: TEST_UID, displayName: 'Test User', profilePictureUrl: 'https://example.com/photo.jpg' }) },
+    ]);
 
     const res = await request(buildApp())
       .get(`/burn-squads/${SQUAD_ID}`)
@@ -433,6 +454,55 @@ describe('GET /burn-squads/:id', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ id: SQUAD_ID, name: 'Test Squad', adminUid: TEST_UID });
+    expect(res.body.members).toEqual([
+      { uid: TEST_UID, displayName: 'Test User', photoURL: 'https://example.com/photo.jpg' },
+    ]);
+    expect(mockGetAll).toHaveBeenCalledOnce();
+  });
+
+  it('returns enriched members for multiple squad members', async () => {
+    const multiMemberSquad = { ...SAMPLE_SQUAD, memberUids: [TEST_UID, OTHER_UID] };
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => multiMemberSquad,
+    });
+
+    mockGetAll.mockResolvedValueOnce([
+      { exists: true, data: () => ({ uid: TEST_UID, displayName: 'Test User', profilePictureUrl: 'https://example.com/photo1.jpg' }) },
+      { exists: true, data: () => ({ uid: OTHER_UID, displayName: 'Other User', profilePictureUrl: 'https://example.com/photo2.jpg' }) },
+    ]);
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.members).toHaveLength(2);
+    expect(res.body.members[0]).toEqual({ uid: TEST_UID, displayName: 'Test User', photoURL: 'https://example.com/photo1.jpg' });
+    expect(res.body.members[1]).toEqual({ uid: OTHER_UID, displayName: 'Other User', photoURL: 'https://example.com/photo2.jpg' });
+  });
+
+  it('returns fallback display name for deleted/missing user profiles', async () => {
+    const multiMemberSquad = { ...SAMPLE_SQUAD, memberUids: [TEST_UID, OTHER_UID] };
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => multiMemberSquad,
+    });
+
+    // One existing profile, one missing (deleted account)
+    mockGetAll.mockResolvedValueOnce([
+      { exists: true, data: () => ({ uid: TEST_UID, displayName: 'Test User', profilePictureUrl: 'https://example.com/photo.jpg' }) },
+      { exists: false, data: () => undefined },
+    ]);
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.members).toHaveLength(2);
+    expect(res.body.members[0]).toEqual({ uid: TEST_UID, displayName: 'Test User', photoURL: 'https://example.com/photo.jpg' });
+    expect(res.body.members[1]).toEqual({ uid: OTHER_UID, displayName: 'Unknown User' });
   });
 });
 

@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { Router, type Request, type Response } from 'express';
-import type { BurnSquad, BurnSquadJoinRequest, GroupWorkout } from '@burnbuddy/shared';
+import type { BurnSquad, BurnSquadJoinRequest, EnrichedBurnSquadMember, GroupWorkout, UserProfile } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
 import { cacheControl } from '../middleware/cache-control';
 import { getDb } from '../lib/firestore';
@@ -176,7 +176,7 @@ router.get('/:id/group-workouts', requireAuth, async (req: Request, res: Respons
 
 /**
  * GET /burn-squads/:id
- * Returns a single Burn Squad (member only).
+ * Returns a single Burn Squad (member only), enriched with member profiles.
  */
 router.get('/:id', requireAuth, async (req: Request, res: Response): Promise<void> => {
   const uid = req.user!.uid;
@@ -197,7 +197,37 @@ router.get('/:id', requireAuth, async (req: Request, res: Response): Promise<voi
     return;
   }
 
-  res.json(squad);
+  // Batch-fetch member profiles in chunks of 100 (Firestore getAll limit)
+  const enrichedMembers: EnrichedBurnSquadMember[] = [];
+  const memberUids = squad.memberUids;
+
+  if (memberUids.length > 0) {
+    const CHUNK_SIZE = 100;
+    const profileMap: Record<string, UserProfile> = {};
+
+    for (let i = 0; i < memberUids.length; i += CHUNK_SIZE) {
+      const chunk = memberUids.slice(i, i + CHUNK_SIZE);
+      const refs = chunk.map((id) => db.collection('users').doc(id));
+      const docs = await db.getAll(...refs);
+      for (const doc of docs) {
+        if (doc.exists) {
+          const profile = doc.data() as UserProfile;
+          profileMap[profile.uid] = profile;
+        }
+      }
+    }
+
+    for (const memberUid of memberUids) {
+      const profile = profileMap[memberUid];
+      enrichedMembers.push({
+        uid: memberUid,
+        displayName: profile?.displayName ?? 'Unknown User',
+        photoURL: profile?.profilePictureUrl,
+      });
+    }
+  }
+
+  res.json({ ...squad, members: enrichedMembers });
 });
 
 /**

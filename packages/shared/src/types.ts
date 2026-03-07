@@ -81,6 +81,12 @@ export interface BurnSquad {
   createdAt: string;
 }
 
+export interface EnrichedBurnSquadMember {
+  uid: string;
+  displayName: string;
+  photoURL?: string;
+}
+
 export interface BurnSquadJoinRequest {
   id: string;
   squadId: string;
