@@ -6,7 +6,6 @@ import { apiPut, apiDelete } from '@/lib/api';
 import { useRouter, useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { NavBar } from '@/components/NavBar';
 import { StatCard } from '@/components/StatCard';
 import { Avatar } from '@/components/Avatar';
 import { AddToCalendarButton } from '@/components/AddToCalendarButton';
@@ -194,34 +193,26 @@ export default function BurnSquadDetailPage() {
 
   if (dataLoading) {
     return (
-      <>
-        <NavBar />
-        <main className="mx-auto max-w-xl px-4">
-          <BurnSquadSkeleton />
-        </main>
-      </>
+      <main className="mx-auto max-w-xl px-4">
+        <BurnSquadSkeleton />
+      </main>
     );
   }
 
   if (notFound || !squad) {
     return (
-      <>
-        <NavBar />
-        <main className="mx-auto max-w-xl px-4">
-          <div className="border-b border-gray-200 py-4 mb-6">
-            <Link href="/" className="text-sm text-gray-500 no-underline hover:text-gray-700">
-              ← Back
-            </Link>
-          </div>
-          <p className="text-gray-400">Burn Squad not found.</p>
-        </main>
-      </>
+      <main className="mx-auto max-w-xl px-4">
+        <div className="border-b border-gray-200 py-4 mb-6">
+          <Link href="/" className="text-sm text-gray-500 no-underline hover:text-gray-700">
+            ← Back
+          </Link>
+        </div>
+        <p className="text-gray-400">Burn Squad not found.</p>
+      </main>
     );
   }
 
   return (
-    <>
-      <NavBar />
       <main className="mx-auto max-w-xl px-4">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 py-4 mb-6">
@@ -422,6 +413,5 @@ export default function BurnSquadDetailPage() {
           </div>
         )}
       </main>
-    </>
   );
 }

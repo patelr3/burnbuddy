@@ -6,7 +6,6 @@ import { apiPost } from '@/lib/api';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
-import { NavBar } from '@/components/NavBar';
 import { StatCard } from '@/components/StatCard';
 import { Avatar } from '@/components/Avatar';
 import { useProfile, queryKeys } from '@/lib/queries';
@@ -83,8 +82,6 @@ export default function FriendProfilePage() {
   if (loading) return null;
 
   return (
-    <>
-      <NavBar />
       <main className="mx-auto max-w-xl px-4 pt-6 pb-12">
         <div className="mb-6">
           <Link href="/friends" className="text-sm text-gray-500 no-underline hover:text-gray-700">
@@ -180,7 +177,6 @@ export default function FriendProfilePage() {
           </>
         )}
       </main>
-    </>
   );
 }
 

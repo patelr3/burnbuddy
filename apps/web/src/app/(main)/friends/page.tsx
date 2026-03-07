@@ -6,7 +6,6 @@ import { apiGet, apiPost, apiDelete } from '@/lib/api';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { useFriends, queryKeys } from '@/lib/queries';
 import type { FriendsData, FriendWithProfile } from '@/lib/queries';
-import { NavBar } from '@/components/NavBar';
 import { Avatar } from '@/components/Avatar';
 import Link from 'next/link';
 
@@ -245,8 +244,6 @@ export default function FriendsPage() {
   if (loading) return null;
 
   return (
-    <>
-      <NavBar />
       <main className="mx-auto max-w-xl px-4 pt-6 pb-12">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">Friends</h1>
@@ -496,6 +493,5 @@ export default function FriendsPage() {
           </>
         )}
       </main>
-    </>
   );
 }

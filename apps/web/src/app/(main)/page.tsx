@@ -6,7 +6,6 @@ import { useAuth } from '@/lib/auth-context';
 import { useDashboard, queryKeys, type DashboardData } from '@/lib/queries';
 import { apiPost, apiPut, apiPatch } from '@/lib/api';
 import { GettingStartedCard } from '@/components/GettingStartedCard';
-import { NavBar } from '@/components/NavBar';
 import { Avatar } from '@/components/Avatar';
 import Link from 'next/link';
 import type { Workout, WorkoutType, WorkoutSchedule } from '@burnbuddy/shared';
@@ -284,8 +283,6 @@ export default function Home() {
   if (loading) return null;
 
   return (
-    <>
-      <NavBar />
       <main className="mx-auto max-w-xl px-4">
 
       {showCard && <GettingStartedCard onDismiss={handleDismiss} />}
@@ -523,6 +520,5 @@ export default function Home() {
         </div>
       )}
     </main>
-    </>
   );
 }

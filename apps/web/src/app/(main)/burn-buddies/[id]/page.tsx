@@ -6,7 +6,6 @@ import { apiPut } from '@/lib/api';
 import { useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { NavBar } from '@/components/NavBar';
 import { StatCard } from '@/components/StatCard';
 import { Avatar } from '@/components/Avatar';
 import { AddToCalendarButton } from '@/components/AddToCalendarButton';
@@ -160,41 +159,33 @@ export default function BurnBuddyDetailPage() {
 
   if (dataLoading) {
     return (
-      <>
-        <NavBar />
-        <main className="mx-auto max-w-xl px-4">
-          <div className="border-b border-gray-200 py-4 mb-6">
-            <Link href="/" className="text-sm text-gray-500 no-underline hover:text-gray-700">
-              ← Back
-            </Link>
-          </div>
-          <BurnBuddySkeleton />
-        </main>
-      </>
+      <main className="mx-auto max-w-xl px-4">
+        <div className="border-b border-gray-200 py-4 mb-6">
+          <Link href="/" className="text-sm text-gray-500 no-underline hover:text-gray-700">
+            ← Back
+          </Link>
+        </div>
+        <BurnBuddySkeleton />
+      </main>
     );
   }
 
   if (notFound || !burnBuddy) {
     return (
-      <>
-        <NavBar />
-        <main className="mx-auto max-w-xl px-4">
-          <div className="border-b border-gray-200 py-4 mb-6">
-            <Link href="/" className="text-sm text-gray-500 no-underline hover:text-gray-700">
-              ← Back
-            </Link>
-          </div>
-          <p className="text-gray-400">Burn Buddy not found.</p>
-        </main>
-      </>
+      <main className="mx-auto max-w-xl px-4">
+        <div className="border-b border-gray-200 py-4 mb-6">
+          <Link href="/" className="text-sm text-gray-500 no-underline hover:text-gray-700">
+            ← Back
+          </Link>
+        </div>
+        <p className="text-gray-400">Burn Buddy not found.</p>
+      </main>
     );
   }
 
   const partnerName = partner?.displayName ?? (burnBuddy.uid1 === user?.uid ? burnBuddy.uid2 : burnBuddy.uid1);
 
   return (
-    <>
-      <NavBar />
       <main className="mx-auto max-w-xl px-4">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 py-4 mb-6">
@@ -316,6 +307,5 @@ export default function BurnBuddyDetailPage() {
           </div>
         )}
       </main>
-    </>
   );
 }

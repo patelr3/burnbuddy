@@ -5,8 +5,6 @@ import { useAuth } from '@/lib/auth-context';
 import { apiGet, apiPost } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { NavBar } from '@/components/NavBar';
-
 interface FriendWithProfile {
   uid: string;
   displayName: string;
@@ -48,8 +46,6 @@ export default function NewBurnBuddyPage() {
   if (loading) return null;
 
   return (
-    <>
-      <NavBar />
       <main className="mx-auto max-w-xl px-4">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-gray-200 py-4 mb-6">
@@ -127,6 +123,5 @@ export default function NewBurnBuddyPage() {
           </div>
         )}
       </main>
-    </>
   );
 }

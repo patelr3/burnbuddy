@@ -8,7 +8,6 @@ import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase-client';
 import { useRouter } from 'next/navigation';
-import { NavBar } from '@/components/NavBar';
 import { Avatar } from '@/components/Avatar';
 import type { UserProfile } from '@burnbuddy/shared';
 
@@ -240,8 +239,6 @@ export default function AccountPage() {
   const isUsernameDirty = username.trim() !== (profile?.username ?? '');
 
   return (
-    <>
-      <NavBar />
       <main className="mx-auto max-w-xl px-4 pt-6 pb-12">
         <h1 className="mb-6 text-2xl font-bold">Account</h1>
 
@@ -397,6 +394,5 @@ export default function AccountPage() {
           </>
         )}
       </main>
-    </>
   );
 }

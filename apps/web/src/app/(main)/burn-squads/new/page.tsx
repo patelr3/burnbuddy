@@ -5,7 +5,6 @@ import { useAuth } from '@/lib/auth-context';
 import { apiGet, apiPost } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { NavBar } from '@/components/NavBar';
 import type { WorkoutSchedule } from '@burnbuddy/shared';
 
 interface FriendWithProfile {
@@ -90,8 +89,6 @@ export default function NewBurnSquadPage() {
   if (loading) return null;
 
   return (
-    <>
-      <NavBar />
       <main className="mx-auto max-w-xl px-4">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-gray-200 py-4 mb-6">
@@ -213,6 +210,5 @@ export default function NewBurnSquadPage() {
           </button>
         </div>
       </main>
-    </>
   );
 }
