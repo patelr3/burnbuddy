@@ -1,0 +1,120 @@
+{
+  "project": "burnbuddy",
+  "branchName": "ralph/fix-profile-picture-upload",
+  "description": "Fix Profile Picture Upload Hang - Resolve indefinite upload hang, add timeouts, and improve error feedback",
+  "dependsOn": [],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Diagnose and fix the root cause of the upload hang",
+      "description": "As a developer, I need to identify why the profile picture upload hangs and fix the underlying issue so uploads complete successfully.",
+      "acceptanceCriteria": [
+        "Reproduce the hang locally or against beta by uploading a profile picture",
+        "Check API logs (pino output) for /users/me/profile-picture endpoint to identify where the request stalls",
+        "Verify Firebase Storage bucket configuration - confirm admin.storage().bucket() has a valid default bucket or explicit bucket name",
+        "Verify Firebase Admin SDK credentials include private_key + client_email (required for Storage operations)",
+        "If bucket/credentials are the issue: fix the configuration and verify uploads complete end-to-end",
+        "If sharp/anime-filter is the issue: identify the failing image type and fix the pipeline",
+        "Upload succeeds and returns profilePictureUrl within 10 seconds for a typical photo",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Add explicit Firebase Storage bucket configuration",
+      "description": "As a developer, I need the Firebase Storage bucket to be explicitly configured so we get clear errors instead of silent hangs when credentials are wrong.",
+      "acceptanceCriteria": [
+        "Update admin.storage().bucket() calls in profile picture routes to use explicit bucket name from FIREBASE_STORAGE_BUCKET env var with sensible default",
+        "At API startup, attempt lightweight Firebase Storage connectivity check (e.g., bucket.exists()); log warning at warn level if it fails - do NOT block startup",
+        "Add FIREBASE_STORAGE_BUCKET to API's environment configuration in Bicep templates (infra/) and deployment workflows",
+        "Document the new env var in API's README or CLAUDE.md",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Add server-side processing timeout for anime filter",
+      "description": "As a developer, I need the anime filter to fail cleanly if sharp processing takes too long, so the request doesn't hang the event loop.",
+      "acceptanceCriteria": [
+        "Wrap animeFilter() call in upload route handler with Promise.race against a 15-second timeout",
+        "If timeout fires, respond with 500 { error: 'Image processing timed out. Please try a smaller image.' }",
+        "Log timeout event with pino at error level including UID and file size",
+        "Add unit test for timeout behavior (mock animeFilter to never resolve)",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Add client-side upload timeout for web",
+      "description": "As a web user, I want the upload to fail with a clear message if it takes too long, instead of hanging forever on 'Anime-fying your photo…'.",
+      "acceptanceCriteria": [
+        "Add AbortController with 20-second timeout to apiUploadFile function in apps/web/src/lib/api.ts",
+        "When timeout fires, abort fetch and throw user-friendly error (e.g., 'Upload timed out. Please try again.')",
+        "Account page displays timeout error in existing uploadError state",
+        "uploading spinner is cleared when timeout fires",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Improve upload error feedback in web UI",
+      "description": "As a web user, I want clear feedback if my upload fails — not just a generic error — so I know whether to retry, use a different image, or report a bug.",
+      "acceptanceCriteria": [
+        "Display specific error messages for: timeout, file too large, invalid type, server error, and network failure",
+        "After 5 seconds of uploading, change status text from '✨ Anime-fying your photo…' to '✨ Still working… this can take a moment for large photos'",
+        "Add Cancel button that appears after 5 seconds, allowing users to abort the upload",
+        "On error, show Retry button alongside error message",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Add client-side upload timeout for mobile",
+      "description": "As a mobile user, I want the upload to fail with a clear message if it takes too long, instead of hanging forever.",
+      "acceptanceCriteria": [
+        "Add AbortController with 20-second timeout to apiUploadFile function in apps/mobile/src/lib/api.ts",
+        "When timeout fires, abort fetch and throw user-friendly error",
+        "AccountScreen displays timeout error appropriately",
+        "uploading state is cleared when timeout fires",
+        "Verify React Native fetch supports AbortController in Expo 55+",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Improve upload error feedback in mobile UI",
+      "description": "As a mobile user, I want clear feedback if my upload fails with actionable next steps.",
+      "acceptanceCriteria": [
+        "Display specific error messages for: timeout, file too large, invalid type, server error, and network failure",
+        "After 5 seconds of uploading, change status text to indicate longer processing time",
+        "Add Cancel button or affordance after 5 seconds",
+        "On error, show Retry button alongside error message",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

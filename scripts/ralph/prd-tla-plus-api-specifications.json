@@ -1,0 +1,203 @@
+{
+  "project": "BurnBuddy",
+  "branchName": "ralph/tla-plus-api-specifications",
+  "description": "TLA+ Formal Specifications for BurnBuddy API — model request/response protocols, concurrent operations, Firestore state transitions, and background processes to verify safety invariants",
+  "dependsOn": [
+    "ralph/site-performance-non-dashboard"
+  ],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "TLA+ project structure, Common module, and README",
+      "description": "As a developer, I need the TLA+ specs organized in a clear directory structure with a shared types module and documentation so I can develop and run specs locally.",
+      "acceptanceCriteria": [
+        "Create specs/tla/ directory with subdirectories: friends/, burn-buddies/, burn-squads/, workouts/, users/, notifications/",
+        "Create specs/tla/Common.tla shared module defining: Uid, Timestamp, Status, WorkoutType, WorkoutStatus types using TLA+ CONSTANTS and type-invariant operators",
+        "Create specs/tla/README.md explaining directory structure, how to install TLA+ Toolbox, how to run TLC CLI (java -cp tla2tools.jar tlc2.TLC SpecName.tla), and how to interpret TLC output",
+        "README includes link to TLA+ learning resources",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Friend Management TLA+ spec",
+      "description": "As a developer, I need a formal spec of friend request flows so I can verify no duplicate requests or invalid state transitions occur under concurrency.",
+      "acceptanceCriteria": [
+        "Create specs/tla/friends/FriendManagement.tla that EXTENDS Common",
+        "Model states: no relationship, pending request, friends",
+        "Model operations: send request, accept request, delete friend",
+        "Model concurrent scenarios: two users sending requests simultaneously, accept during delete",
+        "Define invariants: at most one pending request per direction between two users, friend relationship is symmetric (bidirectional), cannot send friend request to self, cannot accept request user didn't receive",
+        "Create specs/tla/friends/FriendManagement.cfg TLC config with 2-3 users and appropriate bounds",
+        "TLC verifies all invariants with no violations (run java -cp tla2tools.jar tlc2.TLC and confirm 0 errors)",
+        "Add inline comments explaining the model",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Burn Buddy Management TLA+ spec",
+      "description": "As a developer, I need a formal spec of burn buddy flows so I can verify friend-before-buddy enforcement and request lifecycle correctness.",
+      "acceptanceCriteria": [
+        "Create specs/tla/burn-buddies/BurnBuddyManagement.tla that EXTENDS Common",
+        "Model states: no buddy, pending request, active buddy",
+        "Model operations: send buddy request, accept request, update schedule, delete buddy",
+        "Model dependency on friend relationship (friendship required before buddy request)",
+        "Define invariants: cannot create burn buddy request without existing friendship, at most one burn buddy relationship per user pair, burn buddy UIDs are sorted (uid1 < uid2), at most one pending request per direction, cannot accept request without being recipient",
+        "Create specs/tla/burn-buddies/BurnBuddyManagement.cfg TLC config with 2-3 users",
+        "TLC verifies all invariants with no violations",
+        "Add inline comments explaining the model",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Burn Squad Management TLA+ spec",
+      "description": "As a developer, I need a formal spec of squad operations so I can verify admin permissions, member management, and join request correctness.",
+      "acceptanceCriteria": [
+        "Create specs/tla/burn-squads/BurnSquadManagement.tla that EXTENDS Common",
+        "Model states: squad with admin, members, pending join requests",
+        "Model operations: create squad, invite member, accept invite, update settings, delete squad",
+        "Model admin vs member permissions and onlyAdminsCanAddMembers setting enforcement",
+        "Define invariants: squad always has exactly one admin, admin is always in memberUids, cannot invite non-friends, only recipient can accept join request, if onlyAdminsCanAddMembers=true only admin can send invites, only admin can update settings or delete squad",
+        "Create specs/tla/burn-squads/BurnSquadManagement.cfg TLC config with 3 users",
+        "TLC verifies all invariants with no violations",
+        "Add inline comments explaining the model",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Workout Lifecycle and Group Detection TLA+ spec",
+      "description": "As a developer, I need a formal spec of workout start/end and group workout detection so I can verify deduplication, time windows, and concurrent workout scenarios.",
+      "acceptanceCriteria": [
+        "Create specs/tla/workouts/WorkoutLifecycle.tla that EXTENDS Common",
+        "Model workout states: active, completed; model operations: start workout, end workout, auto-end stale workouts (90-min threshold)",
+        "Model concurrent background process for group workout detection with abstract time states (BeforeWindow, WithinWindow, AfterWindow)",
+        "Model 20-minute detection window for buddy and squad group workouts",
+        "Define invariants: user can only end their own workouts, completed workouts have endedAt, at most one GroupWorkout per buddy/squad per 20-minute window (deduplication), GroupWorkout for buddy requires both members active within window, GroupWorkout for squad requires ALL members active within window, detection doesn't block workout creation",
+        "Create specs/tla/workouts/WorkoutLifecycle.cfg TLC config with 2-3 users and max 3-5 workouts per user",
+        "TLC verifies all invariants with concurrent workout starts (model check passes)",
+        "Add inline comments explaining the model",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Most complex spec — uses TLA+ processes for background tasks, abstract time states to avoid state space explosion. Use symmetry sets for users where possible."
+    },
+    {
+      "id": "US-006",
+      "title": "User Profile Management TLA+ spec",
+      "description": "As a developer, I need a formal spec of profile operations so I can verify username uniqueness, profile picture lifecycle, and atomic username changes.",
+      "acceptanceCriteria": [
+        "Create specs/tla/users/UserProfileManagement.tla that EXTENDS Common",
+        "Model profile states: nonexistent, created, username reserved",
+        "Model operations: create profile, update profile, change username, upload/delete profile picture",
+        "Model username reservation mechanism (usernames collection) with bounded retry logic (max 3 attempts for collisions)",
+        "Define invariants: each username (case-insensitive) is unique across all users, username changes are atomic (old reservation deleted + new created together), profile creation is idempotent (409 if already exists), cannot have profile without username reservation, cannot have orphaned username reservations",
+        "Create specs/tla/users/UserProfileManagement.cfg TLC config with 2-3 users",
+        "TLC verifies all invariants with no violations",
+        "Add inline comments explaining the model",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Push Notifications TLA+ spec",
+      "description": "As a developer, I need a formal spec of notification flows so I can verify partner/squad member targeting and fire-and-forget error handling.",
+      "acceptanceCriteria": [
+        "Create specs/tla/notifications/PushNotifications.tla that EXTENDS Common",
+        "Model notification trigger: workout started by user",
+        "Model concurrent background process for notification sending (async, fire-and-forget)",
+        "Model recipient collection: burn buddy partners + squad members (excluding self)",
+        "Define invariants: notification failures do not block workout creation response, user never receives notification for their own workout, all burn buddy partners and squad members are targeted, users without FCM tokens are skipped (no error)",
+        "Create specs/tla/notifications/PushNotifications.cfg TLC config with 2-3 users",
+        "TLC verifies all invariants with no violations",
+        "Add inline comments explaining the model",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Cross-Domain Invariants TLA+ spec",
+      "description": "As a developer, I need a spec that verifies invariants spanning multiple domains so I can catch relationship dependency violations.",
+      "acceptanceCriteria": [
+        "Create specs/tla/CrossDomainInvariants.tla that imports all domain specs (Friends, BurnBuddies, BurnSquads, Workouts, Users)",
+        "Define cross-domain invariants: deleting friend prevents new burn buddy request, deleting burn buddy orphans associated GroupWorkouts (by design — document), deleting burn squad orphans associated GroupWorkouts (by design — document), GroupWorkout references valid buddy/squad (referenceId exists), GroupWorkout.memberUids matches referenced buddy/squad membership at creation time, profile must exist before user can create friends/buddies/squads/workouts",
+        "Create specs/tla/CrossDomainInvariants.cfg TLC config",
+        "TLC verifies all cross-domain invariants with no violations",
+        "Document any discrepancies found as inline comments",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "Depends on all domain specs (US-002 through US-007) being complete."
+    },
+    {
+      "id": "US-009",
+      "title": "GitHub Actions TLC model-checking workflow",
+      "description": "As a developer, I need the TLC model checker integrated into CI so specs are automatically verified on every PR.",
+      "acceptanceCriteria": [
+        "Create .github/workflows/tla-model-check.yml",
+        "Workflow triggers on PR changes to specs/tla/**/*.tla and services/api/src/**/*.ts",
+        "Workflow installs Java and downloads tla2tools.jar",
+        "Workflow runs TLC on all .tla files in parallel (one job per spec)",
+        "Each spec has 10-minute timeout",
+        "Workflow fails PR if any invariant violations found",
+        "Workflow posts comment on PR with TLC output if violations occur",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "API verification report mapping specs to implementation",
+      "description": "As a developer, I need a documented comparison of TLA+ specs against actual route handler code so I can identify implementation gaps.",
+      "acceptanceCriteria": [
+        "Create specs/tla/VERIFICATION_REPORT.md",
+        "For each domain spec, create a checklist mapping invariants to code locations in services/api/src/routes/*.ts",
+        "For each invariant, document: code file and function, status (✅ correctly implemented, ⚠️ partially implemented, ❌ not enforced), and any discrepancies",
+        "Summary section listing all gaps requiring fixes with severity (critical/medium/low)",
+        "Reference specific line numbers in route handlers",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "Depends on all TLA+ specs and CI workflow being complete."
+    },
+    {
+      "id": "US-011",
+      "title": "Automated tests for gaps found in verification report",
+      "description": "As a developer, I need automated tests covering any gaps found during spec verification so future regressions are caught.",
+      "acceptanceCriteria": [
+        "For each gap identified in VERIFICATION_REPORT.md with status ⚠️ or ❌, create or update test in services/api/src/routes/*.test.ts",
+        "Each test verifies the invariant holds (or documents why it doesn't) with a comment referencing the TLA+ spec and invariant name",
+        "All new/updated tests pass: cd services/api && yarn test",
+        "Tests pass"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "Depends on US-010 verification report identifying the gaps."
+    }
+  ]
+}
