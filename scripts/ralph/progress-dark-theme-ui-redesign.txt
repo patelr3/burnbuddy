@@ -34,3 +34,35 @@ Started: Sat Mar  7 07:53:26 PM UTC 2026
   - Auth pages (login/signup) are in `(auth)/` group and will never see the NavBar
   - Middleware paths (`/login`, `/signup`) are unaffected by route group renames
 ---
+
+## 2026-03-07T20:03 - US-003
+- Redesigned NavBar component with responsive desktop top bar / mobile bottom tabs
+- Desktop: dark sticky top bar with logo, nav links (Home/Friends/Account), Sign Out button
+- Mobile: fixed bottom bar with SVG icon tabs and pill-shaped green active state
+- Removed NavBar imports from all 8 page components (page.tsx, account, friends, burn-buddies/[id], burn-buddies/new, burn-squads/[id], burn-squads/new, profile/[uid])
+- Removed fragment wrappers (`<>...</>`) from pages that no longer need them
+- Files changed: `apps/web/src/components/NavBar.tsx`, plus 8 page files under `(main)/`
+- **Learnings for future iterations:**
+  - NavBar uses `isActive()` helper: exact match for `/`, prefix match for other routes
+  - SVG icons are inline components (HomeIcon, FriendsIcon, AccountIcon) accepting `active` prop
+  - Mobile nav uses `fixed bottom-0` with `z-50`, desktop uses `sticky top-0` with `z-40`
+  - `bg-black/90 backdrop-blur-md` gives the glassmorphism effect on both bars
+  - When removing fragment wrappers from pages, must remove both opening `<>` and closing `</>`
+---
+
+## 2026-03-07T20:20 - US-004
+- Applied dark theme styling to entire home page (page.tsx)
+- DashboardSkeleton: `bg-gray-200` → `bg-gray-800`, `border-slate-100` → `border-gray-700`
+- Start Workout button: `bg-orange-500` → `bg-primary` (green), `hover:bg-green-600`
+- Active Workout banner: yellow theme → `bg-surface` with `border-accent-pink`, pink text
+- Workout type selector modal: white bg → `bg-surface`, green active state, dark inputs
+- Buddy/squad list items: `bg-surface border-gray-700` cards, white text, green burn streak
+- Pending requests: dark cards with subtle translucent colored borders
+- Section headers: `text-white` instead of `text-gray-500`
+- Burn streak emoji: `text-primary` (green) instead of `text-orange-500`
+- Files changed: `apps/web/src/app/(main)/page.tsx`
+- **Learnings for future iterations:**
+  - Use theme tokens (`bg-primary`, `bg-surface`, `bg-surface-elevated`, `text-primary`, `bg-secondary`) instead of hardcoded colors
+  - Translucent color overlays (e.g., `bg-amber-500/20`, `border-secondary/30`) work well for subtle dark-theme accents
+  - `hover:bg-surface-elevated` provides a natural hover state on `bg-surface` cards
+---
