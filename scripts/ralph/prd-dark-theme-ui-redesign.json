@@ -1,0 +1,157 @@
+{
+  "project": "BurnBuddy",
+  "branchName": "ralph/dark-theme-ui-redesign",
+  "description": "Redesign the BurnBuddy web app with an Apple Fitness-inspired dark theme and responsive bottom navigation bar for mobile",
+  "dependsOn": [],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Update global theme colors and typography",
+      "description": "As a developer, I need to define the dark theme colors and typography globally so all components inherit the new design system.",
+      "acceptanceCriteria": [
+        "Update `apps/web/src/app/globals.css` @theme block with new color palette: --color-primary: #30D158 (Apple Fitness green), --color-surface: #1C1C1E (dark card background), --color-surface-elevated: #2C2C2E (elevated dark elements), --color-secondary: #0A84FF (bright blue), --color-accent-pink: #FF2D55 (active workout indicators). Keep --color-danger: #ef4444",
+        "Update `apps/web/tailwind.config.ts` with matching color definitions",
+        "Set body background to black (#000), default text to white in globals.css",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Update root layout for dark theme and bottom nav spacing",
+      "description": "As a developer, I need to update the root layout to apply dark theme globally and add padding for the mobile bottom navigation.",
+      "acceptanceCriteria": [
+        "Update `apps/web/src/app/layout.tsx` body classes: `min-h-screen bg-black text-white antialiased`",
+        "Add `pb-20 md:pb-0` to body or main wrapper to accommodate mobile bottom nav (20 = 5rem spacing)",
+        "Move `<NavBar />` into layout.tsx (above children) to render once globally",
+        "Create separate route group for login/signup pages without NavBar (e.g., `(auth)` group)",
+        "Typecheck passes",
+        "Verify layout renders correctly using dev-browser skill"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Redesign NavBar as responsive top/bottom navigation",
+      "description": "As a user, I want a modern navigation bar that's optimized for my device - top bar on desktop, bottom tabs on mobile - so navigation feels native to each platform.",
+      "acceptanceCriteria": [
+        "Update `apps/web/src/components/NavBar.tsx` with responsive design: Desktop (`hidden md:flex`): Horizontal top bar, dark background, logo left, Home/Friends/Account links right, Sign Out button. Mobile (`md:hidden`): Fixed bottom bar (`fixed bottom-0 left-0 right-0 z-50`), dark background with subtle top border",
+        "Mobile: Three icon tabs for Home (/), Friends (/friends), Account (/account) using simple inline SVG icons",
+        "Active tab highlighted with green color (#30D158) and pill-shaped background",
+        "Sign Out button only on desktop; mobile users access it via Account page",
+        "Remove `<NavBar />` imports from all page components (layout now handles it)",
+        "Typecheck passes",
+        "Verify navigation on mobile and desktop using dev-browser skill"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Dark theme home page",
+      "description": "As a user, I want the home page styled with the dark theme so it matches the Apple Fitness aesthetic and is easy on my eyes.",
+      "acceptanceCriteria": [
+        "Update `apps/web/src/app/page.tsx` with dark theme styling: DashboardSkeleton with `bg-gray-800` placeholders, Start Workout button green (`bg-primary hover:bg-green-600`), Active Workout banner dark card (`bg-surface`) with accent-pink border/text, Workout type selector modal dark background (`bg-surface`) with green active state",
+        "Buddy/squad list items: `bg-surface` cards, white text, `border-gray-700` instead of light borders",
+        "Burn streak emoji 🔥 color: green text instead of orange",
+        "Pending request sections: dark cards (`bg-surface`) with subtle colored borders",
+        "Section headers: `text-white` instead of `text-gray-500`",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Dark theme StatCard component",
+      "description": "As a developer, I need the StatCard component styled for dark theme so all stats displays look consistent.",
+      "acceptanceCriteria": [
+        "Update `apps/web/src/components/StatCard.tsx`: Background `bg-surface` instead of `bg-white`, Border `border-gray-700` instead of `border-gray-200`, Labels `text-gray-400`, keep colorClass logic",
+        "Typecheck passes",
+        "Verify StatCard appearance using dev-browser skill"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Dark theme GettingStartedCard component",
+      "description": "As a user, I want the Getting Started card styled with dark theme so it blends with the home page design.",
+      "acceptanceCriteria": [
+        "Update `apps/web/src/components/GettingStartedCard.tsx`: Replace `bg-green-50` with `bg-surface`, Replace `border-slate-200` with `border-gray-700`, text white/light gray, Strong tags `text-primary` (green), Close button `text-gray-400 hover:text-gray-200`",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Dark theme Account page",
+      "description": "As a user, I want the Account page styled with dark theme so I can manage my profile in a consistent, modern interface.",
+      "acceptanceCriteria": [
+        "Update `apps/web/src/app/account/page.tsx`: All section cards `bg-surface border-gray-700`, headings `text-white`, descriptions `text-gray-400`, input fields `bg-surface-elevated border-gray-600 text-white placeholder-gray-500`, buttons green primary/red danger/gray secondary with dark styling, AccountSkeleton `bg-gray-800` placeholders, sign-out section dark card with red accent border",
+        "Remove `import { NavBar }` and `<NavBar />` from account page (layout handles it)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Dark theme Friends page",
+      "description": "As a user, I want the Friends page styled with dark theme so I can manage my friend list in a modern, easy-to-read interface.",
+      "acceptanceCriteria": [
+        "Update `apps/web/src/app/friends/page.tsx`: Search input `bg-surface-elevated border-gray-600 text-white placeholder-gray-500`, friend list items `bg-surface border-gray-700` cards, section headings `text-white`, buttons green/blue on dark backgrounds, FriendsSkeleton `bg-gray-800`, empty states `text-gray-400`",
+        "Remove `import { NavBar }` and `<NavBar />` from friends page (layout handles it)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Dark theme for Burn Buddy and Squad detail/create pages",
+      "description": "As a user, I want all Burn Buddy and Burn Squad pages styled with dark theme for visual consistency throughout the app.",
+      "acceptanceCriteria": [
+        "Update all detail and create pages: `apps/web/src/app/burn-buddies/[id]/page.tsx`, `apps/web/src/app/burn-buddies/new/page.tsx`, `apps/web/src/app/burn-squads/[id]/page.tsx`, `apps/web/src/app/burn-squads/new/page.tsx`, `apps/web/src/app/profile/[uid]/page.tsx`",
+        "Apply consistent dark styling: Cards `bg-surface border-gray-700`, Headings `text-white`, Body text `text-gray-300`, Secondary text `text-gray-400`, Inputs `bg-surface-elevated border-gray-600 text-white`, Buttons green primary/colored secondary/gray tertiary, Skeletons `bg-gray-800`",
+        "Remove NavBar imports from all pages (layout handles it)",
+        "Typecheck passes",
+        "Verify all 5 pages in browser using dev-browser skill"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Dark theme for Login and Signup pages with Firebase widget override",
+      "description": "As a user, I want the login and signup pages styled with dark theme, including the Firebase authentication widget, so the auth flow feels consistent with the app.",
+      "acceptanceCriteria": [
+        "Create route group `apps/web/src/app/(auth)` with its own `layout.tsx` (no NavBar)",
+        "Move `login/page.tsx` and `signup/page.tsx` into `(auth)` group",
+        "Update login/signup pages: dark background (inherits from body), white heading text, gray body text",
+        "Add Firebase Auth widget CSS overrides in `globals.css`: Override `.firebaseui-container` background to dark, `.firebaseui-card-content` to `bg-surface`, text colors to white/gray, input fields dark (`bg-surface-elevated`, white text), buttons to match BurnBuddy styles",
+        "Typecheck passes",
+        "Verify login and signup flows in browser using dev-browser skill"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "May need !important to override Firebase widget's inline/scoped styles."
+    }
+  ]
+}
