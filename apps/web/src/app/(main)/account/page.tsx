@@ -25,36 +25,36 @@ function AccountSkeleton() {
   return (
     <div className="animate-pulse">
       {/* Profile section */}
-      <div className="mb-5 rounded-lg border border-gray-200 p-5">
-        <div className="mb-4 h-5 w-16 rounded bg-gray-200" />
+      <div className="mb-5 rounded-lg border border-gray-700 p-5">
+        <div className="mb-4 h-5 w-16 rounded bg-gray-800" />
         <div className="flex items-center gap-4">
-          <div className="h-16 w-16 rounded-full bg-gray-200" />
+          <div className="h-16 w-16 rounded-full bg-gray-800" />
           <div>
-            <div className="mb-2 h-5 w-32 rounded bg-gray-200" />
-            <div className="h-4 w-44 rounded bg-gray-200" />
+            <div className="mb-2 h-5 w-32 rounded bg-gray-800" />
+            <div className="h-4 w-44 rounded bg-gray-800" />
           </div>
         </div>
       </div>
       {/* Username section */}
-      <div className="mb-5 rounded-lg border border-gray-200 p-5">
-        <div className="mb-4 h-5 w-24 rounded bg-gray-200" />
-        <div className="mb-3 h-4 w-full rounded bg-gray-200" />
+      <div className="mb-5 rounded-lg border border-gray-700 p-5">
+        <div className="mb-4 h-5 w-24 rounded bg-gray-800" />
+        <div className="mb-3 h-4 w-full rounded bg-gray-800" />
         <div className="flex items-start gap-3">
-          <div className="h-10 flex-1 rounded-md bg-gray-200" />
-          <div className="h-10 w-16 rounded-md bg-gray-200" />
+          <div className="h-10 flex-1 rounded-md bg-gray-800" />
+          <div className="h-10 w-16 rounded-md bg-gray-800" />
         </div>
       </div>
       {/* Onboarding section */}
-      <div className="mb-5 rounded-lg border border-gray-200 p-5">
-        <div className="mb-2 h-5 w-28 rounded bg-gray-200" />
-        <div className="mb-4 h-4 w-64 rounded bg-gray-200" />
-        <div className="h-9 w-52 rounded-md bg-gray-200" />
+      <div className="mb-5 rounded-lg border border-gray-700 p-5">
+        <div className="mb-2 h-5 w-28 rounded bg-gray-800" />
+        <div className="mb-4 h-4 w-64 rounded bg-gray-800" />
+        <div className="h-9 w-52 rounded-md bg-gray-800" />
       </div>
       {/* Sign out section */}
-      <div className="rounded-lg border border-gray-200 p-5">
-        <div className="mb-2 h-5 w-20 rounded bg-gray-200" />
-        <div className="mb-4 h-4 w-56 rounded bg-gray-200" />
-        <div className="h-9 w-24 rounded-md bg-gray-200" />
+      <div className="rounded-lg border border-gray-700 p-5">
+        <div className="mb-2 h-5 w-20 rounded bg-gray-800" />
+        <div className="mb-4 h-4 w-56 rounded bg-gray-800" />
+        <div className="h-9 w-24 rounded-md bg-gray-800" />
       </div>
     </div>
   );
@@ -247,8 +247,8 @@ export default function AccountPage() {
         ) : (
           <>
             {/* Profile info with picture upload */}
-            <section className="mb-5 rounded-lg border border-gray-200 p-5">
-              <h2 className="mb-4 text-base font-semibold text-gray-700">Profile</h2>
+            <section className="mb-5 rounded-lg border border-gray-700 bg-surface p-5">
+              <h2 className="mb-4 text-base font-semibold text-white">Profile</h2>
               <div className="mb-4 flex items-center gap-4">
                 <div className="relative">
                   <button
@@ -291,9 +291,9 @@ export default function AccountPage() {
                   <div className="text-base font-bold">
                     {user?.displayName ?? profile?.displayName ?? '—'}
                   </div>
-                  <div className="text-sm text-gray-500">{user?.email ?? profile?.email ?? '—'}</div>
+                  <div className="text-sm text-gray-400">{user?.email ?? profile?.email ?? '—'}</div>
                   {uploadPictureMutation.isPending && (
-                    <p className="mt-1 text-xs font-medium text-purple-600">✨ Anime-fying your photo…</p>
+                    <p className="mt-1 text-xs font-medium text-purple-400">✨ Anime-fying your photo…</p>
                   )}
                   {uploadError && (
                     <p className="mt-1 text-xs text-danger">{uploadError}</p>
@@ -304,7 +304,7 @@ export default function AccountPage() {
                 <button
                   onClick={() => removePictureMutation.mutate()}
                   disabled={removePictureMutation.isPending}
-                  className="cursor-pointer rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="cursor-pointer rounded-md border border-gray-600 bg-surface-elevated px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {removePictureMutation.isPending ? 'Removing…' : 'Remove photo'}
                 </button>
@@ -312,9 +312,9 @@ export default function AccountPage() {
             </section>
 
             {/* Username editing */}
-            <section className="mb-5 rounded-lg border border-gray-200 p-5">
-              <h2 className="mb-4 text-base font-semibold text-gray-700">Username</h2>
-              <p className="mb-3 text-sm text-gray-500">
+            <section className="mb-5 rounded-lg border border-gray-700 bg-surface p-5">
+              <h2 className="mb-4 text-base font-semibold text-white">Username</h2>
+              <p className="mb-3 text-sm text-gray-400">
                 Your username is how other users can find you. Letters, numbers, and underscores only (3–30 characters).
               </p>
               <div className="flex items-start gap-3">
@@ -327,7 +327,7 @@ export default function AccountPage() {
                       onChange={(e) => handleUsernameChange(e.target.value)}
                       placeholder="username"
                       maxLength={30}
-                      className="w-full rounded-md border border-gray-300 py-2 pr-3 pl-7 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                      className="w-full rounded-md border border-gray-600 bg-surface-elevated py-2 pr-3 pl-7 text-sm text-white placeholder-gray-500 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
                     />
                   </div>
                   {validationError && (
@@ -337,7 +337,7 @@ export default function AccountPage() {
                 <button
                   onClick={handleUsernameSave}
                   disabled={usernameMutation.isPending || !isUsernameDirty || !!validationError}
-                  className="cursor-pointer rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="cursor-pointer rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {usernameMutation.isPending ? 'Saving…' : 'Save'}
                 </button>
@@ -352,9 +352,9 @@ export default function AccountPage() {
             </section>
 
             {/* Getting Started card toggle */}
-            <section className="mb-5 rounded-lg border border-gray-200 p-5">
-              <h2 className="mb-2 text-base font-semibold text-gray-700">Onboarding</h2>
-              <p className="mb-4 text-sm text-gray-500">
+            <section className="mb-5 rounded-lg border border-gray-700 bg-surface p-5">
+              <h2 className="mb-2 text-base font-semibold text-white">Onboarding</h2>
+              <p className="mb-4 text-sm text-gray-400">
                 {profile?.gettingStartedDismissed
                   ? 'The Getting Started card is currently hidden on the home page.'
                   : 'The Getting Started card is currently visible on the home page.'}
@@ -365,20 +365,20 @@ export default function AccountPage() {
                 className={`cursor-pointer rounded-md border-none px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-60 ${
                   profile?.gettingStartedDismissed
                     ? 'bg-success hover:bg-green-600'
-                    : 'bg-primary hover:bg-orange-600'
+                    : 'bg-primary hover:bg-green-600'
                 }`}
               >
                 {profile?.gettingStartedDismissed ? 'Re-enable Getting Started card' : 'Hide Getting Started card'}
               </button>
               {saveMessage && (
-                <p className="mt-2.5 text-[13px] text-gray-500">{saveMessage}</p>
+                <p className="mt-2.5 text-[13px] text-gray-400">{saveMessage}</p>
               )}
             </section>
 
             {/* Sign out */}
-            <section className="rounded-lg border border-red-200 bg-red-50 p-5">
-              <h2 className="mb-2 text-base font-semibold text-gray-700">Sign Out</h2>
-              <p className="mb-4 text-sm text-gray-500">
+            <section className="rounded-lg border border-red-500/30 bg-surface p-5">
+              <h2 className="mb-2 text-base font-semibold text-white">Sign Out</h2>
+              <p className="mb-4 text-sm text-gray-400">
                 You will be redirected to the login page.
               </p>
               <button
