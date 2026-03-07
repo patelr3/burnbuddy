@@ -138,3 +138,29 @@ Started: Sat Mar  7 07:53:26 PM UTC 2026
   - Delete confirmations: `bg-surface border-red-500/30` with `text-red-400` instead of red backgrounds
   - Cancel/secondary buttons: `border-gray-600 bg-surface-elevated text-gray-300 hover:bg-gray-500/20`
 ---
+
+## 2026-03-07T20:35 - US-010
+- Applied dark theme to login and signup pages
+- Login page: centered vertically, green title, `text-gray-400` subtitle, `flex min-h-screen` layout
+- Signup page: white heading, gray text, green link (`text-primary`) instead of orange
+- Added comprehensive Firebase Auth widget CSS overrides in `globals.css`:
+  - `.firebaseui-card-content`: dark surface background (#1C1C1E), rounded corners
+  - `.firebaseui-container`: transparent background
+  - Input fields: `bg-surface-elevated` (#2C2C2E), white text, gray-600 border
+  - Primary buttons: green (#30D158) with green-600 hover
+  - Labels: green when focused/dirty (#30D158), gray otherwise
+  - Text fields underline: green (#30D158)
+  - Links: blue (#0A84FF), matching secondary color
+  - Error text: red (#ef4444), matching danger color
+  - Dialogs: dark surface bg with gray-700 border
+  - Info bars: dark elevated background
+- FirebaseAuthWidget loading text: `text-gray-400` for dark theme
+- (auth) route group already existed from US-002 — no structural changes needed
+- Files changed: `apps/web/src/app/(auth)/login/page.tsx`, `apps/web/src/app/(auth)/signup/page.tsx`, `apps/web/src/app/globals.css`, `apps/web/src/components/FirebaseAuthWidget.tsx`
+- **Learnings for future iterations:**
+  - Firebase UI widget styles require `!important` for most overrides due to specificity of firebaseui.css
+  - `.firebaseui-card-content` is the main container for auth form content — target it for card background
+  - `.mdl-textfield` classes control Material Design Lite input styling within Firebase UI
+  - Provider buttons (email, Google) have their own color schemes — only the container/card needs dark treatment
+  - The email form (after clicking "Sign in with email") uses `.firebaseui-textfield` with MDL floating labels
+---

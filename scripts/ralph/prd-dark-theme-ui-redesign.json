@@ -150,7 +150,7 @@
         "Verify login and signup flows in browser using dev-browser skill"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "May need !important to override Firebase widget's inline/scoped styles."
     }
   ]
