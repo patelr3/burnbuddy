@@ -37,6 +37,10 @@ export default function AccountPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [showExtendedUpload, setShowExtendedUpload] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const lastFileRef = useRef<File | null>(null);
+  const cancelledRef = useRef(false);
 
   const loadProfile = useCallback(async () => {
     if (!user) return;
@@ -54,6 +58,12 @@ export default function AccountPage() {
   useEffect(() => {
     loadProfile();
   }, [loadProfile]);
+
+  useEffect(() => {
+    if (!uploading) return;
+    const timer = setTimeout(() => setShowExtendedUpload(true), 5000);
+    return () => clearTimeout(timer);
+  }, [uploading]);
 
   const handleToggleGettingStarted = async () => {
     const newValue = !profile?.gettingStartedDismissed;
@@ -114,25 +124,53 @@ export default function AccountPage() {
 
   if (loading) return null;
 
-  const handlePictureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    // Reset input so the same file can be re-selected
-    e.target.value = '';
-
+  const uploadFile = async (file: File) => {
+    lastFileRef.current = file;
+    cancelledRef.current = false;
     setUploadError(null);
     setUploading(true);
+    setShowExtendedUpload(false);
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       const result = await apiUploadFile<{ profilePictureUrl: string }>(
         '/users/me/profile-picture',
         'picture',
         file,
+        { signal: controller.signal },
       );
       setProfile((prev) => prev ? { ...prev, profilePictureUrl: result.profilePictureUrl } : prev);
+      lastFileRef.current = null;
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
+      if (cancelledRef.current) {
+        setUploadError(null);
+      } else {
+        setUploadError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
+      }
     } finally {
       setUploading(false);
+      setShowExtendedUpload(false);
+      abortControllerRef.current = null;
+    }
+  };
+
+  const handlePictureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    await uploadFile(file);
+  };
+
+  const handleCancelUpload = () => {
+    cancelledRef.current = true;
+    abortControllerRef.current?.abort();
+  };
+
+  const handleRetryUpload = () => {
+    if (lastFileRef.current) {
+      uploadFile(lastFileRef.current);
     }
   };
 
@@ -208,10 +246,36 @@ export default function AccountPage() {
                   </div>
                   <div className="text-sm text-gray-500">{user?.email ?? profile?.email ?? '—'}</div>
                   {uploading && (
-                    <p className="mt-1 text-xs font-medium text-purple-600">✨ Anime-fying your photo…</p>
+                    <div className="mt-1">
+                      <p className="text-xs font-medium text-purple-600">
+                        {showExtendedUpload
+                          ? '✨ Still working… this can take a moment for large photos'
+                          : '✨ Anime-fying your photo…'}
+                      </p>
+                      {showExtendedUpload && (
+                        <button
+                          type="button"
+                          onClick={handleCancelUpload}
+                          className="mt-1 cursor-pointer rounded-md border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
                   )}
                   {uploadError && (
-                    <p className="mt-1 text-xs text-danger">{uploadError}</p>
+                    <div className="mt-1">
+                      <p className="text-xs text-danger">{uploadError}</p>
+                      {lastFileRef.current && (
+                        <button
+                          type="button"
+                          onClick={handleRetryUpload}
+                          className="mt-1 cursor-pointer rounded-md border border-gray-300 bg-white px-2 py-0.5 text-xs text-purple-600 hover:bg-purple-50"
+                        >
+                          Retry
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
