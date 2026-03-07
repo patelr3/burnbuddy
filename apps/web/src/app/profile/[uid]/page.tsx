@@ -5,11 +5,12 @@ import { useAuth } from '@/lib/auth-context';
 import { apiPost } from '@/lib/api';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { NavBar } from '@/components/NavBar';
 import { StatCard } from '@/components/StatCard';
 import { Avatar } from '@/components/Avatar';
 import { useProfile, queryKeys } from '@/lib/queries';
+import type { ProfileStats } from '@burnbuddy/shared';
 
 function ProfileSkeleton() {
   return (
@@ -47,23 +48,29 @@ export default function FriendProfilePage() {
 
   const { data: profile, isLoading: dataLoading, error } = useProfile(uid);
 
-  const [sendingRequest, setSendingRequest] = useState(false);
-  const [requestSent, setRequestSent] = useState(false);
   const [mutationError, setMutationError] = useState<string | null>(null);
 
-  const handleRequestBurnBuddy = async () => {
-    setSendingRequest(true);
-    setMutationError(null);
-    try {
-      await apiPost('/burn-buddies/requests', { toUid: uid });
-      setRequestSent(true);
-      queryClient.invalidateQueries({ queryKey: queryKeys.profile(uid) });
-    } catch {
+  const requestBuddyMutation = useMutation({
+    mutationFn: () => apiPost('/burn-buddies/requests', { toUid: uid }),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.profile(uid) });
+      const previous = queryClient.getQueryData<ProfileStats>(queryKeys.profile(uid));
+      queryClient.setQueryData<ProfileStats>(queryKeys.profile(uid), (old) =>
+        old ? { ...old, buddyRelationshipStatus: 'pending_sent' as const } : old,
+      );
+      setMutationError(null);
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData<ProfileStats>(queryKeys.profile(uid), context.previous);
+      }
       setMutationError('Failed to send Burn Buddy request.');
-    } finally {
-      setSendingRequest(false);
-    }
-  };
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile(uid) });
+    },
+  });
 
   const errorMessage = error
     ? (error.message?.includes('404')
@@ -122,19 +129,14 @@ export default function FriendProfilePage() {
                     🔥 Request Received
                   </span>
                 )}
-                {profile.buddyRelationshipStatus === 'none' && !requestSent && (
+                {profile.buddyRelationshipStatus === 'none' && (
                   <button
-                    onClick={handleRequestBurnBuddy}
-                    disabled={sendingRequest}
+                    onClick={() => requestBuddyMutation.mutate()}
+                    disabled={requestBuddyMutation.isPending}
                     className="cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50"
                   >
-                    {sendingRequest ? 'Sending…' : '🔥 Request Burn Buddy'}
+                    {requestBuddyMutation.isPending ? 'Sending…' : '🔥 Request Burn Buddy'}
                   </button>
-                )}
-                {profile.buddyRelationshipStatus === 'none' && requestSent && (
-                  <span className="rounded-full bg-yellow-50 px-3 py-1.5 text-xs font-medium text-yellow-600">
-                    🔥 Request Sent
-                  </span>
                 )}
               </div>
             </div>

@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { apiPut, apiDelete, apiUploadFile } from '@/lib/api';
 import { useAccount, queryKeys } from '@/lib/queries';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase-client';
 import { useRouter } from 'next/navigation';
@@ -69,18 +69,14 @@ export default function AccountPage() {
 
   const { data: profile, isLoading: dataLoading } = useAccount();
 
-  const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   const [username, setUsername] = useState('');
   const [usernameSynced, setUsernameSynced] = useState(false);
-  const [usernameSaving, setUsernameSaving] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [usernameFeedback, setUsernameFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [removing, setRemoving] = useState(false);
 
   // Sync username from profile when it first loads
   useEffect(() => {
@@ -90,23 +86,119 @@ export default function AccountPage() {
     }
   }, [profile, usernameSynced]);
 
-  const handleToggleGettingStarted = async () => {
-    const newValue = !profile?.gettingStartedDismissed;
-    setSaving(true);
-    setSaveMessage(null);
-    try {
-      await apiPut('/users/me', { gettingStartedDismissed: newValue });
-      queryClient.setQueryData<UserProfile>(queryKeys.account, (prev) =>
-        prev ? { ...prev, gettingStartedDismissed: newValue } : prev,
+  // ── Mutations ──────────────────────────────────────────────────────────────
+
+  const toggleGettingStartedMutation = useMutation({
+    mutationFn: (newValue: boolean) => apiPut('/users/me', { gettingStartedDismissed: newValue }),
+    onMutate: async (newValue) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.account });
+      const previous = queryClient.getQueryData<UserProfile>(queryKeys.account);
+      queryClient.setQueryData<UserProfile>(queryKeys.account, (old) =>
+        old ? { ...old, gettingStartedDismissed: newValue } : old,
       );
+      setSaveMessage(null);
+      return { previous };
+    },
+    onSuccess: (_data, newValue) => {
       setSaveMessage(newValue ? 'Getting Started card hidden.' : 'Getting Started card re-enabled.');
-    } catch {
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData<UserProfile>(queryKeys.account, context.previous);
+      }
       setSaveMessage('Failed to save. Please try again.');
-    } finally {
-      setSaving(false);
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.account });
-    }
-  };
+    },
+  });
+
+  const usernameMutation = useMutation({
+    mutationFn: (newUsername: string) => apiPut<UserProfile>('/users/me', { username: newUsername }),
+    onMutate: async (newUsername) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.account });
+      const previous = queryClient.getQueryData<UserProfile>(queryKeys.account);
+      queryClient.setQueryData<UserProfile>(queryKeys.account, (old) =>
+        old ? { ...old, username: newUsername } : old,
+      );
+      setUsernameFeedback(null);
+      return { previous };
+    },
+    onSuccess: (updated) => {
+      queryClient.setQueryData<UserProfile>(queryKeys.account, updated);
+      setUsername(updated.username ?? '');
+      setUsernameFeedback({ type: 'success', message: 'Username updated!' });
+    },
+    onError: (_err, _newUsername, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData<UserProfile>(queryKeys.account, context.previous);
+        setUsername(context.previous.username ?? '');
+      }
+      setUsernameFeedback({ type: 'error', message: 'Failed to save. Please try again.' });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.account });
+    },
+  });
+
+  const uploadPictureMutation = useMutation({
+    mutationFn: (file: File) =>
+      apiUploadFile<{ profilePictureUrl: string }>('/users/me/profile-picture', 'picture', file),
+    onMutate: async (file) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.account });
+      const previous = queryClient.getQueryData<UserProfile>(queryKeys.account);
+      const previewUrl = URL.createObjectURL(file);
+      queryClient.setQueryData<UserProfile>(queryKeys.account, (old) =>
+        old ? { ...old, profilePictureUrl: previewUrl } : old,
+      );
+      setUploadError(null);
+      return { previous, previewUrl };
+    },
+    onSuccess: (result) => {
+      queryClient.setQueryData<UserProfile>(queryKeys.account, (old) =>
+        old ? { ...old, profilePictureUrl: result.profilePictureUrl } : old,
+      );
+    },
+    onError: (err, _file, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData<UserProfile>(queryKeys.account, context.previous);
+      }
+      if (context?.previewUrl) {
+        URL.revokeObjectURL(context.previewUrl);
+      }
+      setUploadError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
+    },
+    onSettled: (_data, _error, _file, context) => {
+      if (context?.previewUrl) {
+        URL.revokeObjectURL(context.previewUrl);
+      }
+      queryClient.invalidateQueries({ queryKey: queryKeys.account });
+    },
+  });
+
+  const removePictureMutation = useMutation({
+    mutationFn: () => apiDelete('/users/me/profile-picture'),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.account });
+      const previous = queryClient.getQueryData<UserProfile>(queryKeys.account);
+      queryClient.setQueryData<UserProfile>(queryKeys.account, (old) =>
+        old ? { ...old, profilePictureUrl: undefined } : old,
+      );
+      setUploadError(null);
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData<UserProfile>(queryKeys.account, context.previous);
+      }
+      setUploadError('Failed to remove photo. Please try again.');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.account });
+    },
+  });
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
 
   const handleUsernameChange = (value: string) => {
     setUsername(value);
@@ -118,7 +210,7 @@ export default function AccountPage() {
     setValidationError(validateUsernameClient(value));
   };
 
-  const handleUsernameSave = async () => {
+  const handleUsernameSave = () => {
     const trimmed = username.trim();
     if (!trimmed) return;
 
@@ -133,63 +225,17 @@ export default function AccountPage() {
       return;
     }
 
-    setUsernameSaving(true);
-    setUsernameFeedback(null);
-
-    try {
-      const updated = await apiPut<UserProfile>('/users/me', { username: trimmed });
-      queryClient.setQueryData<UserProfile>(queryKeys.account, updated);
-      setUsername(updated.username ?? '');
-      setUsernameFeedback({ type: 'success', message: 'Username updated!' });
-    } catch {
-      setUsernameFeedback({ type: 'error', message: 'Failed to save. Please try again.' });
-    } finally {
-      setUsernameSaving(false);
-      queryClient.invalidateQueries({ queryKey: queryKeys.account });
-    }
+    usernameMutation.mutate(trimmed);
   };
 
-  if (loading) return null;
-
-  const handlePictureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePictureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
-
-    setUploadError(null);
-    setUploading(true);
-    try {
-      const result = await apiUploadFile<{ profilePictureUrl: string }>(
-        '/users/me/profile-picture',
-        'picture',
-        file,
-      );
-      queryClient.setQueryData<UserProfile>(queryKeys.account, (prev) =>
-        prev ? { ...prev, profilePictureUrl: result.profilePictureUrl } : prev,
-      );
-    } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
-    } finally {
-      setUploading(false);
-      queryClient.invalidateQueries({ queryKey: queryKeys.account });
-    }
+    uploadPictureMutation.mutate(file);
   };
 
-  const handlePictureRemove = async () => {
-    setUploadError(null);
-    setRemoving(true);
-    try {
-      await apiDelete('/users/me/profile-picture');
-      queryClient.setQueryData<UserProfile>(queryKeys.account, (prev) =>
-        prev ? { ...prev, profilePictureUrl: undefined } : prev,
-      );
-    } catch {
-      setUploadError('Failed to remove photo. Please try again.');
-    } finally {
-      setRemoving(false);
-      queryClient.invalidateQueries({ queryKey: queryKeys.account });
-    }
-  };
+  if (loading) return null;
 
   const isUsernameDirty = username.trim() !== (profile?.username ?? '');
 
@@ -211,11 +257,11 @@ export default function AccountPage() {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
+                    disabled={uploadPictureMutation.isPending}
                     className="group relative cursor-pointer rounded-full border-none bg-transparent p-0 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:cursor-not-allowed"
                     aria-label="Change profile picture"
                   >
-                    {uploading ? (
+                    {uploadPictureMutation.isPending ? (
                       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-pink-400">
                         <span className="animate-bounce text-lg">✨</span>
                       </div>
@@ -226,7 +272,7 @@ export default function AccountPage() {
                         size="lg"
                       />
                     )}
-                    {!uploading && (
+                    {!uploadPictureMutation.isPending && (
                       <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/0 text-white/0 transition-all group-hover:bg-black/40 group-hover:text-white/100">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                           <path d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.121-1.121A2 2 0 0011.172 3H8.828a2 2 0 00-1.414.586L6.293 4.707A1 1 0 015.586 5H4z" />
@@ -249,7 +295,7 @@ export default function AccountPage() {
                     {user?.displayName ?? profile?.displayName ?? '—'}
                   </div>
                   <div className="text-sm text-gray-500">{user?.email ?? profile?.email ?? '—'}</div>
-                  {uploading && (
+                  {uploadPictureMutation.isPending && (
                     <p className="mt-1 text-xs font-medium text-purple-600">✨ Anime-fying your photo…</p>
                   )}
                   {uploadError && (
@@ -257,13 +303,13 @@ export default function AccountPage() {
                   )}
                 </div>
               </div>
-              {profile?.profilePictureUrl && !uploading && (
+              {profile?.profilePictureUrl && !uploadPictureMutation.isPending && (
                 <button
-                  onClick={handlePictureRemove}
-                  disabled={removing}
+                  onClick={() => removePictureMutation.mutate()}
+                  disabled={removePictureMutation.isPending}
                   className="cursor-pointer rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {removing ? 'Removing…' : 'Remove photo'}
+                  {removePictureMutation.isPending ? 'Removing…' : 'Remove photo'}
                 </button>
               )}
             </section>
@@ -293,10 +339,10 @@ export default function AccountPage() {
                 </div>
                 <button
                   onClick={handleUsernameSave}
-                  disabled={usernameSaving || !isUsernameDirty || !!validationError}
+                  disabled={usernameMutation.isPending || !isUsernameDirty || !!validationError}
                   className="cursor-pointer rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {usernameSaving ? 'Saving…' : 'Save'}
+                  {usernameMutation.isPending ? 'Saving…' : 'Save'}
                 </button>
               </div>
               {usernameFeedback && (
@@ -317,8 +363,8 @@ export default function AccountPage() {
                   : 'The Getting Started card is currently visible on the home page.'}
               </p>
               <button
-                onClick={handleToggleGettingStarted}
-                disabled={saving}
+                onClick={() => toggleGettingStartedMutation.mutate(!profile?.gettingStartedDismissed)}
+                disabled={toggleGettingStartedMutation.isPending}
                 className={`cursor-pointer rounded-md border-none px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-60 ${
                   profile?.gettingStartedDismissed
                     ? 'bg-success hover:bg-green-600'
