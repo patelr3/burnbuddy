@@ -1,27 +1,18 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { apiGet, apiPut, apiDelete } from '@/lib/api';
+import { apiPut, apiDelete } from '@/lib/api';
 import { useRouter, useParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { NavBar } from '@/components/NavBar';
 import { StatCard } from '@/components/StatCard';
 import { Avatar } from '@/components/Avatar';
 import { AddToCalendarButton } from '@/components/AddToCalendarButton';
-import type { BurnSquad, GroupWorkout, GroupStats, WorkoutSchedule } from '@burnbuddy/shared';
-
-interface MemberProfile {
-  uid: string;
-  displayName: string;
-  email: string;
-  profilePictureUrl?: string;
-}
-
-interface Streaks {
-  burnStreak: number;
-  supernovaStreak: number;
-}
+import { useBurnSquad, queryKeys } from '@/lib/queries';
+import type { BurnSquadData } from '@/lib/queries';
+import type { BurnSquad, WorkoutSchedule } from '@burnbuddy/shared';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 type Day = (typeof DAYS)[number];
@@ -69,19 +60,70 @@ function startOfMonthUTC(): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 }
 
+function BurnSquadSkeleton() {
+  return (
+    <div className="animate-pulse">
+      {/* Header skeleton */}
+      <div className="flex items-center justify-between border-b border-gray-200 py-4 mb-6">
+        <div className="flex items-center gap-3">
+          <div className="h-4 w-12 rounded bg-gray-200" />
+          <div className="h-6 w-36 rounded bg-gray-200" />
+          <div className="h-5 w-14 rounded-full bg-gray-200" />
+        </div>
+        <div className="h-8 w-28 rounded-md bg-gray-200" />
+      </div>
+
+      {/* Stats grid skeleton */}
+      <div className="mb-7 grid grid-cols-2 gap-3">
+        {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+          <div key={i} className="rounded-lg border border-slate-100 p-3.5">
+            <div className="mb-2 h-4 w-24 rounded bg-gray-200" />
+            <div className="h-6 w-16 rounded bg-gray-200" />
+          </div>
+        ))}
+      </div>
+
+      {/* Members skeleton */}
+      <div className="mb-3 h-5 w-28 rounded bg-gray-200" />
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="flex items-center gap-3 border-b border-gray-100 py-2.5">
+          <div className="h-8 w-8 rounded-full bg-gray-200" />
+          <div>
+            <div className="mb-1 h-4 w-24 rounded bg-gray-200" />
+          </div>
+        </div>
+      ))}
+
+      {/* Workout log skeleton */}
+      <div className="mt-7 mb-3 h-5 w-40 rounded bg-gray-200" />
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="flex items-center justify-between border-b border-gray-100 py-3">
+          <div>
+            <div className="mb-1 h-4 w-28 rounded bg-gray-200" />
+            <div className="h-3 w-20 rounded bg-gray-200" />
+          </div>
+          <div className="h-4 w-16 rounded bg-gray-200" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function BurnSquadDetailPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const params = useParams();
   const id = params['id'] as string;
+  const queryClient = useQueryClient();
 
-  const [squad, setSquad] = useState<BurnSquad | null>(null);
-  const [members, setMembers] = useState<MemberProfile[]>([]);
-  const [streaks, setStreaks] = useState<Streaks>({ burnStreak: 0, supernovaStreak: 0 });
-  const [groupWorkouts, setGroupWorkouts] = useState<GroupWorkout[]>([]);
-  const [stats, setStats] = useState<GroupStats | null>(null);
-  const [dataLoading, setDataLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
+  const { data, isLoading: dataLoading, error } = useBurnSquad(id);
+
+  const squad = data?.squad ?? null;
+  const members = data?.squad?.members ?? [];
+  const streaks = data?.streaks ?? { burnStreak: 0, supernovaStreak: 0 };
+  const groupWorkouts = data?.groupWorkouts ?? [];
+  const stats = data?.stats ?? null;
+  const notFound = !!error;
 
   // Edit settings state
   const [editing, setEditing] = useState(false);
@@ -95,53 +137,17 @@ export default function BurnSquadDetailPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const loadData = useCallback(async () => {
-    if (!user) return;
-    setDataLoading(true);
-    try {
-      const sq = await apiGet<BurnSquad>(`/burn-squads/${id}`);
-      setSquad(sq);
-
-      const [memberProfiles, fetchedStreaks, allGroupWorkouts, fetchedStats] = await Promise.all([
-        Promise.all(
-          sq.memberUids.map((uid) =>
-            apiGet<MemberProfile>(`/users/${uid}`).catch(() => ({ uid, displayName: uid, email: '' })),
-          ),
-        ),
-        apiGet<Streaks>(`/burn-squads/${id}/streaks`).catch(() => ({ burnStreak: 0, supernovaStreak: 0 })),
-        apiGet<GroupWorkout[]>('/group-workouts').catch(() => [] as GroupWorkout[]),
-        apiGet<GroupStats>(`/burn-squads/${id}/stats`).catch(() => null),
-      ]);
-
-      setMembers(memberProfiles);
-      setStreaks(fetchedStreaks);
-      setStats(fetchedStats);
-
-      const squadWorkouts = allGroupWorkouts
-        .filter((gw) => gw.type === 'squad' && gw.referenceId === id)
-        .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
-      setGroupWorkouts(squadWorkouts);
-
-      // Pre-fill edit form
-      setEditName(sq.name);
-      setOnlyAdminsCanAdd(sq.settings.onlyAdminsCanAddMembers);
-      if (sq.settings.workoutSchedule) {
-        setSelectedDays((sq.settings.workoutSchedule.days as Day[]) ?? []);
-        setScheduleTime(sq.settings.workoutSchedule.time ?? '');
-      }
-    } catch (err: unknown) {
-      const msg = (err as { message?: string })?.message ?? '';
-      if (msg.includes('404') || msg.includes('403')) {
-        setNotFound(true);
-      }
-    } finally {
-      setDataLoading(false);
-    }
-  }, [user, id]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const isAdmin = useMemo(() => squad?.adminUid === user?.uid, [squad, user]);
+  const weekStart = useMemo(() => startOfWeekUTC(), []);
+  const monthStart = useMemo(() => startOfMonthUTC(), []);
+  const workoutsThisWeek = useMemo(
+    () => groupWorkouts.filter((gw) => new Date(gw.startedAt) >= weekStart).length,
+    [groupWorkouts, weekStart],
+  );
+  const workoutsThisMonth = useMemo(
+    () => groupWorkouts.filter((gw) => new Date(gw.startedAt) >= monthStart).length,
+    [groupWorkouts, monthStart],
+  );
 
   const handleSaveSettings = async () => {
     setSaving(true);
@@ -155,7 +161,10 @@ export default function BurnSquadDetailPage() {
           ...(workoutSchedule !== undefined && { workoutSchedule }),
         },
       });
-      setSquad(updated);
+      queryClient.setQueryData<BurnSquadData>(queryKeys.burnSquad(id), (old) =>
+        old ? { ...old, squad: { ...updated, members: old.squad.members } } : old,
+      );
+      queryClient.invalidateQueries({ queryKey: queryKeys.burnSquad(id) });
       setEditing(false);
     } catch {
       // keep editing open
@@ -188,12 +197,7 @@ export default function BurnSquadDetailPage() {
       <>
         <NavBar />
         <main className="mx-auto max-w-xl px-4">
-          <div className="border-b border-gray-200 py-4 mb-6">
-            <Link href="/" className="text-sm text-gray-500 no-underline hover:text-gray-700">
-              ← Back
-            </Link>
-          </div>
-          <p className="text-gray-500">Loading...</p>
+          <BurnSquadSkeleton />
         </main>
       </>
     );
@@ -214,12 +218,6 @@ export default function BurnSquadDetailPage() {
       </>
     );
   }
-
-  const isAdmin = squad.adminUid === user?.uid;
-  const weekStart = startOfWeekUTC();
-  const monthStart = startOfMonthUTC();
-  const workoutsThisWeek = groupWorkouts.filter((gw) => new Date(gw.startedAt) >= weekStart).length;
-  const workoutsThisMonth = groupWorkouts.filter((gw) => new Date(gw.startedAt) >= monthStart).length;
 
   return (
     <>
@@ -388,7 +386,7 @@ export default function BurnSquadDetailPage() {
               key={member.uid}
               className="flex items-center gap-3 border-b border-gray-100 py-2.5"
             >
-              <Avatar displayName={member.displayName} profilePictureUrl={member.profilePictureUrl} size="sm" />
+              <Avatar displayName={member.displayName} profilePictureUrl={member.photoURL} size="sm" />
               <div>
                 <div className="text-sm font-medium">
                   {member.displayName}
@@ -398,7 +396,6 @@ export default function BurnSquadDetailPage() {
                     </span>
                   )}
                 </div>
-                <div className="text-xs text-gray-400">{member.email}</div>
               </div>
             </div>
           ))}
