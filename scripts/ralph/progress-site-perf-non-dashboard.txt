@@ -1,3 +1,152 @@
 # Ralph Progress Log — Site Performance Non-Dashboard Pages
 Started: 2026-03-07
+
+## Codebase Patterns
+- Shared package build is broken on main (logger.ts needs `dom` lib for `console`). Compile types.ts individually: `npx tsc src/types.ts --declaration --outDir dist --target ES2022 --module CommonJS --esModuleInterop --strict`
+- After changing packages/shared/src/types.ts, must rebuild dist/ before API typecheck passes. The API resolves @burnbuddy/shared from compiled dist/ output.
+- Test mocks for Firestore use vi.hoisted + vi.mock pattern. Add `mockGetAll` to the hoisted mocks and `getAll: mockGetAll` to the getDb mock when testing batched reads.
+- Firestore `db.getAll(...refs)` accepts spread of DocumentReferences and returns DocumentSnapshots in same order.
+- `yarn install --frozen-lockfile` is needed in fresh worktrees before running tests.
+- React Query migration pattern: import types (FriendsData, FriendWithProfile, etc.) from queries.ts, use hook return values instead of useState, use queryClient.invalidateQueries after mutations, use queryClient.setQueryData for optimistic updates.
+- Skeleton components follow DashboardSkeleton pattern: `animate-pulse` wrapper div, `bg-gray-200 rounded` placeholder divs, `rounded-full` for avatar circles.
+
+---
+
+## 2026-03-07T06:27 - US-001
+- Implemented enriched friend requests endpoint with displayName and photoURL
+- Files changed: packages/shared/src/types.ts, services/api/src/routes/friends.ts, services/api/src/routes/friends.test.ts
+- **Learnings for future iterations:**
+  - Added `EnrichedFriendRequest` type extending `FriendRequest` in shared types — use this pattern for response enrichment without modifying Firestore schema
+  - `db.getAll(...refs)` is available on the Firestore instance for batched document reads — much more efficient than individual `.get()` calls
+  - The shared package build is broken on main (logger.ts needs `dom` lib). Workaround: compile types.ts directly with `npx tsc`
+  - Deduplicate UIDs before batch fetch to avoid redundant reads (same user can appear in both incoming and outgoing)
+---
+
+## 2026-03-07T06:29 - US-002
+- Implemented GET /burn-buddies/:id/group-workouts endpoint returning scoped group workouts
+- Files changed: services/api/src/routes/burn-buddies.ts, services/api/src/routes/burn-buddies.test.ts
+- **Learnings for future iterations:**
+  - Scoped group-workouts endpoints query `groupWorkouts` WHERE `referenceId == id` — same pattern for both buddies and squads
+  - New sub-resource routes (/:id/group-workouts) must be registered BEFORE the generic /:id route in Express to avoid being swallowed
+  - The existing mockGroupWorkoutsQueryChain in burn-buddies.test.ts can be reused for group-workouts endpoint tests — no new mocks needed
+  - 5 tests added: 401 unauth, 404 not found, 403 not member, empty array, returns scoped workouts
+---
+
+## 2026-03-07T06:31 - US-003
+- Implemented GET /burn-squads/:id/group-workouts endpoint returning scoped group workouts
+- Files changed: services/api/src/routes/burn-squads.ts, services/api/src/routes/burn-squads.test.ts
+- **Learnings for future iterations:**
+  - Exact same pattern as US-002 (burn-buddies): query `groupWorkouts` WHERE `referenceId == id`, check membership via `squad.memberUids.includes(uid)`
+  - Route registered BEFORE generic `/:id` route to avoid Express swallowing it as an :id param
+  - The existing `mockGroupWorkoutsQueryChain` and `mockGroupWorkoutsQueryGet` in burn-squads.test.ts already existed from the streaks endpoint — reused directly
+  - 5 tests added: 401 unauth, 404 not found, 403 not member, empty array, returns scoped workouts
+---
+
+## 2026-03-07T06:34 - US-004
+- Implemented enriched burn squad response with member profiles (displayName, photoURL)
+- Files changed: packages/shared/src/types.ts, services/api/src/routes/burn-squads.ts, services/api/src/routes/burn-squads.test.ts
+- **Learnings for future iterations:**
+  - Added `EnrichedBurnSquadMember` type to shared types — use this for squad member profile data
+  - Used `db.getAll(...refs)` with chunks of 100 for defensive handling of large squads
+  - The enriched response adds a `members` array alongside existing `memberUids` — frontend can use `members` for display while `memberUids` remains for ID-based lookups
+  - Missing/deleted user profiles gracefully fall back to 'Unknown User' display name with no photoURL
+  - 3 new tests added: enriched single member, enriched multiple members, fallback for deleted profiles
+---
+
+## 2026-03-07T06:40 - US-005
+- Implemented React Query hooks for all non-dashboard pages in apps/web/src/lib/queries.ts
+- Added hooks: useFriends(), useBurnBuddy(id), useBurnSquad(id), useAccount()
+- Verified existing useProfile(uid) hook works as-is
+- Added query keys: ['friends'], ['burn-buddy', id], ['burn-squad', id], ['account']
+- useAccount() has staleTime of 5 minutes; all others use default 30s from QueryClient
+- Files changed: apps/web/src/lib/queries.ts
+- **Learnings for future iterations:**
+  - useBurnBuddy queryFn has a waterfall: must fetch burn buddy first to determine partnerUid, then fetches partner profile/streaks/workouts in parallel
+  - auth.currentUser?.uid from firebase-client gives the current user UID inside queryFn (no need to pass as parameter)
+  - Exported FriendsData, BurnBuddyData, BurnSquadData, FriendWithProfile types for use by consuming pages
+  - .catch() fallbacks on non-critical parallel fetches (partner profile, streaks, stats) prevent a single failure from breaking the entire query
+  - Query key conventions follow pattern: noun for collections (['friends'], ['account']), [noun, id] for entities (['burn-buddy', id])
+---
+
+## 2026-03-07T06:44 - US-006
+- Migrated Friends page from raw useState/useEffect to useFriends() React Query hook
+- Added FriendsSkeleton component with animate-pulse + bg-gray-200 matching DashboardSkeleton pattern
+- Removed N+1 individual GET /users/{uid} calls for friend request enrichment — now uses enriched endpoint from US-001
+- Wrapped getBurnBuddyStatus in useMemo for derived state memoization
+- Replaced loadData() calls with queryClient.invalidateQueries after mutations
+- Added optimistic cache update for handleRemoveFriend via queryClient.setQueryData
+- Displayed photoURL from enriched friend requests in Avatar components
+- Files changed: apps/web/src/app/friends/page.tsx
+- **Learnings for future iterations:**
+  - Import FriendWithProfile and FriendsData types from queries.ts — don't redeclare locally
+  - Use queryClient.setQueryData<FriendsData> for optimistic updates, followed by invalidateQueries for background revalidation
+  - useMemo wrapping a function factory (returns a function) is the pattern for memoizing getBurnBuddyStatus-style lookups
+  - EnrichedFriendRequest from @burnbuddy/shared has `photoURL` (not `profilePictureUrl`) — pass to Avatar's profilePictureUrl prop
+  - Firebase Auth isn't configured in local dev (no API key) — browser verification redirects to /login; actual page rendering verified via typecheck + code review
+---
+
+## 2026-03-07T06:47 - US-007
+- Migrated Account page from raw useState/useEffect to useAccount() React Query hook
+- Added AccountSkeleton component with animate-pulse + bg-gray-200 matching DashboardSkeleton pattern
+- Replaced `<p>Loading...</p>` with structured skeleton showing profile card, username input, onboarding toggle, and sign-out sections
+- Removed loadProfile() useCallback/useEffect and replaced with useAccount() hook data
+- Mutations (username save, picture upload/remove, getting-started toggle) use queryClient.setQueryData for instant cache update + invalidateQueries for background revalidation
+- Synced username input from profile data via useEffect with a one-time flag to avoid overwriting user edits
+- Files changed: apps/web/src/app/account/page.tsx
+- **Learnings for future iterations:**
+  - Use `usernameSynced` flag pattern when syncing local input state from async React Query data — prevents overwriting user edits on refetch
+  - queryClient.setQueryData<UserProfile>(queryKeys.account, ...) for immediate cache mutations on Account page
+  - AccountSkeleton mirrors the page's 4-section layout: profile card, username, onboarding, sign-out
+  - Firebase Auth isn't configured in local dev — browser verification redirects to /login; verified via typecheck + code review
+---
+
+## 2026-03-07T06:51 - US-008
+- Migrated Burn Buddy detail page from raw useState/useEffect to useBurnBuddy(id) React Query hook
+- Added BurnBuddySkeleton component with animate-pulse + bg-gray-200 matching existing skeleton patterns (8 stat cards, 3 workout items, header)
+- Replaced `Loading...` text with structured skeleton UI
+- Now uses scoped /burn-buddies/:id/group-workouts endpoint (via hook) instead of fetching ALL group workouts and filtering client-side
+- Removed all raw useState for buddy/partner/streaks/workouts/loading and replaced with hook return values
+- Wrapped workoutsThisWeek and workoutsThisMonth calculations in useMemo
+- Schedule save mutation uses queryClient.setQueryData + invalidateQueries for optimistic update
+- Files changed: apps/web/src/app/burn-buddies/[id]/page.tsx
+- **Learnings for future iterations:**
+  - useBurnBuddy hook returns sorted groupWorkouts already — no need for client-side sort/filter
+  - Use `queryClient.setQueryData<BurnBuddyData>(queryKeys.burnBuddy(id), ...)` for optimistic updates on detail pages
+  - weekStart/monthStart should be wrapped in useMemo to avoid recalculating on every render
+  - Error from React Query (error truthy) maps to notFound state — simpler than parsing error messages
+  - Firebase Auth isn't configured in local dev — browser verification redirects to /login; verified via typecheck + code review
+---
+
+## 2026-03-07T06:54 - US-009
+- Migrated Burn Squad detail page from raw useState/useEffect to useBurnSquad(id) React Query hook
+- Added BurnSquadSkeleton component with animate-pulse + bg-gray-200 matching existing skeleton patterns (8 stat cards, 3 member items, 3 workout items, header)
+- Replaced `Loading...` text with structured skeleton UI
+- Now uses scoped /burn-squads/:id/group-workouts endpoint (via hook) instead of fetching ALL group workouts and filtering client-side
+- Now uses enriched members from /burn-squads/:id response (squad.members) instead of individual /users/{uid} calls — eliminates N+1
+- Removed local MemberProfile and Streaks interfaces — uses types from queries.ts and @burnbuddy/shared
+- Removed all raw useState for squad/members/streaks/workouts/stats/loading and replaced with hook return values
+- Wrapped workoutsThisWeek, workoutsThisMonth, and isAdmin in useMemo
+- Settings save mutation uses queryClient.setQueryData + invalidateQueries for optimistic update (preserving enriched members)
+- Removed email display from member list (EnrichedBurnSquadMember doesn't include email)
+- Files changed: apps/web/src/app/burn-squads/[id]/page.tsx
+- **Learnings for future iterations:**
+  - EnrichedBurnSquadMember uses `photoURL` (not `profilePictureUrl`) — map to Avatar's `profilePictureUrl` prop
+  - When doing optimistic update after settings save, preserve enriched members with `{ ...updated, members: old.squad.members }` since apiPut returns plain BurnSquad without members
+  - Members array comes from `data?.squad?.members ?? []` — it's optional on the squad object, not a top-level field on BurnSquadData
+  - Firebase Auth isn't configured in local dev — browser verification redirects to /login; verified via typecheck + code review
+---
+
+## 2026-03-07T06:57 - US-010
+- Migrated Profile page from raw useState/useEffect to useProfile(uid) React Query hook
+- Added ProfileSkeleton component with animate-pulse + bg-gray-200 matching existing skeleton patterns (avatar circle, name, stats grid)
+- Replaced `<p>Loading…</p>` with structured skeleton UI
+- Removed loadProfile() useCallback/useEffect and replaced with useProfile(uid) hook data
+- Burn buddy request mutation uses queryClient.invalidateQueries for background revalidation instead of await loadProfile()
+- Error handling derived from React Query error object with same 404/403/generic categorization
+- Files changed: apps/web/src/app/profile/[uid]/page.tsx
+- **Learnings for future iterations:**
+  - useProfile(uid) hook returns `{ data, isLoading, error }` — error.message contains the HTTP status code text for categorizing errors
+  - Profile page keeps local `sendingRequest` and `requestSent` state since burn buddy request is a one-shot mutation, not a query
+  - Separate `mutationError` state from query `error` keeps the two error sources independent
+  - Firebase Auth isn't configured in local dev — browser verification redirects to /login; verified via typecheck + code review
 ---

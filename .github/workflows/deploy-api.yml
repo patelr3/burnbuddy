@@ -72,6 +72,12 @@ jobs:
             --query value --output tsv 2>/dev/null || echo "")
           echo "PROJECT_ID=${FIREBASE_PROJECT_ID}" >> "$GITHUB_OUTPUT"
 
+          FIREBASE_STORAGE_BUCKET=$(az keyvault secret show \
+            --vault-name ${{ env.KEY_VAULT_NAME }} \
+            --name firebase-storage-bucket \
+            --query value --output tsv 2>/dev/null || echo "${FIREBASE_PROJECT_ID}.appspot.com")
+          echo "STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET}" >> "$GITHUB_OUTPUT"
+
       - name: Set image tag
         id: vars
         run: echo "TAG=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
@@ -91,7 +97,8 @@ jobs:
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --image ${{ env.ACR_LOGIN_SERVER }}/burnbuddy/api:${{ steps.vars.outputs.TAG }} \
             --set-env-vars \
-              FIREBASE_PROJECT_ID=${{ steps.firebase.outputs.PROJECT_ID }}
+              FIREBASE_PROJECT_ID=${{ steps.firebase.outputs.PROJECT_ID }} \
+              FIREBASE_STORAGE_BUCKET=${{ steps.firebase.outputs.STORAGE_BUCKET }}
 
   test-beta:
     name: Integration Tests (Beta)
@@ -167,6 +174,12 @@ jobs:
             --query value --output tsv 2>/dev/null || echo "")
           echo "PROJECT_ID=${FIREBASE_PROJECT_ID}" >> "$GITHUB_OUTPUT"
 
+          FIREBASE_STORAGE_BUCKET=$(az keyvault secret show \
+            --vault-name ${{ env.KEY_VAULT_NAME }} \
+            --name firebase-storage-bucket \
+            --query value --output tsv 2>/dev/null || echo "${FIREBASE_PROJECT_ID}.appspot.com")
+          echo "STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET}" >> "$GITHUB_OUTPUT"
+
       - name: Set image tag
         id: vars
         run: echo "TAG=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
@@ -186,7 +199,8 @@ jobs:
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --image ${{ env.ACR_LOGIN_SERVER }}/burnbuddy/api:${{ steps.vars.outputs.TAG }} \
             --set-env-vars \
-              FIREBASE_PROJECT_ID=${{ steps.firebase.outputs.PROJECT_ID }}
+              FIREBASE_PROJECT_ID=${{ steps.firebase.outputs.PROJECT_ID }} \
+              FIREBASE_STORAGE_BUCKET=${{ steps.firebase.outputs.STORAGE_BUCKET }}
 
   test-prod:
     name: Integration Tests (Production)

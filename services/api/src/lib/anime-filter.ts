@@ -37,28 +37,32 @@ export async function animeFilter(inputBuffer: Buffer): Promise<Buffer> {
   const width = metadata.width ?? OUTPUT_SIZE;
   const height = metadata.height ?? OUTPUT_SIZE;
 
-  // Step 1: Posterize — blur + boost saturation for flat cel-shaded look
-  const posterized = await sharp(inputBuffer)
-    .rotate()
-    .resize(width, height, { fit: 'cover' })
-    .blur(2)
-    .modulate({ saturation: 1.8 })
-    .toBuffer();
+  // Steps 1 & 2 run in parallel: posterize + Sobel edge detection (X and Y)
+  const [posterized, edgesX, edgesY] = await Promise.all([
+    // Step 1: Posterize — blur + boost saturation for flat cel-shaded look
+    sharp(inputBuffer)
+      .rotate()
+      .resize(width, height, { fit: 'cover' })
+      .blur(2)
+      .modulate({ saturation: 1.8 })
+      .toBuffer(),
 
-  // Step 2: Edge detection — greyscale Sobel + threshold to get dark outlines
-  const edgesX = await sharp(inputBuffer)
-    .rotate()
-    .resize(width, height, { fit: 'cover' })
-    .greyscale()
-    .convolve(SOBEL_X)
-    .toBuffer();
+    // Step 2a: Sobel-X edge detection
+    sharp(inputBuffer)
+      .rotate()
+      .resize(width, height, { fit: 'cover' })
+      .greyscale()
+      .convolve(SOBEL_X)
+      .toBuffer(),
 
-  const edgesY = await sharp(inputBuffer)
-    .rotate()
-    .resize(width, height, { fit: 'cover' })
-    .greyscale()
-    .convolve(SOBEL_Y)
-    .toBuffer();
+    // Step 2b: Sobel-Y edge detection
+    sharp(inputBuffer)
+      .rotate()
+      .resize(width, height, { fit: 'cover' })
+      .greyscale()
+      .convolve(SOBEL_Y)
+      .toBuffer(),
+  ]);
 
   // Combine X and Y edges via composite (darken blend picks up edges from both)
   // Then negate + threshold so edges are dark lines on white

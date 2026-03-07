@@ -5,6 +5,7 @@ import express from 'express';
 import compression from 'compression';
 import cors from 'cors';
 import { initFirebase } from './lib/firebase';
+import { checkStorageConnectivity } from './lib/storage';
 import { logger } from './lib/logger';
 import { requireAuth } from './middleware/auth';
 import usersRouter from './routes/users';
@@ -18,6 +19,9 @@ import metricsRouter from './routes/metrics';
 
 // Initialize Firebase Admin on startup
 initFirebase();
+
+// Fire-and-forget storage connectivity check — logs warning if bucket is unreachable
+checkStorageConnectivity().catch(() => {});
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;

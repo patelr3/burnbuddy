@@ -28,8 +28,13 @@ export default function AccountScreen() {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [showExtendedUpload, setShowExtendedUpload] = useState(false);
   const [removing, setRemoving] = useState(false);
   const sparkleAnim = useRef(new Animated.Value(0)).current;
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const lastAssetRef = useRef<{ uri: string; mimeType: string } | null>(null);
+  const cancelledRef = useRef(false);
 
   const loadProfile = useCallback(async () => {
     if (!user) return;
@@ -63,6 +68,40 @@ export default function AccountScreen() {
     sparkleAnim.setValue(0);
   }, [uploading, sparkleAnim]);
 
+  useEffect(() => {
+    if (!uploading) {
+      setShowExtendedUpload(false);
+      return;
+    }
+    const timer = setTimeout(() => setShowExtendedUpload(true), 5000);
+    return () => clearTimeout(timer);
+  }, [uploading]);
+
+  const uploadAsset = async (uri: string, mimeType: string) => {
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    cancelledRef.current = false;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const res = await apiUploadFile<{ profilePictureUrl: string }>(
+        '/users/me/profile-picture',
+        'picture',
+        uri,
+        mimeType,
+        { signal: controller.signal },
+      );
+      setProfile((prev) => prev ? { ...prev, profilePictureUrl: res.profilePictureUrl } : prev);
+      lastAssetRef.current = null;
+    } catch (err) {
+      if (cancelledRef.current) return;
+      setUploadError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
+    } finally {
+      abortControllerRef.current = null;
+      setUploading(false);
+    }
+  };
+
   const handlePickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -82,24 +121,25 @@ export default function AccountScreen() {
     const asset = result.assets[0];
     const mimeType = asset.mimeType ?? 'image/jpeg';
     if (!ACCEPTED_MIME_TYPES.includes(mimeType)) {
-      Alert.alert('Invalid file type', 'Please use a JPEG, PNG, or WebP image.');
+      setUploadError('Invalid file type. Please use a JPEG, PNG, or WebP image.');
       return;
     }
 
-    setUploading(true);
-    try {
-      const res = await apiUploadFile<{ profilePictureUrl: string }>(
-        '/users/me/profile-picture',
-        'picture',
-        asset.uri,
-        mimeType,
-      );
-      setProfile((prev) => prev ? { ...prev, profilePictureUrl: res.profilePictureUrl } : prev);
-    } catch (err) {
-      Alert.alert('Upload failed', err instanceof Error ? err.message : 'Please try again.');
-    } finally {
-      setUploading(false);
-    }
+    lastAssetRef.current = { uri: asset.uri, mimeType };
+    await uploadAsset(asset.uri, mimeType);
+  };
+
+  const handleCancelUpload = () => {
+    cancelledRef.current = true;
+    abortControllerRef.current?.abort();
+    setUploading(false);
+    setUploadError(null);
+  };
+
+  const handleRetryUpload = async () => {
+    if (!lastAssetRef.current) return;
+    const { uri, mimeType } = lastAssetRef.current;
+    await uploadAsset(uri, mimeType);
   };
 
   const handleRemovePicture = () => {
@@ -194,7 +234,36 @@ export default function AccountScreen() {
             )}
           </View>
           {uploading && (
-            <Text style={styles.uploadingText}>✨ Anime-fying...</Text>
+            <View style={styles.uploadFeedback}>
+              <Text style={styles.uploadingText}>
+                {showExtendedUpload
+                  ? '✨ Still working… this can take a moment for large photos'
+                  : '✨ Anime-fying...'}
+              </Text>
+              {showExtendedUpload && (
+                <TouchableOpacity
+                  onPress={handleCancelUpload}
+                  style={styles.cancelButton}
+                  testID="account-cancel-upload"
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+          {uploadError && (
+            <View style={styles.uploadFeedback}>
+              <Text style={styles.errorText}>{uploadError}</Text>
+              {lastAssetRef.current && (
+                <TouchableOpacity
+                  onPress={handleRetryUpload}
+                  style={styles.retryButton}
+                  testID="account-retry-upload"
+                >
+                  <Text style={styles.retryButtonText}>Retry</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           )}
           {profile?.profilePictureUrl && !uploading && (
             <TouchableOpacity
@@ -367,10 +436,43 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   uploadingText: {
-    marginTop: 8,
     fontSize: 14,
     fontWeight: '600',
     color: '#7c3aed',
+    textAlign: 'center',
+  },
+  uploadFeedback: {
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    marginTop: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    backgroundColor: '#f3f4f6',
+  },
+  cancelButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#6b7280',
+  },
+  errorText: {
+    fontSize: 13,
+    color: '#dc2626',
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    backgroundColor: '#7c3aed',
+  },
+  retryButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#fff',
   },
   removeText: {
     marginTop: 8,

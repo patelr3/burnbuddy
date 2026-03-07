@@ -11,6 +11,8 @@ export function initFirebase(): void {
   if (initialized || admin.apps.length > 0) return;
 
   const projectId = process.env.FIREBASE_PROJECT_ID ?? 'burnbuddy-dev';
+  const storageBucket =
+    process.env.FIREBASE_STORAGE_BUCKET ?? `${projectId}.appspot.com`;
 
   // Parse service account JSON from env var if available
   const serviceAccountJson =
@@ -29,16 +31,16 @@ export function initFirebase(): void {
 
   if (process.env.FIREBASE_AUTH_EMULATOR_HOST) {
     // Emulator mode — no service account required
-    admin.initializeApp({ projectId });
+    admin.initializeApp({ projectId, storageBucket });
   } else if (credential) {
     // Production mode — explicit service account credentials
-    admin.initializeApp({ projectId, credential });
+    admin.initializeApp({ projectId, credential, storageBucket });
   } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     // Production mode — Application Default Credentials (file-based)
-    admin.initializeApp({ projectId });
+    admin.initializeApp({ projectId, storageBucket });
   } else {
     // Minimal mode — token verification still works (uses Google public keys)
-    admin.initializeApp({ projectId });
+    admin.initializeApp({ projectId, storageBucket });
   }
 
   initialized = true;
