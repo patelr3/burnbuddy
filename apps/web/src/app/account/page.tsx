@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { apiGet, apiPut, apiDelete, apiUploadFile } from '@/lib/api';
+import { apiPut, apiDelete, apiUploadFile } from '@/lib/api';
+import { useAccount, queryKeys } from '@/lib/queries';
+import { useQueryClient } from '@tanstack/react-query';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase-client';
 import { useRouter } from 'next/navigation';
@@ -20,16 +22,58 @@ function validateUsernameClient(username: string): string | null {
   return null;
 }
 
+function AccountSkeleton() {
+  return (
+    <div className="animate-pulse">
+      {/* Profile section */}
+      <div className="mb-5 rounded-lg border border-gray-200 p-5">
+        <div className="mb-4 h-5 w-16 rounded bg-gray-200" />
+        <div className="flex items-center gap-4">
+          <div className="h-16 w-16 rounded-full bg-gray-200" />
+          <div>
+            <div className="mb-2 h-5 w-32 rounded bg-gray-200" />
+            <div className="h-4 w-44 rounded bg-gray-200" />
+          </div>
+        </div>
+      </div>
+      {/* Username section */}
+      <div className="mb-5 rounded-lg border border-gray-200 p-5">
+        <div className="mb-4 h-5 w-24 rounded bg-gray-200" />
+        <div className="mb-3 h-4 w-full rounded bg-gray-200" />
+        <div className="flex items-start gap-3">
+          <div className="h-10 flex-1 rounded-md bg-gray-200" />
+          <div className="h-10 w-16 rounded-md bg-gray-200" />
+        </div>
+      </div>
+      {/* Onboarding section */}
+      <div className="mb-5 rounded-lg border border-gray-200 p-5">
+        <div className="mb-2 h-5 w-28 rounded bg-gray-200" />
+        <div className="mb-4 h-4 w-64 rounded bg-gray-200" />
+        <div className="h-9 w-52 rounded-md bg-gray-200" />
+      </div>
+      {/* Sign out section */}
+      <div className="rounded-lg border border-gray-200 p-5">
+        <div className="mb-2 h-5 w-20 rounded bg-gray-200" />
+        <div className="mb-4 h-4 w-56 rounded bg-gray-200" />
+        <div className="h-9 w-24 rounded-md bg-gray-200" />
+      </div>
+    </div>
+  );
+}
+
 export default function AccountPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [dataLoading, setDataLoading] = useState(true);
+
+  const { data: profile, isLoading: dataLoading } = useAccount();
+
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   const [username, setUsername] = useState('');
+  const [usernameSynced, setUsernameSynced] = useState(false);
   const [usernameSaving, setUsernameSaving] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [usernameFeedback, setUsernameFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -38,37 +82,29 @@ export default function AccountPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
 
-  const loadProfile = useCallback(async () => {
-    if (!user) return;
-    try {
-      const p = await apiGet<UserProfile>('/users/me');
-      setProfile(p);
-      setUsername(p.username ?? '');
-    } catch {
-      // Profile may not exist yet
-    } finally {
-      setDataLoading(false);
-    }
-  }, [user]);
-
+  // Sync username from profile when it first loads
   useEffect(() => {
-    loadProfile();
-  }, [loadProfile]);
+    if (profile && !usernameSynced) {
+      setUsername(profile.username ?? '');
+      setUsernameSynced(true);
+    }
+  }, [profile, usernameSynced]);
 
   const handleToggleGettingStarted = async () => {
     const newValue = !profile?.gettingStartedDismissed;
     setSaving(true);
     setSaveMessage(null);
     try {
-      await apiPut('/users/me', { gettingStartedDismissed: !profile?.gettingStartedDismissed });
-      setProfile((prev) =>
-        prev ? { ...prev, gettingStartedDismissed: !prev.gettingStartedDismissed } : prev,
+      await apiPut('/users/me', { gettingStartedDismissed: newValue });
+      queryClient.setQueryData<UserProfile>(queryKeys.account, (prev) =>
+        prev ? { ...prev, gettingStartedDismissed: newValue } : prev,
       );
       setSaveMessage(newValue ? 'Getting Started card hidden.' : 'Getting Started card re-enabled.');
     } catch {
       setSaveMessage('Failed to save. Please try again.');
     } finally {
       setSaving(false);
+      queryClient.invalidateQueries({ queryKey: queryKeys.account });
     }
   };
 
@@ -102,13 +138,14 @@ export default function AccountPage() {
 
     try {
       const updated = await apiPut<UserProfile>('/users/me', { username: trimmed });
-      setProfile(updated);
+      queryClient.setQueryData<UserProfile>(queryKeys.account, updated);
       setUsername(updated.username ?? '');
       setUsernameFeedback({ type: 'success', message: 'Username updated!' });
     } catch {
       setUsernameFeedback({ type: 'error', message: 'Failed to save. Please try again.' });
     } finally {
       setUsernameSaving(false);
+      queryClient.invalidateQueries({ queryKey: queryKeys.account });
     }
   };
 
@@ -117,7 +154,6 @@ export default function AccountPage() {
   const handlePictureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Reset input so the same file can be re-selected
     e.target.value = '';
 
     setUploadError(null);
@@ -128,11 +164,14 @@ export default function AccountPage() {
         'picture',
         file,
       );
-      setProfile((prev) => prev ? { ...prev, profilePictureUrl: result.profilePictureUrl } : prev);
+      queryClient.setQueryData<UserProfile>(queryKeys.account, (prev) =>
+        prev ? { ...prev, profilePictureUrl: result.profilePictureUrl } : prev,
+      );
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
     } finally {
       setUploading(false);
+      queryClient.invalidateQueries({ queryKey: queryKeys.account });
     }
   };
 
@@ -141,11 +180,14 @@ export default function AccountPage() {
     setRemoving(true);
     try {
       await apiDelete('/users/me/profile-picture');
-      setProfile((prev) => prev ? { ...prev, profilePictureUrl: undefined } : prev);
+      queryClient.setQueryData<UserProfile>(queryKeys.account, (prev) =>
+        prev ? { ...prev, profilePictureUrl: undefined } : prev,
+      );
     } catch {
       setUploadError('Failed to remove photo. Please try again.');
     } finally {
       setRemoving(false);
+      queryClient.invalidateQueries({ queryKey: queryKeys.account });
     }
   };
 
@@ -158,7 +200,7 @@ export default function AccountPage() {
         <h1 className="mb-6 text-2xl font-bold">Account</h1>
 
         {dataLoading ? (
-          <p className="text-gray-500">Loading...</p>
+          <AccountSkeleton />
         ) : (
           <>
             {/* Profile info with picture upload */}
