@@ -1,3 +1,30 @@
 # Ralph Progress Log — TLA+ Formal Specifications for BurnBuddy API
 Started: 2026-03-07
+
+## Codebase Patterns
+- TLA+ specs extend Integers, FiniteSets, TLC directly — they do NOT extend Common.tla
+- Use unordered sets {u1, u2} instead of ordered pairs for UID canonicalization (model values don't support <)
+- Use decomposed state variables (separate sets/functions) instead of nested records to avoid TLC fingerprinting issues
+- CHECK_DEADLOCK FALSE needed when specs have bounded time (AdvanceTime stops at MaxTime)
+- Use SYMMETRY with Permutations() for state-space reduction on interchangeable model values
+- cfg files use model values like {u1, u2} — these are auto-created by TLC
+- Each domain spec is standalone with its own Init/Next/vars — composition requires a composite spec
+- Cross-domain specs should use small bounds (2 users, 1 squad, 2 workouts) to keep state space manageable
+
+---
+
+## 2026-03-07T19:38 - US-008
+- Implemented CrossDomainInvariants.tla composite spec combining all domain specs
+- Defined 7 cross-domain invariants (CDI-1 through CDI-7)
+- CDI-1 (ProfileRequiredForSocialActions) is the primary verifiable state invariant
+- CDI-2 through CDI-5 are structural (enforced by action guards, verified by TLC exploration)
+- CDI-6 and CDI-7 document by-design orphaning of GroupWorkouts
+- TLC verified: 38,135 states, 6,331 distinct, depth 19, 0 errors
+- Files changed: specs/tla/CrossDomainInvariants.tla, specs/tla/CrossDomainInvariants.cfg
+- **Learnings for future iterations:**
+  - Composing TLA+ domain specs requires a new composite module since existing specs aren't designed for INSTANCE
+  - The API friend request handler does NOT explicitly check profile existence — this is a real discrepancy
+  - Burn buddy relationships persist after friendship deletion — documented as by-design
+  - GroupWorkouts persist after buddy/squad deletion — documented as historical records
+  - 2 users + 1 squad + 2 workouts + MaxTime=3 gives ~38K states — very fast for TLC
 ---
