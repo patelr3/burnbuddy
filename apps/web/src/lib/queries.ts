@@ -1,12 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiGet } from './api';
+import { auth } from './firebase-client';
 import type {
   UserProfile,
   BurnBuddy,
   BurnSquad,
   BurnSquadJoinRequest,
   BurnBuddyRequest,
+  EnrichedFriendRequest,
+  EnrichedBurnSquadMember,
   GroupWorkout,
+  GroupStats,
   Workout,
   ActivePartnerWorkout,
   ProfileStats,
@@ -45,11 +49,60 @@ export interface DashboardData {
   };
 }
 
+// ── Non-dashboard types ──────────────────────────────────────────────────────
+
+export interface FriendWithProfile {
+  uid: string;
+  displayName: string;
+  email: string;
+  username?: string;
+  profilePictureUrl?: string;
+  createdAt: string;
+}
+
+interface Streaks {
+  burnStreak: number;
+  supernovaStreak: number;
+}
+
+interface PartnerProfile {
+  uid: string;
+  displayName: string;
+  email: string;
+  profilePictureUrl?: string;
+}
+
+export interface FriendsData {
+  friends: FriendWithProfile[];
+  friendRequests: { incoming: EnrichedFriendRequest[]; outgoing: EnrichedFriendRequest[] };
+  burnBuddies: BurnBuddy[];
+  burnBuddyRequests: { incoming: BurnBuddyRequest[]; outgoing: BurnBuddyRequest[] };
+}
+
+export interface BurnBuddyData {
+  burnBuddy: BurnBuddy;
+  partner: PartnerProfile | null;
+  streaks: Streaks;
+  groupWorkouts: GroupWorkout[];
+  stats: GroupStats;
+}
+
+export interface BurnSquadData {
+  squad: BurnSquad & { members?: EnrichedBurnSquadMember[] };
+  streaks: Streaks;
+  groupWorkouts: GroupWorkout[];
+  stats: GroupStats;
+}
+
 // ── Query keys ───────────────────────────────────────────────────────────────
 
 export const queryKeys = {
   dashboard: ['dashboard'] as const,
   profile: (uid: string) => ['profile', uid] as const,
+  friends: ['friends'] as const,
+  burnBuddy: (id: string) => ['burn-buddy', id] as const,
+  burnSquad: (id: string) => ['burn-squad', id] as const,
+  account: ['account'] as const,
 };
 
 // ── Hooks ────────────────────────────────────────────────────────────────────
@@ -73,5 +126,84 @@ export function useProfile(uid: string) {
     queryKey: queryKeys.profile(uid),
     queryFn: () => apiGet<ProfileStats>(`/users/${uid}/profile`),
     enabled: !!uid,
+  });
+}
+
+export function useFriends() {
+  return useQuery({
+    queryKey: queryKeys.friends,
+    queryFn: async (): Promise<FriendsData> => {
+      const [friends, friendRequests, burnBuddies, burnBuddyRequests] = await Promise.all([
+        apiGet<FriendWithProfile[]>('/friends'),
+        apiGet<{ incoming: EnrichedFriendRequest[]; outgoing: EnrichedFriendRequest[] }>('/friends/requests'),
+        apiGet<BurnBuddy[]>('/burn-buddies').catch(() => [] as BurnBuddy[]),
+        apiGet<{ incoming: BurnBuddyRequest[]; outgoing: BurnBuddyRequest[] }>(
+          '/burn-buddies/requests',
+        ).catch(() => ({ incoming: [] as BurnBuddyRequest[], outgoing: [] as BurnBuddyRequest[] })),
+      ]);
+      return { friends, friendRequests, burnBuddies, burnBuddyRequests };
+    },
+  });
+}
+
+export function useBurnBuddy(id: string) {
+  return useQuery({
+    queryKey: queryKeys.burnBuddy(id),
+    queryFn: async (): Promise<BurnBuddyData> => {
+      const burnBuddy = await apiGet<BurnBuddy>(`/burn-buddies/${id}`);
+      const currentUid = auth.currentUser?.uid;
+      const partnerUid = burnBuddy.uid1 === currentUid ? burnBuddy.uid2 : burnBuddy.uid1;
+
+      const [partner, streaks, groupWorkouts, stats] = await Promise.all([
+        apiGet<PartnerProfile>(`/users/${partnerUid}`).catch(() => null),
+        apiGet<Streaks>(`/burn-buddies/${id}/streaks`).catch(() => ({
+          burnStreak: 0,
+          supernovaStreak: 0,
+        })),
+        apiGet<GroupWorkout[]>(`/burn-buddies/${id}/group-workouts`),
+        apiGet<GroupStats>(`/burn-buddies/${id}/stats`).catch(() => ({
+          highestStreakEver: { value: 0, date: '' },
+          firstGroupWorkoutDate: null,
+          groupWorkoutsAllTime: 0,
+          groupWorkoutsThisMonth: 0,
+        })),
+      ]);
+
+      return { burnBuddy, partner, streaks, groupWorkouts, stats };
+    },
+    enabled: !!id,
+  });
+}
+
+export function useBurnSquad(id: string) {
+  return useQuery({
+    queryKey: queryKeys.burnSquad(id),
+    queryFn: async (): Promise<BurnSquadData> => {
+      const [squad, streaks, groupWorkouts, stats] = await Promise.all([
+        apiGet<BurnSquad & { members?: EnrichedBurnSquadMember[] }>(`/burn-squads/${id}`),
+        apiGet<Streaks>(`/burn-squads/${id}/streaks`).catch(() => ({
+          burnStreak: 0,
+          supernovaStreak: 0,
+        })),
+        apiGet<GroupWorkout[]>(`/burn-squads/${id}/group-workouts`),
+        apiGet<GroupStats>(`/burn-squads/${id}/stats`).catch(() => ({
+          highestStreakEver: { value: 0, date: '' },
+          firstGroupWorkoutDate: null,
+          groupWorkoutsAllTime: 0,
+          groupWorkoutsThisMonth: 0,
+        })),
+      ]);
+
+      return { squad, streaks, groupWorkouts, stats };
+    },
+    enabled: !!id,
+  });
+}
+
+export function useAccount() {
+  return useQuery({
+    queryKey: queryKeys.account,
+    queryFn: () => apiGet<UserProfile>('/users/me'),
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }

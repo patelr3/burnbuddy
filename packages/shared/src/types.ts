@@ -43,6 +43,11 @@ export interface FriendRequest {
   createdAt: string;
 }
 
+export interface EnrichedFriendRequest extends FriendRequest {
+  displayName: string;
+  photoURL?: string;
+}
+
 export interface BurnBuddy {
   id: string;
   uid1: string;
@@ -74,6 +79,12 @@ export interface BurnSquad {
     workoutSchedule?: WorkoutSchedule;
   };
   createdAt: string;
+}
+
+export interface EnrichedBurnSquadMember {
+  uid: string;
+  displayName: string;
+  photoURL?: string;
 }
 
 export interface BurnSquadJoinRequest {

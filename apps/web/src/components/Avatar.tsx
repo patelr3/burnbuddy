@@ -56,6 +56,8 @@ export function Avatar({
         src={profilePictureUrl}
         alt={displayName}
         className={`${sizeClass} rounded-full object-cover`}
+        loading="lazy"
+        decoding="async"
         onError={() => setImgError(true)}
       />
     );

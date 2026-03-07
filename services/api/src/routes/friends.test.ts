@@ -27,6 +27,8 @@ const {
   // users collection — doc-based operations (GET /friends profile enrichment)
   mockUsersDocGet,
   mockUsersDocRef,
+  // db.getAll() for batched profile fetches
+  mockGetAll,
 } = vi.hoisted(() => {
   const mockVerifyIdToken = vi.fn();
 
@@ -77,6 +79,9 @@ const {
   const mockUsersDocGet = vi.fn();
   const mockUsersDocRef = vi.fn(() => ({ get: mockUsersDocGet }));
 
+  // db.getAll() for batched profile fetches
+  const mockGetAll = vi.fn();
+
   return {
     mockVerifyIdToken,
     mockFrRequestDocGet,
@@ -95,6 +100,7 @@ const {
     mockUsersQueryChain,
     mockUsersDocGet,
     mockUsersDocRef,
+    mockGetAll,
   };
 });
 
@@ -122,6 +128,7 @@ vi.mock('../lib/firestore', () => ({
       }
       return {};
     },
+    getAll: mockGetAll,
   }),
 }));
 
@@ -274,14 +281,21 @@ describe('GET /friends/requests', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns incoming and outgoing pending requests', async () => {
+  it('returns incoming and outgoing pending requests enriched with displayName and photoURL', async () => {
     const incomingReq: Record<string, unknown> = { id: 'req-1', fromUid: OTHER_UID, toUid: TEST_UID, status: 'pending', createdAt: '2026-01-01T00:00:00.000Z' };
     const outgoingReq: Record<string, unknown> = { id: 'req-2', fromUid: TEST_UID, toUid: OTHER_UID, status: 'pending', createdAt: '2026-01-01T00:00:00.000Z' };
+
+    const otherProfile = { uid: OTHER_UID, displayName: 'Other User', profilePictureUrl: 'https://example.com/photo.jpg', email: 'other@example.com', createdAt: '2026-01-01' };
 
     // First get() call → incoming, second → outgoing
     mockFrRequestQueryGet
       .mockResolvedValueOnce({ docs: [{ data: () => incomingReq }] })
       .mockResolvedValueOnce({ docs: [{ data: () => outgoingReq }] });
+
+    // getAll() returns the user profile for OTHER_UID (deduplicated — same uid in both)
+    mockGetAll.mockResolvedValueOnce([
+      { exists: true, data: () => otherProfile },
+    ]);
 
     const res = await request(buildApp())
       .get('/friends/requests')
@@ -290,8 +304,17 @@ describe('GET /friends/requests', () => {
     expect(res.status).toBe(200);
     expect(res.body.incoming).toHaveLength(1);
     expect(res.body.outgoing).toHaveLength(1);
-    expect(res.body.incoming[0].id).toBe('req-1');
-    expect(res.body.outgoing[0].id).toBe('req-2');
+    expect(res.body.incoming[0]).toMatchObject({
+      id: 'req-1',
+      displayName: 'Other User',
+      photoURL: 'https://example.com/photo.jpg',
+    });
+    expect(res.body.outgoing[0]).toMatchObject({
+      id: 'req-2',
+      displayName: 'Other User',
+      photoURL: 'https://example.com/photo.jpg',
+    });
+    expect(mockGetAll).toHaveBeenCalledOnce();
   });
 
   it('returns empty arrays when no pending requests exist', async () => {
@@ -305,6 +328,33 @@ describe('GET /friends/requests', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ incoming: [], outgoing: [] });
+    // getAll should not be called when there are no UIDs to fetch
+    expect(mockGetAll).not.toHaveBeenCalled();
+  });
+
+  it('returns fallback displayName when user profile is missing (deleted account)', async () => {
+    const incomingReq: Record<string, unknown> = { id: 'req-3', fromUid: 'deleted-user', toUid: TEST_UID, status: 'pending', createdAt: '2026-01-01T00:00:00.000Z' };
+
+    mockFrRequestQueryGet
+      .mockResolvedValueOnce({ docs: [{ data: () => incomingReq }] })
+      .mockResolvedValueOnce({ docs: [] });
+
+    // getAll returns a non-existent document for deleted user
+    mockGetAll.mockResolvedValueOnce([
+      { exists: false, data: () => undefined },
+    ]);
+
+    const res = await request(buildApp())
+      .get('/friends/requests')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.incoming).toHaveLength(1);
+    expect(res.body.incoming[0]).toMatchObject({
+      id: 'req-3',
+      displayName: 'Unknown User',
+    });
+    expect(res.body.incoming[0].photoURL).toBeUndefined();
   });
 });
 
@@ -368,6 +418,69 @@ describe('POST /friends/requests/:id/accept', () => {
     expect(res.body).toMatchObject({ success: true, friendRequestId: 'req-1' });
     expect(mockFrRequestDocUpdate).toHaveBeenCalledWith({ status: 'accepted' });
     expect(mockFriendDocSet).toHaveBeenCalledOnce();
+  });
+});
+
+// ── POST /friends/requests/:id/reject ──────────────────────────────────────────
+
+describe('POST /friends/requests/:id/reject', () => {
+  it('returns 401 when unauthenticated', async () => {
+    const res = await request(buildApp()).post('/friends/requests/req-1/reject');
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 when the friend request does not exist', async () => {
+    mockFrRequestDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .post('/friends/requests/req-1/reject')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 403 when the request was not sent to the current user', async () => {
+    mockFrRequestDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ id: 'req-1', fromUid: OTHER_UID, toUid: 'someone-else', status: 'pending', createdAt: '' }),
+    });
+
+    const res = await request(buildApp())
+      .post('/friends/requests/req-1/reject')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 409 when the request is no longer pending', async () => {
+    mockFrRequestDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ id: 'req-1', fromUid: OTHER_UID, toUid: TEST_UID, status: 'accepted', createdAt: '' }),
+    });
+
+    const res = await request(buildApp())
+      .post('/friends/requests/req-1/reject')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(409);
+  });
+
+  it('rejects the request and updates status to rejected', async () => {
+    mockFrRequestDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ id: 'req-1', fromUid: OTHER_UID, toUid: TEST_UID, status: 'pending', createdAt: '' }),
+    });
+    mockFrRequestDocUpdate.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .post('/friends/requests/req-1/reject')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ success: true, friendRequestId: 'req-1' });
+    expect(mockFrRequestDocUpdate).toHaveBeenCalledWith({ status: 'rejected' });
+    // Should NOT create a friendship document
+    expect(mockFriendDocSet).not.toHaveBeenCalled();
   });
 });
 
