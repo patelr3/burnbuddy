@@ -189,7 +189,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-006 (Friends page on React Query). Uses useMutation + onMutate/onError/onSettled pattern."
     },
     {
@@ -206,7 +206,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-007 (Account on React Query) and US-010 (Profile on React Query)."
     },
     {
@@ -221,7 +221,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "notes": "Simple cross-cutting change to apps/web/src/components/Avatar.tsx. No dependencies \u2014 can be done anytime."
     }
   ]

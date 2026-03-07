@@ -9,6 +9,7 @@ Started: 2026-03-07
 - `yarn install --frozen-lockfile` is needed in fresh worktrees before running tests.
 - React Query migration pattern: import types (FriendsData, FriendWithProfile, etc.) from queries.ts, use hook return values instead of useState, use queryClient.invalidateQueries after mutations, use queryClient.setQueryData for optimistic updates.
 - Skeleton components follow DashboardSkeleton pattern: `animate-pulse` wrapper div, `bg-gray-200 rounded` placeholder divs, `rounded-full` for avatar circles.
+- Optimistic mutation pattern: `useMutation` with `onMutate` (cancelQueries + snapshot + setQueryData), `onError` (rollback from snapshot + setError), `onSettled` (invalidateQueries). Always `cancelQueries` before `setQueryData` to avoid race conditions.
 
 ---
 
@@ -148,5 +149,46 @@ Started: 2026-03-07
   - useProfile(uid) hook returns `{ data, isLoading, error }` — error.message contains the HTTP status code text for categorizing errors
   - Profile page keeps local `sendingRequest` and `requestSent` state since burn buddy request is a one-shot mutation, not a query
   - Separate `mutationError` state from query `error` keeps the two error sources independent
+  - Firebase Auth isn't configured in local dev — browser verification redirects to /login; verified via typecheck + code review
+---
+
+## 2026-03-07T07:00 - US-011
+- Added POST /friends/requests/:id/reject endpoint for declining friend requests (mirrors accept pattern)
+- Added 5 tests for reject endpoint (401 unauth, 404 not found, 403 wrong user, 409 not pending, success)
+- Converted accept/reject/remove friend mutations to useMutation with full optimistic update pattern (onMutate/onError/onSettled)
+- onMutate: cancels queries, snapshots previous data, optimistically removes request/friend from cache
+- onError: rolls back cache to snapshot and shows error message
+- onSettled: invalidateQueries(['friends']) triggers background revalidation
+- Wired up previously no-op Ignore button to reject mutation
+- Files changed: services/api/src/routes/friends.ts, services/api/src/routes/friends.test.ts, apps/web/src/app/friends/page.tsx
+- **Learnings for future iterations:**
+  - useMutation pattern for optimistic updates: `onMutate` snapshot + cache update, `onError` rollback, `onSettled` invalidate
+  - Always `cancelQueries` before `setQueryData` in `onMutate` to prevent race conditions with in-flight refetches
+  - The reject endpoint mirrors accept exactly — same validation flow, just updates status to 'rejected' instead of 'accepted' and skips friendship creation
+  - Buttons using mutations should have `disabled={mutation.isPending}` for UX feedback
+  - Firebase Auth isn't configured in local dev — browser verification redirects to /login; verified via typecheck + code review
+---
+
+## 2026-03-07T07:08 - US-012
+- Converted Account page mutations (username save, picture upload, picture remove, getting-started toggle) to useMutation with full optimistic update pattern
+- Converted Profile page burn buddy request to useMutation with optimistic cache update (sets buddyRelationshipStatus to 'pending_sent' immediately)
+- Removed 4 manual loading state variables (saving, usernameSaving, uploading, removing) — replaced by mutation.isPending
+- Removed local requestSent state on Profile page — optimistic cache update handles button state transition
+- Picture upload uses URL.createObjectURL for instant avatar preview, revoked on settle/error
+- Files changed: apps/web/src/app/account/page.tsx, apps/web/src/app/profile/[uid]/page.tsx
+- **Learnings for future iterations:**
+  - useMutation with optimistic updates: onMutate (cancelQueries + snapshot + setQueryData), onError (rollback from snapshot + setError), onSettled (invalidateQueries)
+  - URL.createObjectURL creates instant blob preview for file uploads — must revoke in onSettled/onError to avoid memory leaks
+  - When converting from local loading states to useMutation, replace `useState(false)` + `setSaving(true/false)` with `mutation.isPending`
+  - ProfileStats type from @burnbuddy/shared includes buddyRelationshipStatus — use 'pending_sent' as const for type-safe optimistic update
+  - Firebase Auth isn't configured in local dev — browser verification redirects to /login; verified via typecheck + code review
+---
+
+## 2026-03-07T07:08 - US-013
+- Added `loading="lazy"` and `decoding="async"` attributes to Avatar component's `<img>` tag
+- Files changed: apps/web/src/components/Avatar.tsx
+- **Learnings for future iterations:**
+  - Simple cross-cutting `<img>` attribute changes: `loading="lazy"` defers off-screen image loading, `decoding="async"` allows non-blocking decode
+  - Avatar component uses a fallback initials div when no profilePictureUrl is set or img fails — lazy loading only affects the `<img>` path
   - Firebase Auth isn't configured in local dev — browser verification redirects to /login; verified via typecheck + code review
 ---
