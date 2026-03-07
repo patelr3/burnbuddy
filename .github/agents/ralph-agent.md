@@ -22,9 +22,10 @@ You will be given a specific `prd-<branch-suffix>.json` file to work on. This fi
 3. **Set up worktree**: Create or reuse a git worktree at `../burnbuddy-<branch-suffix>/` based on `origin/main`
 4. **Run ralph.sh**: Execute the ralph loop:
    ```bash
-   ./scripts/ralph/ralph.sh --prd <prd-file> --tool copilot <max_iterations>
+   ./scripts/ralph/ralph.sh --prd <prd-file> --tool copilot --port-offset <N> <max_iterations>
    ```
-   Set `<max_iterations>` to the number of user stories in the PRD file **plus 1–5** buffer iterations. For example, a PRD with 6 stories should use 8–11 iterations. This gives enough headroom for retries without wasting resources on runaway loops.
+   - Set `<max_iterations>` to the number of user stories in the PRD file **plus 1–5** buffer iterations. For example, a PRD with 6 stories should use 8–11 iterations. This gives enough headroom for retries without wasting resources on runaway loops.
+   - Pass `--port-offset <N>` if provided in your instructions (the orchestrator assigns unique offsets to avoid port collisions between parallel worktrees). If no offset was given, omit the flag.
 5. **Monitor completion**: Ralph.sh exits 0 when all stories pass and the PR is created/merged
 
 ## Progress File

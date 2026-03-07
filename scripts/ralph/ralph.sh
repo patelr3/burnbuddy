@@ -3,7 +3,7 @@
 #
 # Usage:
 #   # Parameterized mode (per-PRD, with worktree):
-#   ./ralph.sh --prd prd-task-status.json [--tool copilot|claude|amp] [max_iterations]
+#   ./ralph.sh --prd prd-task-status.json [--tool copilot|claude|amp] [--port-offset N] [max_iterations]
 #
 #   # Legacy mode (single prd.json, no worktree):
 #   ./ralph.sh [--tool copilot|claude|amp] [max_iterations]
@@ -13,6 +13,7 @@ set -e
 TOOL="copilot"
 MAX_ITERATIONS=10
 PRD_ARG=""
+PORT_OFFSET=""
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -30,6 +31,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --tool=*)
       TOOL="${1#*=}"
+      shift
+      ;;
+    --port-offset)
+      PORT_OFFSET="$2"
+      shift 2
+      ;;
+    --port-offset=*)
+      PORT_OFFSET="${1#*=}"
       shift
       ;;
     *)
@@ -136,10 +145,20 @@ if [ ! -f "$PROGRESS_FILE" ]; then
   echo "---" >> "$PROGRESS_FILE"
 fi
 
+# Port isolation: when --port-offset is set, export env vars so dev servers
+# in parallel worktrees don't collide (API default 3001, Web default 3000)
+if [ -n "$PORT_OFFSET" ]; then
+  export PORT=$((3001 + PORT_OFFSET))
+  export WEB_PORT=$((3000 + PORT_OFFSET))
+  export NEXT_PUBLIC_API_URL="http://localhost:$PORT"
+  echo "Port isolation: API=$PORT, Web=$WEB_PORT, API_URL=$NEXT_PUBLIC_API_URL"
+fi
+
 echo "Starting Ralph - Tool: $TOOL - Max iterations: $MAX_ITERATIONS"
 echo "  PRD: $PRD_FILE"
 echo "  Progress: $PROGRESS_FILE"
 echo "  Working dir: $WORK_DIR"
+[ -n "$PORT_OFFSET" ] && echo "  Port offset: $PORT_OFFSET (API=$PORT, Web=$WEB_PORT)"
 
 # Build the prompt with the correct file paths
 build_prompt() {
@@ -147,6 +166,13 @@ build_prompt() {
   prompt=$(cat "$SCRIPT_DIR/CLAUDE.md")
 
   # Inject the PRD and progress file paths into the prompt
+  local port_info=""
+  if [ -n "$PORT_OFFSET" ]; then
+    port_info="- **API port**: $PORT
+- **Web port**: $WEB_PORT
+- **API URL**: $NEXT_PUBLIC_API_URL"
+  fi
+
   prompt="$prompt
 
 ---
@@ -154,6 +180,7 @@ build_prompt() {
 - **PRD file**: $PRD_FILE
 - **Progress file**: $PROGRESS_FILE
 - **Working directory**: $WORK_DIR
+$port_info
 "
   echo "$prompt"
 }
