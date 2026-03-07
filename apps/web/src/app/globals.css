@@ -2,8 +2,16 @@
 @import "firebaseui/dist/firebaseui.css";
 
 @theme {
-  --color-primary: #f97316;
-  --color-secondary: #3b82f6;
+  --color-primary: #30D158;
+  --color-secondary: #0A84FF;
+  --color-surface: #1C1C1E;
+  --color-surface-elevated: #2C2C2E;
+  --color-accent-pink: #FF2D55;
   --color-success: #22c55e;
   --color-danger: #ef4444;
+}
+
+body {
+  background-color: #000;
+  color: #fff;
 }
