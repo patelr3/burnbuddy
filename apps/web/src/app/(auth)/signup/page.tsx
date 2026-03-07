@@ -21,14 +21,14 @@ export default function SignupPage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4">
       <div className="text-center">
-        <h1 className="mb-4 text-2xl font-bold text-gray-900">BurnBuddy</h1>
-        <p className="mb-4 text-gray-600">
+        <h1 className="mb-4 text-2xl font-bold text-white">🔥 BurnBuddy</h1>
+        <p className="mb-4 text-gray-400">
           Sign up on our{' '}
-          <Link href="/login" className="font-semibold text-orange-500 hover:text-orange-600 underline">
+          <Link href="/login" className="font-semibold text-primary hover:text-green-400 underline">
             login page
           </Link>
         </p>
-        <p className="text-sm text-gray-400">Redirecting…</p>
+        <p className="text-sm text-gray-500">Redirecting…</p>
       </div>
     </main>
   );

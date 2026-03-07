@@ -58,7 +58,7 @@ export default function FirebaseAuthWidget() {
   return (
     <>
       {loading && (
-        <p className="text-center text-gray-500 py-4">Loading...</p>
+        <p className="text-center text-gray-400 py-4">Loading...</p>
       )}
       <div ref={containerRef} />
     </>

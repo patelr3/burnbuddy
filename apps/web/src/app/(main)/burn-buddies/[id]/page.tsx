@@ -6,7 +6,6 @@ import { apiPut } from '@/lib/api';
 import { useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { NavBar } from '@/components/NavBar';
 import { StatCard } from '@/components/StatCard';
 import { Avatar } from '@/components/Avatar';
 import { AddToCalendarButton } from '@/components/AddToCalendarButton';
@@ -64,35 +63,35 @@ function BurnBuddySkeleton() {
   return (
     <div className="animate-pulse">
       {/* Header skeleton */}
-      <div className="flex items-center justify-between border-b border-gray-200 py-4 mb-6">
+      <div className="flex items-center justify-between border-b border-gray-700 py-4 mb-6">
         <div className="flex items-center gap-3">
-          <div className="h-4 w-12 rounded bg-gray-200" />
-          <div className="h-8 w-8 rounded-full bg-gray-200" />
-          <div className="h-6 w-32 rounded bg-gray-200" />
-          <div className="h-5 w-14 rounded-full bg-gray-200" />
+          <div className="h-4 w-12 rounded bg-gray-800" />
+          <div className="h-8 w-8 rounded-full bg-gray-800" />
+          <div className="h-6 w-32 rounded bg-gray-800" />
+          <div className="h-5 w-14 rounded-full bg-gray-800" />
         </div>
-        <div className="h-8 w-28 rounded-md bg-gray-200" />
+        <div className="h-8 w-28 rounded-md bg-gray-800" />
       </div>
 
       {/* Stats grid skeleton */}
       <div className="mb-7 grid grid-cols-2 gap-3">
         {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-          <div key={i} className="rounded-lg border border-slate-100 p-3.5">
-            <div className="mb-2 h-4 w-24 rounded bg-gray-200" />
-            <div className="h-6 w-16 rounded bg-gray-200" />
+          <div key={i} className="rounded-lg border border-gray-700 p-3.5">
+            <div className="mb-2 h-4 w-24 rounded bg-gray-800" />
+            <div className="h-6 w-16 rounded bg-gray-800" />
           </div>
         ))}
       </div>
 
       {/* Workout log skeleton */}
-      <div className="mb-3 h-5 w-40 rounded bg-gray-200" />
+      <div className="mb-3 h-5 w-40 rounded bg-gray-800" />
       {[1, 2, 3].map((i) => (
-        <div key={i} className="flex items-center justify-between border-b border-gray-100 py-3">
+        <div key={i} className="flex items-center justify-between border-b border-gray-700 py-3">
           <div>
-            <div className="mb-1 h-4 w-28 rounded bg-gray-200" />
-            <div className="h-3 w-20 rounded bg-gray-200" />
+            <div className="mb-1 h-4 w-28 rounded bg-gray-800" />
+            <div className="h-3 w-20 rounded bg-gray-800" />
           </div>
-          <div className="h-4 w-16 rounded bg-gray-200" />
+          <div className="h-4 w-16 rounded bg-gray-800" />
         </div>
       ))}
     </div>
@@ -160,51 +159,43 @@ export default function BurnBuddyDetailPage() {
 
   if (dataLoading) {
     return (
-      <>
-        <NavBar />
-        <main className="mx-auto max-w-xl px-4">
-          <div className="border-b border-gray-200 py-4 mb-6">
-            <Link href="/" className="text-sm text-gray-500 no-underline hover:text-gray-700">
-              ← Back
-            </Link>
-          </div>
-          <BurnBuddySkeleton />
-        </main>
-      </>
+      <main className="mx-auto max-w-xl px-4">
+        <div className="border-b border-gray-700 py-4 mb-6">
+          <Link href="/" className="text-sm text-gray-400 no-underline hover:text-gray-200">
+            ← Back
+          </Link>
+        </div>
+        <BurnBuddySkeleton />
+      </main>
     );
   }
 
   if (notFound || !burnBuddy) {
     return (
-      <>
-        <NavBar />
-        <main className="mx-auto max-w-xl px-4">
-          <div className="border-b border-gray-200 py-4 mb-6">
-            <Link href="/" className="text-sm text-gray-500 no-underline hover:text-gray-700">
-              ← Back
-            </Link>
-          </div>
-          <p className="text-gray-400">Burn Buddy not found.</p>
-        </main>
-      </>
+      <main className="mx-auto max-w-xl px-4">
+        <div className="border-b border-gray-700 py-4 mb-6">
+          <Link href="/" className="text-sm text-gray-400 no-underline hover:text-gray-200">
+            ← Back
+          </Link>
+        </div>
+        <p className="text-gray-400">Burn Buddy not found.</p>
+      </main>
     );
   }
 
   const partnerName = partner?.displayName ?? (burnBuddy.uid1 === user?.uid ? burnBuddy.uid2 : burnBuddy.uid1);
 
   return (
-    <>
-      <NavBar />
       <main className="mx-auto max-w-xl px-4">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 py-4 mb-6">
+        <div className="flex items-center justify-between border-b border-gray-700 py-4 mb-6">
           <div className="flex items-center gap-3">
-            <Link href="/" className="text-sm text-gray-500 no-underline hover:text-gray-700">
+            <Link href="/" className="text-sm text-gray-400 no-underline hover:text-gray-200">
               ← Back
             </Link>
             {partner && <Avatar displayName={partner.displayName} profilePictureUrl={partner.profilePictureUrl} size="sm" />}
-            <h1 className="m-0 text-xl font-bold">{partnerName}</h1>
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] text-amber-800">
+            <h1 className="m-0 text-xl font-bold text-white">{partnerName}</h1>
+            <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[11px] text-amber-400">
               Buddy
             </span>
           </div>
@@ -219,7 +210,7 @@ export default function BurnBuddyDetailPage() {
                 setScheduleTime('');
               }
             }}
-            className="cursor-pointer rounded-md border border-gray-300 bg-white px-3.5 py-1.5 text-[13px] hover:bg-gray-50"
+            className="cursor-pointer rounded-md border border-gray-600 bg-surface px-3.5 py-1.5 text-[13px] text-white hover:bg-surface-elevated"
           >
             {editing ? 'Cancel' : 'Edit Schedule'}
           </button>
@@ -227,8 +218,8 @@ export default function BurnBuddyDetailPage() {
 
         {/* Edit schedule panel */}
         {editing && (
-          <div className="mb-6 rounded-lg border border-gray-200 bg-slate-50 p-4">
-            <h3 className="mb-3 text-[15px] font-semibold">Workout Schedule</h3>
+          <div className="mb-6 rounded-lg border border-gray-700 bg-surface p-4">
+            <h3 className="mb-3 text-[15px] font-semibold text-white">Workout Schedule</h3>
             <div className="mb-3 flex flex-wrap gap-1.5">
               {DAYS.map((day) => (
                 <button
@@ -236,8 +227,8 @@ export default function BurnBuddyDetailPage() {
                   onClick={() => toggleDay(day)}
                   className={`cursor-pointer rounded-md border px-3 py-1.5 text-[13px] transition-colors ${
                     selectedDays.includes(day)
-                      ? 'border-success bg-green-50 text-green-600'
-                      : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                      ? 'border-primary bg-primary/20 text-primary'
+                      : 'border-gray-600 bg-surface-elevated text-gray-300 hover:bg-gray-500/20'
                   }`}
                 >
                   {day}
@@ -245,18 +236,18 @@ export default function BurnBuddyDetailPage() {
               ))}
             </div>
             <div className="mb-3 flex items-center gap-2">
-              <label className="text-[13px] text-gray-500">Time (optional):</label>
+              <label className="text-[13px] text-gray-400">Time (optional):</label>
               <input
                 type="time"
                 value={scheduleTime}
                 onChange={(e) => setScheduleTime(e.target.value)}
-                className="rounded-md border border-gray-300 px-2 py-1 text-[13px] focus:outline-none focus:ring-2 focus:ring-primary"
+                className="rounded-md border border-gray-600 bg-surface-elevated px-2 py-1 text-[13px] text-white focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <button
               onClick={handleSaveSchedule}
               disabled={saving}
-              className="cursor-pointer rounded-md border-none bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50"
+              className="cursor-pointer rounded-md border-none bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50"
             >
               {saving ? 'Saving…' : 'Save Schedule'}
             </button>
@@ -266,7 +257,7 @@ export default function BurnBuddyDetailPage() {
         {/* Workout schedule display */}
         {!editing && burnBuddy.workoutSchedule && burnBuddy.workoutSchedule.days.length > 0 && (
           <div className="mb-5 flex items-center gap-3">
-            <div className="flex-1 rounded-md border border-green-200 bg-green-50 px-3.5 py-2.5 text-[13px] text-green-800">
+            <div className="flex-1 rounded-md border border-primary/30 bg-primary/10 px-3.5 py-2.5 text-[13px] text-primary">
               Schedule: {burnBuddy.workoutSchedule.days.join(', ')}
               {burnBuddy.workoutSchedule.time && ` at ${burnBuddy.workoutSchedule.time}`}
             </div>
@@ -296,7 +287,7 @@ export default function BurnBuddyDetailPage() {
         </div>
 
         {/* Group workout log */}
-        <h2 className="mb-3 text-base font-semibold">Group Workout Log</h2>
+        <h2 className="mb-3 text-base font-semibold text-white">Group Workout Log</h2>
         {groupWorkouts.length === 0 ? (
           <p className="text-sm text-gray-400">No group workouts yet. Start one together!</p>
         ) : (
@@ -304,18 +295,17 @@ export default function BurnBuddyDetailPage() {
             {groupWorkouts.map((gw) => (
               <div
                 key={gw.id}
-                className="flex items-center justify-between border-b border-gray-100 py-3"
+                className="flex items-center justify-between border-b border-gray-700 py-3"
               >
                 <div>
-                  <div className="text-sm font-medium">{formatDate(gw.startedAt)}</div>
+                  <div className="text-sm font-medium text-white">{formatDate(gw.startedAt)}</div>
                   <div className="text-xs text-gray-400">{gw.workoutIds.length} workout(s)</div>
                 </div>
-                <div className="text-[13px] text-gray-500">{timeAgo(gw.startedAt)}</div>
+                <div className="text-[13px] text-gray-400">{timeAgo(gw.startedAt)}</div>
               </div>
             ))}
           </div>
         )}
       </main>
-    </>
   );
 }
