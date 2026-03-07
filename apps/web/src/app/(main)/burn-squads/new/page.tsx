@@ -91,22 +91,22 @@ export default function NewBurnSquadPage() {
   return (
       <main className="mx-auto max-w-xl px-4">
         {/* Header */}
-        <div className="flex items-center gap-3 border-b border-gray-200 py-4 mb-6">
-          <Link href="/" className="text-sm text-gray-500 no-underline hover:text-gray-700">
+        <div className="flex items-center gap-3 border-b border-gray-700 py-4 mb-6">
+          <Link href="/" className="text-sm text-gray-400 no-underline hover:text-gray-200">
             ← Back
           </Link>
-          <h1 className="m-0 text-xl font-bold">New Burn Squad</h1>
+          <h1 className="m-0 text-xl font-bold text-white">New Burn Squad</h1>
         </div>
 
         {error && (
-          <div className="mb-4 rounded-md border border-red-300 bg-red-50 px-3.5 py-2.5 text-sm text-red-600">
+          <div className="mb-4 rounded-md border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-sm text-red-400">
             {error}
           </div>
         )}
 
         {/* Squad Name */}
         <div className="mb-6">
-          <label className="mb-1.5 block text-sm font-semibold">
+          <label className="mb-1.5 block text-sm font-semibold text-white">
             Squad Name *
           </label>
           <input
@@ -114,17 +114,17 @@ export default function NewBurnSquadPage() {
             value={squadName}
             onChange={(e) => setSquadName(e.target.value)}
             placeholder="e.g. Morning Crew"
-            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-secondary"
+            className="w-full rounded-md border border-gray-600 bg-surface-elevated px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-secondary"
           />
         </div>
 
         {/* Friend Selection */}
         <div className="mb-6">
-          <label className="mb-1.5 block text-sm font-semibold">
+          <label className="mb-1.5 block text-sm font-semibold text-white">
             Invite Friends
           </label>
           {dataLoading ? (
-            <p className="text-sm text-gray-500">Loading friends…</p>
+            <p className="text-sm text-gray-400">Loading friends…</p>
           ) : friends.length === 0 ? (
             <p className="text-sm text-gray-400">
               No friends to invite yet — you can add them later
@@ -139,13 +139,13 @@ export default function NewBurnSquadPage() {
                     onClick={() => toggleFriend(friend.uid)}
                     className={`flex cursor-pointer items-center justify-between rounded-md border-2 p-3 mb-2 transition-colors ${
                       isSelected
-                        ? 'border-secondary bg-blue-50'
-                        : 'border-gray-200 bg-white hover:bg-gray-50'
+                        ? 'border-secondary bg-secondary/20'
+                        : 'border-gray-700 bg-surface hover:bg-surface-elevated'
                     }`}
                   >
                     <div>
-                      <div className="text-sm font-semibold">{friend.displayName}</div>
-                      <div className="text-xs text-gray-500">{friend.email}</div>
+                      <div className="text-sm font-semibold text-white">{friend.displayName}</div>
+                      <div className="text-xs text-gray-400">{friend.email}</div>
                     </div>
                     {isSelected && <span className="text-base text-secondary">✓</span>}
                   </div>
@@ -157,7 +157,7 @@ export default function NewBurnSquadPage() {
 
         {/* Workout Schedule */}
         <div className="mb-8">
-          <label className="mb-1.5 block text-sm font-semibold">
+          <label className="mb-1.5 block text-sm font-semibold text-white">
             Workout Schedule (optional)
           </label>
           <div className="mb-3 flex flex-wrap gap-1.5">
@@ -170,7 +170,7 @@ export default function NewBurnSquadPage() {
                   className={`cursor-pointer rounded-md border px-3 py-1.5 text-[13px] transition-colors ${
                     isOn
                       ? 'border-secondary bg-secondary text-white'
-                      : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                      : 'border-gray-600 bg-surface-elevated text-gray-300 hover:bg-gray-500/20'
                   }`}
                 >
                   {day}
@@ -180,14 +180,14 @@ export default function NewBurnSquadPage() {
           </div>
           {scheduleDays.size > 0 && (
             <div>
-              <label className="mb-1 block text-[13px] text-gray-500">
+              <label className="mb-1 block text-[13px] text-gray-400">
                 Time (optional)
               </label>
               <input
                 type="time"
                 value={scheduleTime}
                 onChange={(e) => setScheduleTime(e.target.value)}
-                className="rounded-md border border-gray-200 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-secondary"
+                className="rounded-md border border-gray-600 bg-surface-elevated px-2.5 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-secondary"
               />
             </div>
           )}
@@ -197,14 +197,14 @@ export default function NewBurnSquadPage() {
         <div className="flex gap-2">
           <Link
             href="/"
-            className="rounded-md border border-gray-200 px-5 py-2.5 text-sm text-gray-700 no-underline hover:bg-gray-50"
+            className="rounded-md border border-gray-600 px-5 py-2.5 text-sm text-gray-300 no-underline hover:bg-surface-elevated"
           >
             Cancel
           </Link>
           <button
             onClick={handleSubmit}
             disabled={sending || !squadName.trim()}
-            className="cursor-pointer rounded-md border-none bg-blue-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50"
+            className="cursor-pointer rounded-md border-none bg-secondary px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50"
           >
             {sending ? 'Creating…' : 'Create Burn Squad'}
           </button>
