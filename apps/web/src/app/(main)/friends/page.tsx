@@ -22,19 +22,19 @@ type BurnBuddyStatus = 'none' | 'pending' | 'buddy';
 function FriendsSkeleton() {
   return (
     <div className="animate-pulse">
-      <div className="mb-3 h-4 w-32 rounded bg-gray-200" />
+      <div className="mb-3 h-4 w-32 rounded bg-gray-800" />
       {[1, 2, 3, 4].map((i) => (
-        <div key={i} className="mb-2 flex items-center justify-between rounded-lg border border-gray-100 p-3 shadow-sm">
+        <div key={i} className="mb-2 flex items-center justify-between rounded-lg border border-gray-700 p-3">
           <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-full bg-gray-200" />
+            <div className="h-8 w-8 rounded-full bg-gray-800" />
             <div>
-              <div className="mb-1 h-4 w-28 rounded bg-gray-200" />
-              <div className="h-3 w-36 rounded bg-gray-200" />
+              <div className="mb-1 h-4 w-28 rounded bg-gray-800" />
+              <div className="h-3 w-36 rounded bg-gray-800" />
             </div>
           </div>
           <div className="flex gap-2">
-            <div className="h-7 w-24 rounded bg-gray-200" />
-            <div className="h-7 w-16 rounded bg-gray-200" />
+            <div className="h-7 w-24 rounded bg-gray-800" />
+            <div className="h-7 w-16 rounded bg-gray-800" />
           </div>
         </div>
       ))}
@@ -246,7 +246,7 @@ export default function FriendsPage() {
   return (
       <main className="mx-auto max-w-xl px-4 pt-6 pb-12">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Friends</h1>
+          <h1 className="text-2xl font-bold text-white">Friends</h1>
           <button
             onClick={() => {
               setShowSearch(!showSearch);
@@ -254,7 +254,7 @@ export default function FriendsPage() {
               setSearchResults([]);
               setSearchError(null);
             }}
-            className="cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
+            className="cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-green-600"
           >
             + Add Friend
           </button>
@@ -264,8 +264,8 @@ export default function FriendsPage() {
 
         {/* Add Friend search panel */}
         {showSearch && (
-          <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
-            <h3 className="mb-3 text-base font-semibold text-gray-900">Find a Friend</h3>
+          <div className="mb-6 rounded-lg border border-gray-700 bg-surface p-4">
+            <h3 className="mb-3 text-base font-semibold text-white">Find a Friend</h3>
             <div className="relative mb-1">
               <input
                 type="text"
@@ -273,7 +273,7 @@ export default function FriendsPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by username or email"
                 autoFocus
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                className="w-full rounded-md border border-gray-600 bg-surface-elevated px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
               />
               {searching && (
                 <span className="absolute right-3 top-2.5 text-xs text-gray-400">Searching…</span>
@@ -283,19 +283,19 @@ export default function FriendsPage() {
               <p className="mt-2 text-sm text-danger">{searchError}</p>
             )}
             {searchResults.length > 0 && (
-              <ul className="mt-1 max-h-48 overflow-y-auto rounded-md border border-gray-200 bg-white">
+              <ul className="mt-1 max-h-48 overflow-y-auto rounded-md border border-gray-700 bg-surface">
                 {searchResults.map((u) => (
                   <li
                     key={u.uid}
                     onClick={() => handleSelectUser(u)}
-                    className="cursor-pointer px-3 py-2.5 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                    className="cursor-pointer px-3 py-2.5 hover:bg-surface-elevated border-b border-gray-700 last:border-b-0"
                   >
                     <div className="flex items-center gap-2.5">
                       <Avatar displayName={u.displayName} profilePictureUrl={u.profilePictureUrl} size="sm" />
                       <div>
                         <div>
-                          <strong className="text-gray-900">{u.displayName}</strong>
-                          <span className="ml-2 text-sm text-gray-500">{u.email}</span>
+                          <strong className="text-white">{u.displayName}</strong>
+                          <span className="ml-2 text-sm text-gray-400">{u.email}</span>
                         </div>
                         {u.username && (
                           <div className="text-xs text-gray-400">@{u.username}</div>
@@ -312,16 +312,16 @@ export default function FriendsPage() {
         {/* Confirmation dialog — friend request */}
         {confirmUser && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="mx-4 w-full max-w-sm rounded-lg bg-white p-6">
-              <h3 className="mb-2 text-lg font-semibold text-gray-900">Send Friend Request?</h3>
-              <p className="mb-4 text-sm text-gray-600">
-                Send a friend request to <strong>{confirmUser.displayName}</strong> (
+            <div className="mx-4 w-full max-w-sm rounded-lg border border-gray-700 bg-surface p-6">
+              <h3 className="mb-2 text-lg font-semibold text-white">Send Friend Request?</h3>
+              <p className="mb-4 text-sm text-gray-400">
+                Send a friend request to <strong className="text-white">{confirmUser.displayName}</strong> (
                 {confirmUser.email})?
               </p>
               <div className="flex justify-end gap-2">
                 <button
                   onClick={() => setConfirmUser(null)}
-                  className="cursor-pointer rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="cursor-pointer rounded-md border border-gray-600 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-surface-elevated"
                 >
                   Cancel
                 </button>
@@ -340,23 +340,23 @@ export default function FriendsPage() {
         {/* Confirmation dialog — burn buddy request */}
         {confirmBurnBuddy && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="mx-4 w-full max-w-sm rounded-lg bg-white p-6">
-              <h3 className="mb-2 text-lg font-semibold text-gray-900">Send Burn Buddy Request?</h3>
-              <p className="mb-4 text-sm text-gray-600">
-                Send a Burn Buddy request to <strong>{confirmBurnBuddy.displayName}</strong>?
+            <div className="mx-4 w-full max-w-sm rounded-lg border border-gray-700 bg-surface p-6">
+              <h3 className="mb-2 text-lg font-semibold text-white">Send Burn Buddy Request?</h3>
+              <p className="mb-4 text-sm text-gray-400">
+                Send a Burn Buddy request to <strong className="text-white">{confirmBurnBuddy.displayName}</strong>?
                 You&apos;ll be able to track workouts together and build streaks.
               </p>
               <div className="flex justify-end gap-2">
                 <button
                   onClick={() => setConfirmBurnBuddy(null)}
-                  className="cursor-pointer rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="cursor-pointer rounded-md border border-gray-600 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-surface-elevated"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSendBurnBuddyRequest}
                   disabled={sendingBbRequest}
-                  className="cursor-pointer rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50"
+                  className="cursor-pointer rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50"
                 >
                   {sendingBbRequest ? 'Sending…' : '🔥 Send Request'}
                 </button>
@@ -372,20 +372,20 @@ export default function FriendsPage() {
             {/* Pending Requests */}
             {(incoming.length > 0 || outgoing.length > 0) && (
               <section className="mb-8">
-                <h2 className="mb-3 text-sm font-semibold tracking-wide text-gray-500 uppercase">
+                <h2 className="mb-3 text-sm font-semibold tracking-wide text-gray-400 uppercase">
                   Pending Requests
                 </h2>
 
                 {incoming.map((req) => (
                   <div
                     key={req.id}
-                    className="flex items-center justify-between rounded-lg border border-gray-100 bg-white p-3 mb-2 shadow-sm"
+                    className="flex items-center justify-between rounded-lg border border-gray-700 bg-surface p-3 mb-2"
                   >
                     <div className="flex items-center gap-2.5">
                       <Avatar displayName={req.displayName ?? req.fromUid} profilePictureUrl={req.photoURL} size="sm" />
                       <div>
-                        <strong className="text-gray-900">{req.displayName ?? req.fromUid}</strong>
-                        <span className="ml-2 inline-block rounded-full bg-green-50 px-2 py-0.5 text-xs text-success">
+                        <strong className="text-white">{req.displayName ?? req.fromUid}</strong>
+                        <span className="ml-2 inline-block rounded-full bg-green-500/20 px-2 py-0.5 text-xs text-success">
                           incoming
                         </span>
                       </div>
@@ -401,7 +401,7 @@ export default function FriendsPage() {
                       <button
                         onClick={() => rejectMutation.mutate(req.id)}
                         disabled={rejectMutation.isPending}
-                        className="cursor-pointer rounded-md border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                        className="cursor-pointer rounded-md border border-gray-600 px-3 py-1.5 text-xs text-gray-400 hover:bg-surface-elevated disabled:opacity-50"
                       >
                         Ignore
                       </button>
@@ -412,13 +412,13 @@ export default function FriendsPage() {
                 {outgoing.map((req) => (
                   <div
                     key={req.id}
-                    className="flex items-center justify-between rounded-lg border border-gray-100 bg-white p-3 mb-2 shadow-sm"
+                    className="flex items-center justify-between rounded-lg border border-gray-700 bg-surface p-3 mb-2"
                   >
                     <div className="flex items-center gap-2.5">
                       <Avatar displayName={req.displayName ?? req.toUid} profilePictureUrl={req.photoURL} size="sm" />
                       <div>
-                        <strong className="text-gray-900">{req.displayName ?? req.toUid}</strong>
-                        <span className="ml-2 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+                        <strong className="text-white">{req.displayName ?? req.toUid}</strong>
+                        <span className="ml-2 inline-block rounded-full bg-gray-700 px-2 py-0.5 text-xs text-gray-400">
                           pending
                         </span>
                       </div>
@@ -430,7 +430,7 @@ export default function FriendsPage() {
 
             {/* Friends List */}
             <section>
-              <h2 className="mb-3 text-sm font-semibold tracking-wide text-gray-500 uppercase">
+              <h2 className="mb-3 text-sm font-semibold tracking-wide text-gray-400 uppercase">
                 Friends{friends.length > 0 ? ` (${friends.length})` : ''}
               </h2>
               {friends.length === 0 ? (
@@ -441,7 +441,7 @@ export default function FriendsPage() {
                   return (
                     <div
                       key={friend.uid}
-                      className="flex items-center justify-between rounded-lg border border-gray-100 bg-white p-3 mb-2 shadow-sm hover:bg-gray-50"
+                      className="flex items-center justify-between rounded-lg border border-gray-700 bg-surface p-3 mb-2 hover:bg-surface-elevated"
                     >
                       <Link
                         href={`/profile/${friend.uid}`}
@@ -450,29 +450,29 @@ export default function FriendsPage() {
                         <div className="flex items-center gap-2.5">
                           <Avatar displayName={friend.displayName} profilePictureUrl={friend.profilePictureUrl} size="sm" />
                           <div>
-                            <strong className="text-gray-900">{friend.displayName}</strong>
+                            <strong className="text-white">{friend.displayName}</strong>
                             {friend.username && (
                               <span className="ml-1.5 text-sm text-gray-400">@{friend.username}</span>
                             )}
-                            <div className="text-xs text-gray-500">{friend.email}</div>
+                            <div className="text-xs text-gray-400">{friend.email}</div>
                           </div>
                         </div>
                       </Link>
                       <div className="flex items-center gap-2">
                         {bbStatus === 'buddy' && (
-                          <span className="rounded-full bg-orange-50 px-2.5 py-1 text-xs font-medium text-primary">
+                          <span className="rounded-full bg-primary/20 px-2.5 py-1 text-xs font-medium text-primary">
                             🔥 Burn Buddy
                           </span>
                         )}
                         {bbStatus === 'pending' && (
-                          <span className="rounded-full bg-yellow-50 px-2.5 py-1 text-xs font-medium text-yellow-600">
+                          <span className="rounded-full bg-yellow-500/20 px-2.5 py-1 text-xs font-medium text-yellow-400">
                             🔥 Pending
                           </span>
                         )}
                         {bbStatus === 'none' && (
                           <button
                             onClick={() => setConfirmBurnBuddy(friend)}
-                            className="cursor-pointer rounded-md border border-orange-200 bg-transparent px-3 py-1.5 text-xs font-medium text-primary hover:bg-orange-50"
+                            className="cursor-pointer rounded-md border border-primary/30 bg-transparent px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10"
                           >
                             🔥 Burn Buddy
                           </button>
@@ -480,7 +480,7 @@ export default function FriendsPage() {
                         <button
                           onClick={() => removeFriendMutation.mutate(friend.uid)}
                           disabled={removeFriendMutation.isPending}
-                          className="cursor-pointer rounded-md border border-red-200 bg-transparent px-3 py-1.5 text-xs text-danger hover:bg-red-50 disabled:opacity-50"
+                          className="cursor-pointer rounded-md border border-red-500/30 bg-transparent px-3 py-1.5 text-xs text-danger hover:bg-red-500/10 disabled:opacity-50"
                         >
                           Remove
                         </button>
