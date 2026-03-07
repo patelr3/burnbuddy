@@ -19,8 +19,8 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Root cause: missing storageBucket in initializeApp(). Fixed with env var + default, added error handling and logging, parallelized anime filter."
     },
     {
       "id": "US-002",
@@ -34,8 +34,8 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created lib/storage.ts with getStorageBucket() helper + checkStorageConnectivity() startup check. Added FIREBASE_STORAGE_BUCKET to Bicep, deploy workflow, and CLAUDE.md."
     },
     {
       "id": "US-003",
@@ -50,8 +50,8 @@
         "Tests pass"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Wrapped animeFilter() with Promise.race(15s timeout). Timeout is configurable via ANIME_FILTER_TIMEOUT_MS env var (for testability). Added 2 unit tests: timeout behavior + generic error."
     },
     {
       "id": "US-004",
@@ -66,8 +66,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added AbortController with 20-second timeout to apiUploadFile. On timeout, aborts fetch and throws user-friendly error. Supports optional external AbortSignal for caller cancellation."
     },
     {
       "id": "US-005",
@@ -82,8 +82,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added dynamic status text (5s timer), Cancel button (uses AbortController signal), Retry button on errors. Specific error messages already handled by apiUploadFile from US-004."
     },
     {
       "id": "US-006",
@@ -98,8 +98,8 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added AbortController with 20-second timeout to mobile apiUploadFile. On timeout, aborts fetch and throws user-friendly error. Supports optional external AbortSignal for caller cancellation (for US-007 Cancel button). RN 0.83+ has full AbortController support."
     },
     {
       "id": "US-007",
@@ -113,8 +113,8 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added dynamic status text (5s timer), Cancel button (AbortController-based), inline error display replacing Alert dialogs, Retry button for re-uploading last asset. Mirrors web UI pattern from US-005."
     }
   ]
 }

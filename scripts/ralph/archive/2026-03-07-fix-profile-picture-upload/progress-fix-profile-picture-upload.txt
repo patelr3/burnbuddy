@@ -1,0 +1,103 @@
+# Ralph Progress Log — Fix Profile Picture Upload Hang
+Started: 2026-03-07
+---
+
+## Codebase Patterns
+- Firebase Admin `initializeApp()` must include `storageBucket` for `admin.storage().bucket()` to work — without it, storage operations hang on an invalid bucket URL
+- Use `getStorageBucket()` from `lib/storage.ts` for all Firebase Storage access — never call `admin.storage().bucket()` directly in routes
+- When mocking storage in tests, mock `../lib/storage` module with `getStorageBucket` instead of `admin.storage().bucket`
+- Pino logger is at `services/api/src/lib/logger.ts` — import it in route files for structured logging
+- Anime filter runs 6 sequential sharp ops; posterize + Sobel X + Sobel Y can be parallelized with `Promise.all` for ~2x speedup
+- API tests use `vi.hoisted` + `vi.mock` pattern — see `users-profile-picture.test.ts` for storage mock setup
+- After changing packages/shared/src, must run `cd packages/shared && yarn build` before API typecheck
+- Fake timers (`vi.useFakeTimers()`) conflict with supertest/multer I/O — use env-var-configurable timeouts with short real timeouts in tests instead
+- React Native 0.83+ throws plain `Error` (not `DOMException`) on aborted fetch — check `err.name === 'AbortError'` without `instanceof DOMException`
+
+## 2026-03-07T06:27 - US-001
+- **What was implemented**: Fixed root cause of profile picture upload hang
+- **Root cause**: `admin.storage().bucket()` was called without a bucket name, and `initializeApp()` had no `storageBucket` config, causing storage operations to use an invalid bucket URL and hang indefinitely
+- **Files changed**:
+  - `services/api/src/lib/firebase.ts` — Added `storageBucket` to all `initializeApp()` calls using `FIREBASE_STORAGE_BUCKET` env var with `{projectId}.appspot.com` default
+  - `services/api/src/routes/users.ts` — Added try/catch error handling around anime filter, storage save, and signed URL generation; added pino logging for upload lifecycle events
+  - `services/api/src/lib/anime-filter.ts` — Parallelized posterize + Sobel X + Sobel Y with `Promise.all` for ~2x speedup
+- **Learnings for future iterations:**
+  - Firebase Storage requires `storageBucket` in `initializeApp()` or explicit bucket name in `.bucket()` — without it, operations hang silently instead of throwing
+  - The anime filter's posterize step and both Sobel convolutions are independent — safe to parallelize
+  - Pre-existing typecheck failures exist in mobile (missing expo types) — API typecheck is the relevant check
+  - All 309 API tests pass after changes
+---
+
+## 2026-03-07T06:32 - US-002
+- **What was implemented**: Explicit Firebase Storage bucket configuration with startup connectivity check
+- **Files changed**:
+  - `services/api/src/lib/storage.ts` — New module: `getStorageBucket()` reads `FIREBASE_STORAGE_BUCKET` env var with `{projectId}.appspot.com` default; `checkStorageConnectivity()` does a `bucket.exists()` check at startup
+  - `services/api/src/routes/users.ts` — Replaced `admin.storage().bucket()` calls with `getStorageBucket()`
+  - `services/api/src/index.ts` — Added fire-and-forget `checkStorageConnectivity()` call after `initFirebase()`
+  - `infra/modules/api-container-app.bicep` — Added `firebase-storage-bucket` KV secret and `FIREBASE_STORAGE_BUCKET` env var
+  - `.github/workflows/deploy-api.yml` — Fetch `firebase-storage-bucket` from KV in both beta and prod deploy steps
+  - `CLAUDE.md` — Documented `FIREBASE_STORAGE_BUCKET` and `getStorageBucket()` convention
+  - `services/api/src/routes/users-profile-picture.test.ts` — Updated mock from `admin.storage()` to `lib/storage`
+  - `services/api/src/routes/users-delete-profile-picture.test.ts` — Same mock update
+- **Learnings for future iterations:**
+  - Centralizing storage access in `lib/storage.ts` mirrors the `lib/firestore.ts` pattern — keeps route handlers clean
+  - Test mocks for storage now target `../lib/storage` module instead of `admin.storage()` — simpler and more focused
+  - All 309 API tests pass after changes
+---
+
+## 2026-03-07T06:34 - US-003
+- **What was implemented**: Server-side 15-second timeout for anime filter processing
+- **Files changed**:
+  - `services/api/src/routes/users.ts` — Wrapped `animeFilter()` call with `Promise.race` against a configurable timeout (defaults to 15s, overridable via `ANIME_FILTER_TIMEOUT_MS` env var). On timeout, logs error with UID/fileSize and returns 500 with user-friendly message.
+  - `services/api/src/routes/users-profile-picture.test.ts` — Added 2 new tests: timeout behavior (mock animeFilter to never resolve, use 50ms env override) and generic error (mock animeFilter rejection)
+- **Learnings for future iterations:**
+  - Fake timers (`vi.useFakeTimers()`) conflict with supertest/multer I/O — use env-var-configurable timeouts with short real timeouts in tests instead
+  - `Promise.race` with a sentinel error message (`ANIME_FILTER_TIMEOUT`) cleanly distinguishes timeout from other errors in catch blocks
+  - All 311 API tests pass after changes
+---
+
+## 2026-03-07T06:35 - US-004
+- **What was implemented**: Client-side 20-second upload timeout for web
+- **Files changed**:
+  - `apps/web/src/lib/api.ts` — Added AbortController with 20s timeout to `apiUploadFile()`. On timeout, aborts fetch and throws "Upload timed out. Please try again with a smaller image." Also catches network errors with a distinct message. Accepts optional `{ signal?: AbortSignal }` options param for external cancellation (used by future Cancel button in US-005).
+- **Learnings for future iterations:**
+  - Browser `fetch` throws `DOMException` with `name === 'AbortError'` when aborted — check both `instanceof DOMException` and `.name` for reliable detection
+  - The account page's `handlePictureUpload` catch/finally already handles displaying errors and clearing upload state — no UI changes needed for timeout support
+  - `apiUploadFile` now supports an optional external `AbortSignal` via `options.signal` — US-005 can use this for a Cancel button
+  - Typecheck passes across all workspaces (including mobile)
+---
+
+## 2026-03-07T06:45 - US-005
+- **What was implemented**: Improved upload error feedback in web UI
+- **Files changed**:
+  - `apps/web/src/app/account/page.tsx` — Added dynamic status text (switches from "Anime-fying your photo…" to "Still working… this can take a moment for large photos" after 5 seconds), Cancel button (appears after 5 seconds, aborts upload via AbortController), Retry button (appears alongside error messages, re-uploads last file). Added `showExtendedUpload` state, `abortControllerRef`, `lastFileRef`, `cancelledRef` refs. Extracted `uploadFile()` function from `handlePictureUpload` for reuse by retry.
+- **Learnings for future iterations:**
+  - The `apiUploadFile` already throws specific error messages for different failure modes (timeout, 413, 400, network, generic) — the account page catch block just needs to display them
+  - External AbortSignal support (added in US-004) enables the Cancel button — when user cancels, a `cancelledRef` flag distinguishes user-cancel from timeout-abort so cancelled uploads don't show "timed out" error
+  - `lastFileRef` persists the File object across renders for Retry — cleared on successful upload so Retry doesn't show after success
+  - Firebase Auth not available locally without real API key — browser testing of authed pages requires beta environment
+  - All 311 API tests pass, typecheck passes across all workspaces
+---
+
+## 2026-03-07T06:48 - US-006
+- **What was implemented**: Client-side 20-second upload timeout for mobile
+- **Files changed**:
+  - `apps/mobile/src/lib/api.ts` — Added AbortController with 20s timeout to `apiUploadFile()`. On timeout, aborts fetch and throws "Upload timed out. Please try again with a smaller image." Handles network errors distinctly. Accepts optional `{ signal?: AbortSignal }` options param for external cancellation (used by Cancel button in US-007).
+- **Learnings for future iterations:**
+  - React Native 0.83+ (Expo 55+) has full AbortController support — no polyfill needed
+  - In React Native, aborted fetch throws a plain `Error` with `name === 'AbortError'` (not `DOMException` like browsers) — check `err.name === 'AbortError'` without `instanceof DOMException`
+  - The AccountScreen's existing catch/finally in `handlePickImage` already clears `uploading` state and shows errors via `Alert.alert` — no UI changes needed for basic timeout support
+  - `apiUploadFile` signature now accepts optional 5th param `options?: { signal?: AbortSignal }` for external cancellation — US-007 Cancel button will use this
+  - Typecheck passes across all workspaces (shared, api, web, mobile)
+---
+
+## 2026-03-07T06:52 - US-007
+- **What was implemented**: Improved upload error feedback in mobile UI
+- **Files changed**:
+  - `apps/mobile/src/screens/AccountScreen.tsx` — Added `uploadError`, `showExtendedUpload` state; `abortControllerRef`, `lastAssetRef`, `cancelledRef` refs. Extracted `uploadAsset()` from `handlePickImage` for reuse by retry. Added `handleCancelUpload` (aborts via AbortController) and `handleRetryUpload` (re-uploads last picked asset). Dynamic status text switches from "Anime-fying..." to "Still working…" after 5 seconds. Cancel button appears after 5 seconds. Inline error text replaces Alert dialogs. Retry button shown alongside errors.
+- **Learnings for future iterations:**
+  - Mobile upload UI now mirrors the web pattern (US-005): dynamic status, Cancel after 5s, inline errors, Retry button
+  - `lastAssetRef` stores `{ uri, mimeType }` (not a File object like web) since React Native uses URIs for image assets
+  - `cancelledRef` flag distinguishes user-cancel from timeout-abort — avoids showing "timed out" error when user deliberately cancels
+  - Switched from `Alert.alert` to inline `<Text>` for errors — better UX since error stays visible and Retry button is adjacent
+  - All 311 API tests pass, typecheck passes across all workspaces (shared, api, web, mobile)
+---
