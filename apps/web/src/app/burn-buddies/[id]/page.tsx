@@ -1,27 +1,18 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { apiGet, apiPut } from '@/lib/api';
+import { apiPut } from '@/lib/api';
 import { useParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { NavBar } from '@/components/NavBar';
 import { StatCard } from '@/components/StatCard';
 import { Avatar } from '@/components/Avatar';
 import { AddToCalendarButton } from '@/components/AddToCalendarButton';
-import type { BurnBuddy, GroupWorkout, GroupStats, WorkoutSchedule } from '@burnbuddy/shared';
-
-interface PartnerProfile {
-  uid: string;
-  displayName: string;
-  email: string;
-  profilePictureUrl?: string;
-}
-
-interface Streaks {
-  burnStreak: number;
-  supernovaStreak: number;
-}
+import { useBurnBuddy, queryKeys } from '@/lib/queries';
+import type { BurnBuddyData } from '@/lib/queries';
+import type { BurnBuddy, WorkoutSchedule } from '@burnbuddy/shared';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 type Day = (typeof DAYS)[number];
@@ -69,18 +60,58 @@ function startOfMonthUTC(): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 }
 
+function BurnBuddySkeleton() {
+  return (
+    <div className="animate-pulse">
+      {/* Header skeleton */}
+      <div className="flex items-center justify-between border-b border-gray-200 py-4 mb-6">
+        <div className="flex items-center gap-3">
+          <div className="h-4 w-12 rounded bg-gray-200" />
+          <div className="h-8 w-8 rounded-full bg-gray-200" />
+          <div className="h-6 w-32 rounded bg-gray-200" />
+          <div className="h-5 w-14 rounded-full bg-gray-200" />
+        </div>
+        <div className="h-8 w-28 rounded-md bg-gray-200" />
+      </div>
+
+      {/* Stats grid skeleton */}
+      <div className="mb-7 grid grid-cols-2 gap-3">
+        {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+          <div key={i} className="rounded-lg border border-slate-100 p-3.5">
+            <div className="mb-2 h-4 w-24 rounded bg-gray-200" />
+            <div className="h-6 w-16 rounded bg-gray-200" />
+          </div>
+        ))}
+      </div>
+
+      {/* Workout log skeleton */}
+      <div className="mb-3 h-5 w-40 rounded bg-gray-200" />
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="flex items-center justify-between border-b border-gray-100 py-3">
+          <div>
+            <div className="mb-1 h-4 w-28 rounded bg-gray-200" />
+            <div className="h-3 w-20 rounded bg-gray-200" />
+          </div>
+          <div className="h-4 w-16 rounded bg-gray-200" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function BurnBuddyDetailPage() {
   const { user, loading } = useAuth();
   const params = useParams();
   const id = params['id'] as string;
+  const queryClient = useQueryClient();
 
-  const [burnBuddy, setBurnBuddy] = useState<BurnBuddy | null>(null);
-  const [partner, setPartner] = useState<PartnerProfile | null>(null);
-  const [streaks, setStreaks] = useState<Streaks>({ burnStreak: 0, supernovaStreak: 0 });
-  const [groupWorkouts, setGroupWorkouts] = useState<GroupWorkout[]>([]);
-  const [stats, setStats] = useState<GroupStats | null>(null);
-  const [dataLoading, setDataLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
+  const { data, isLoading: dataLoading, error } = useBurnBuddy(id);
+
+  const burnBuddy = data?.burnBuddy ?? null;
+  const partner = data?.partner ?? null;
+  const streaks = data?.streaks ?? { burnStreak: 0, supernovaStreak: 0 };
+  const groupWorkouts = data?.groupWorkouts ?? [];
+  const stats = data?.stats ?? null;
 
   // Edit schedule state
   const [editing, setEditing] = useState(false);
@@ -88,50 +119,18 @@ export default function BurnBuddyDetailPage() {
   const [scheduleTime, setScheduleTime] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const loadData = useCallback(async () => {
-    if (!user) return;
-    setDataLoading(true);
-    try {
-      const bb = await apiGet<BurnBuddy>(`/burn-buddies/${id}`);
-      setBurnBuddy(bb);
+  const notFound = !!error;
 
-      const partnerUid = bb.uid1 === user.uid ? bb.uid2 : bb.uid1;
-
-      const [partnerProfile, fetchedStreaks, allGroupWorkouts, fetchedStats] = await Promise.all([
-        apiGet<PartnerProfile>(`/users/${partnerUid}`).catch(() => null),
-        apiGet<Streaks>(`/burn-buddies/${id}/streaks`).catch(() => ({ burnStreak: 0, supernovaStreak: 0 })),
-        apiGet<GroupWorkout[]>('/group-workouts').catch(() => [] as GroupWorkout[]),
-        apiGet<GroupStats>(`/burn-buddies/${id}/stats`).catch(() => null),
-      ]);
-
-      setPartner(partnerProfile);
-      setStreaks(fetchedStreaks);
-      setStats(fetchedStats);
-
-      // Filter group workouts for this burn buddy (referenceId === id, type === 'buddy')
-      const buddyWorkouts = allGroupWorkouts
-        .filter((gw) => gw.type === 'buddy' && gw.referenceId === id)
-        .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
-      setGroupWorkouts(buddyWorkouts);
-
-      // Pre-fill edit form with existing schedule
-      if (bb.workoutSchedule) {
-        setSelectedDays((bb.workoutSchedule.days as Day[]) ?? []);
-        setScheduleTime(bb.workoutSchedule.time ?? '');
-      }
-    } catch (err: unknown) {
-      const status = (err as { message?: string })?.message;
-      if (status?.includes('404') || status?.includes('403')) {
-        setNotFound(true);
-      }
-    } finally {
-      setDataLoading(false);
-    }
-  }, [user, id]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const weekStart = useMemo(() => startOfWeekUTC(), []);
+  const monthStart = useMemo(() => startOfMonthUTC(), []);
+  const workoutsThisWeek = useMemo(
+    () => groupWorkouts.filter((gw) => new Date(gw.startedAt) >= weekStart).length,
+    [groupWorkouts, weekStart],
+  );
+  const workoutsThisMonth = useMemo(
+    () => groupWorkouts.filter((gw) => new Date(gw.startedAt) >= monthStart).length,
+    [groupWorkouts, monthStart],
+  );
 
   const handleSaveSchedule = async () => {
     setSaving(true);
@@ -139,7 +138,10 @@ export default function BurnBuddyDetailPage() {
       const workoutSchedule: WorkoutSchedule | undefined =
         selectedDays.length > 0 ? { days: selectedDays, time: scheduleTime || undefined } : undefined;
       const updated = await apiPut<BurnBuddy>(`/burn-buddies/${id}`, { workoutSchedule });
-      setBurnBuddy(updated);
+      queryClient.setQueryData<BurnBuddyData>(queryKeys.burnBuddy(id), (old) =>
+        old ? { ...old, burnBuddy: updated } : old,
+      );
+      queryClient.invalidateQueries({ queryKey: queryKeys.burnBuddy(id) });
       setEditing(false);
     } catch {
       // keep editing open
@@ -166,7 +168,7 @@ export default function BurnBuddyDetailPage() {
               ← Back
             </Link>
           </div>
-          <p className="text-gray-500">Loading...</p>
+          <BurnBuddySkeleton />
         </main>
       </>
     );
@@ -188,10 +190,6 @@ export default function BurnBuddyDetailPage() {
     );
   }
 
-  const weekStart = startOfWeekUTC();
-  const monthStart = startOfMonthUTC();
-  const workoutsThisWeek = groupWorkouts.filter((gw) => new Date(gw.startedAt) >= weekStart).length;
-  const workoutsThisMonth = groupWorkouts.filter((gw) => new Date(gw.startedAt) >= monthStart).length;
   const partnerName = partner?.displayName ?? (burnBuddy.uid1 === user?.uid ? burnBuddy.uid2 : burnBuddy.uid1);
 
   return (
