@@ -28,3 +28,19 @@ Started: 2026-03-07
   - GroupWorkouts persist after buddy/squad deletion — documented as historical records
   - 2 users + 1 squad + 2 workouts + MaxTime=3 gives ~38K states — very fast for TLC
 ---
+
+## 2026-03-07T19:40 - US-009
+- Created .github/workflows/tla-model-check.yml — GitHub Actions workflow for TLC model checking
+- Workflow triggers on PR changes to specs/tla/**/*.tla and services/api/src/**/*.ts
+- Uses matrix strategy: 7 parallel jobs (one per spec with .cfg file)
+- Downloads tla2tools.jar v1.8.0 from TLA+ GitHub releases
+- Uses Java 21 (Temurin) and runs TLC with -workers auto
+- 10-minute timeout per spec, 15-minute job timeout
+- Posts PR comment with TLC output on invariant violations
+- Files changed: .github/workflows/tla-model-check.yml
+- **Learnings for future iterations:**
+  - tla2tools.jar is gitignored — CI must download it fresh
+  - TLC exit code alone isn't reliable for detecting violations — also grep output for "violated"/"Error:"
+  - CrossDomainInvariants runs from specs/tla/ (root) while other specs run from subdirectories
+  - Use fail-fast: false so all specs are checked even if one fails
+---
