@@ -1,0 +1,36 @@
+# Ralph Progress Log
+Started: Sat Mar  7 07:53:26 PM UTC 2026
+---
+
+## Codebase Patterns
+- Tailwind v4 uses `@theme` block in globals.css for CSS custom properties (--color-*) which auto-generate utility classes
+- Both globals.css `@theme` and tailwind.config.ts colors must stay in sync
+- Must run `cd packages/shared && yarn build` before web typecheck — API/web resolve @burnbuddy/shared from compiled dist/
+- Pre-existing mobile typecheck failures (expo tsconfig) are unrelated to web changes — check web typecheck independently
+- NavBar is in `apps/web/src/app/(main)/layout.tsx` — do NOT import NavBar in individual page components
+- Pages are split into `(auth)` (login/signup, no NavBar) and `(main)` (all authenticated pages, with NavBar) route groups
+
+## 2026-03-07T19:55 - US-001
+- Updated globals.css @theme block with Apple Fitness dark palette: primary=#30D158, secondary=#0A84FF, surface=#1C1C1E, surface-elevated=#2C2C2E, accent-pink=#FF2D55
+- Updated tailwind.config.ts with matching color definitions
+- Set body background to black, default text to white
+- Files changed: `apps/web/src/app/globals.css`, `apps/web/tailwind.config.ts`
+- **Learnings for future iterations:**
+  - `yarn typecheck` runs all workspaces — mobile has pre-existing errors. Use `cd apps/web && yarn typecheck` for web-only checks.
+  - Shared package must be built first (`cd packages/shared && yarn build`) before web typecheck passes.
+  - Tailwind v4 @theme block and tailwind.config.ts must both be updated for colors.
+---
+
+## 2026-03-07T19:57 - US-002
+- Updated root layout body classes: `min-h-screen bg-black text-white antialiased`
+- Created `(auth)` route group with simple passthrough layout (no NavBar) for login/signup
+- Created `(main)` route group with NavBar + `pb-20 md:pb-0` bottom padding for all authenticated pages
+- Moved login/ and signup/ into `(auth)/`, all other pages into `(main)/`
+- api/ route stays at root level (not affected by route groups)
+- Files changed: `apps/web/src/app/layout.tsx`, `apps/web/src/app/(auth)/layout.tsx`, `apps/web/src/app/(main)/layout.tsx`, plus file moves
+- **Learnings for future iterations:**
+  - Next.js route groups `(name)` don't affect URLs — only organizational for layout separation
+  - NavBar is now in `(main)/layout.tsx`, not individual pages — future stories should NOT add NavBar to page components
+  - Auth pages (login/signup) are in `(auth)/` group and will never see the NavBar
+  - Middleware paths (`/login`, `/signup`) are unaffected by route group renames
+---
