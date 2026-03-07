@@ -1,21 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { apiGet, apiPost, apiDelete } from '@/lib/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { useFriends, queryKeys } from '@/lib/queries';
+import type { FriendsData, FriendWithProfile } from '@/lib/queries';
 import { NavBar } from '@/components/NavBar';
 import { Avatar } from '@/components/Avatar';
 import Link from 'next/link';
-import type { FriendRequest, BurnBuddy, BurnBuddyRequest } from '@burnbuddy/shared';
-
-interface FriendWithProfile {
-  uid: string;
-  displayName: string;
-  email: string;
-  username?: string;
-  profilePictureUrl?: string;
-  createdAt: string;
-}
 
 interface UserSearchResult {
   uid: string;
@@ -25,19 +18,41 @@ interface UserSearchResult {
   profilePictureUrl?: string;
 }
 
-interface EnrichedFriendRequest extends FriendRequest {
-  displayName?: string;
-}
-
 type BurnBuddyStatus = 'none' | 'pending' | 'buddy';
+
+function FriendsSkeleton() {
+  return (
+    <div className="animate-pulse">
+      <div className="mb-3 h-4 w-32 rounded bg-gray-200" />
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="mb-2 flex items-center justify-between rounded-lg border border-gray-100 p-3 shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-full bg-gray-200" />
+            <div>
+              <div className="mb-1 h-4 w-28 rounded bg-gray-200" />
+              <div className="h-3 w-36 rounded bg-gray-200" />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <div className="h-7 w-24 rounded bg-gray-200" />
+            <div className="h-7 w-16 rounded bg-gray-200" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function FriendsPage() {
   const { user, loading } = useAuth();
+  const queryClient = useQueryClient();
+  const { data, isLoading: dataLoading, error: queryError } = useFriends();
 
-  const [friends, setFriends] = useState<FriendWithProfile[]>([]);
-  const [incoming, setIncoming] = useState<EnrichedFriendRequest[]>([]);
-  const [outgoing, setOutgoing] = useState<EnrichedFriendRequest[]>([]);
-  const [dataLoading, setDataLoading] = useState(true);
+  const friends = data?.friends ?? [];
+  const incoming = data?.friendRequests.incoming ?? [];
+  const outgoing = data?.friendRequests.outgoing ?? [];
+  const burnBuddies = data?.burnBuddies ?? [];
+  const bbRequests = data?.burnBuddyRequests ?? { incoming: [], outgoing: [] };
 
   // Add friend state
   const [showSearch, setShowSearch] = useState(false);
@@ -51,71 +66,30 @@ export default function FriendsPage() {
   const [sendingRequest, setSendingRequest] = useState(false);
 
   // Burn buddy state
-  const [burnBuddies, setBurnBuddies] = useState<BurnBuddy[]>([]);
-  const [bbRequests, setBbRequests] = useState<{ incoming: BurnBuddyRequest[]; outgoing: BurnBuddyRequest[] }>({ incoming: [], outgoing: [] });
   const [confirmBurnBuddy, setConfirmBurnBuddy] = useState<FriendWithProfile | null>(null);
   const [sendingBbRequest, setSendingBbRequest] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
 
-  function getBurnBuddyStatus(friendUid: string): BurnBuddyStatus {
-    const isBuddy = burnBuddies.some(
-      (bb) => bb.uid1 === friendUid || bb.uid2 === friendUid,
-    );
-    if (isBuddy) return 'buddy';
+  const getBurnBuddyStatus = useMemo(() => {
+    return (friendUid: string): BurnBuddyStatus => {
+      const isBuddy = burnBuddies.some(
+        (bb) => bb.uid1 === friendUid || bb.uid2 === friendUid,
+      );
+      if (isBuddy) return 'buddy';
 
-    const isPending =
-      bbRequests.outgoing.some((r) => r.toUid === friendUid) ||
-      bbRequests.incoming.some((r) => r.fromUid === friendUid);
-    if (isPending) return 'pending';
+      const isPending =
+        bbRequests.outgoing.some((r) => r.toUid === friendUid) ||
+        bbRequests.incoming.some((r) => r.fromUid === friendUid);
+      if (isPending) return 'pending';
 
-    return 'none';
-  }
+      return 'none';
+    };
+  }, [burnBuddies, bbRequests]);
 
-  async function loadData() {
-    setError(null);
-    try {
-      const [friendsList, requests, buddies, bbReqs] = await Promise.all([
-        apiGet<FriendWithProfile[]>('/friends'),
-        apiGet<{ incoming: FriendRequest[]; outgoing: FriendRequest[] }>('/friends/requests'),
-        apiGet<BurnBuddy[]>('/burn-buddies').catch(() => [] as BurnBuddy[]),
-        apiGet<{ incoming: BurnBuddyRequest[]; outgoing: BurnBuddyRequest[] }>('/burn-buddies/requests').catch(() => ({ incoming: [] as BurnBuddyRequest[], outgoing: [] as BurnBuddyRequest[] })),
-      ]);
-      setFriends(friendsList);
-      setBurnBuddies(buddies);
-      setBbRequests(bbReqs);
-
-      const enrichReq = async (
-        req: FriendRequest,
-        uidField: 'fromUid' | 'toUid',
-      ): Promise<EnrichedFriendRequest> => {
-        try {
-          const profile = await apiGet<UserSearchResult>(`/users/${req[uidField]}`);
-          return { ...req, displayName: profile.displayName };
-        } catch {
-          return { ...req };
-        }
-      };
-
-      const [enrichedIncoming, enrichedOutgoing] = await Promise.all([
-        Promise.all(requests.incoming.map((r) => enrichReq(r, 'fromUid'))),
-        Promise.all(requests.outgoing.map((r) => enrichReq(r, 'toUid'))),
-      ]);
-
-      setIncoming(enrichedIncoming);
-      setOutgoing(enrichedOutgoing);
-    } catch {
-      setError('Failed to load friends');
-    } finally {
-      setDataLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    if (!user) return;
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  const invalidateFriends = useCallback(() => {
+    return queryClient.invalidateQueries({ queryKey: queryKeys.friends });
+  }, [queryClient]);
 
   // Debounced typeahead search
   useEffect(() => {
@@ -164,7 +138,7 @@ export default function FriendsPage() {
       setShowSearch(false);
       setSearchQuery('');
       setSearchResults([]);
-      await loadData();
+      await invalidateFriends();
     } catch {
       setError('Failed to send friend request');
     } finally {
@@ -175,7 +149,7 @@ export default function FriendsPage() {
   const handleAcceptRequest = async (requestId: string) => {
     try {
       await apiPost(`/friends/requests/${requestId}/accept`);
-      await loadData();
+      await invalidateFriends();
     } catch {
       setError('Failed to accept friend request');
     }
@@ -184,7 +158,12 @@ export default function FriendsPage() {
   const handleRemoveFriend = async (friendUid: string) => {
     try {
       await apiDelete(`/friends/${friendUid}`);
-      setFriends((prev) => prev.filter((f) => f.uid !== friendUid));
+      // Optimistically remove from cache
+      queryClient.setQueryData<FriendsData>(queryKeys.friends, (old) => {
+        if (!old) return old;
+        return { ...old, friends: old.friends.filter((f) => f.uid !== friendUid) };
+      });
+      await invalidateFriends();
     } catch {
       setError('Failed to remove friend');
     }
@@ -197,7 +176,7 @@ export default function FriendsPage() {
     try {
       await apiPost('/burn-buddies/requests', { toUid: confirmBurnBuddy.uid });
       setConfirmBurnBuddy(null);
-      await loadData();
+      await invalidateFriends();
     } catch {
       setError('Failed to send Burn Buddy request. They may already have a pending request.');
     } finally {
@@ -226,7 +205,7 @@ export default function FriendsPage() {
           </button>
         </div>
 
-        {error && <div className="mb-4 text-sm text-danger">{error}</div>}
+        {(error || queryError) && <div className="mb-4 text-sm text-danger">{error || 'Failed to load friends'}</div>}
 
         {/* Add Friend search panel */}
         {showSearch && (
@@ -332,7 +311,7 @@ export default function FriendsPage() {
         )}
 
         {dataLoading ? (
-          <p className="text-gray-500">Loading…</p>
+          <FriendsSkeleton />
         ) : (
           <>
             {/* Pending Requests */}
@@ -348,7 +327,7 @@ export default function FriendsPage() {
                     className="flex items-center justify-between rounded-lg border border-gray-100 bg-white p-3 mb-2 shadow-sm"
                   >
                     <div className="flex items-center gap-2.5">
-                      <Avatar displayName={req.displayName ?? req.fromUid} size="sm" />
+                      <Avatar displayName={req.displayName ?? req.fromUid} profilePictureUrl={req.photoURL} size="sm" />
                       <div>
                         <strong className="text-gray-900">{req.displayName ?? req.fromUid}</strong>
                         <span className="ml-2 inline-block rounded-full bg-green-50 px-2 py-0.5 text-xs text-success">
@@ -381,7 +360,7 @@ export default function FriendsPage() {
                     className="flex items-center justify-between rounded-lg border border-gray-100 bg-white p-3 mb-2 shadow-sm"
                   >
                     <div className="flex items-center gap-2.5">
-                      <Avatar displayName={req.displayName ?? req.toUid} size="sm" />
+                      <Avatar displayName={req.displayName ?? req.toUid} profilePictureUrl={req.photoURL} size="sm" />
                       <div>
                         <strong className="text-gray-900">{req.displayName ?? req.toUid}</strong>
                         <span className="ml-2 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
