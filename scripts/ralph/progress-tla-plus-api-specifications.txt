@@ -1,0 +1,3 @@
+# Ralph Progress Log — TLA+ Formal Specifications for BurnBuddy API
+Started: 2026-03-07
+---

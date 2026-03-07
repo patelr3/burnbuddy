@@ -236,7 +236,7 @@ This effort addresses the need for rigorous correctness guarantees in multi-user
 
 ## Dependencies
 
-None - this is a standalone verification and documentation effort.
+- prd-site-performance-non-dashboard.md — The TLA+ specs will formally verify API behavior, but performance characteristics (response times, throughput) should be established first to inform model checking bounds and assumptions.
 
 ## Design Considerations
 
