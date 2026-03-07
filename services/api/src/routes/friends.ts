@@ -156,6 +156,43 @@ router.post(
 );
 
 /**
+ * POST /friends/requests/:id/reject
+ * Rejects (declines) a pending friend request.
+ */
+router.post(
+  '/requests/:id/reject',
+  requireAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    const uid = req.user!.uid;
+    const id = req.params['id'] as string;
+    const db = getDb();
+
+    const requestDoc = await db.collection('friendRequests').doc(id).get();
+
+    if (!requestDoc.exists) {
+      res.status(404).json({ error: 'Friend request not found' });
+      return;
+    }
+
+    const friendRequest = requestDoc.data() as FriendRequest;
+
+    if (friendRequest.toUid !== uid) {
+      res.status(403).json({ error: 'You can only reject friend requests sent to you' });
+      return;
+    }
+
+    if (friendRequest.status !== 'pending') {
+      res.status(409).json({ error: 'Friend request is no longer pending' });
+      return;
+    }
+
+    await db.collection('friendRequests').doc(id).update({ status: 'rejected' });
+
+    res.json({ success: true, friendRequestId: id });
+  },
+);
+
+/**
  * GET /friends
  * Returns all accepted friends for the authenticated user, enriched with profile data.
  */

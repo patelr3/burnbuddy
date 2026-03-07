@@ -421,6 +421,69 @@ describe('POST /friends/requests/:id/accept', () => {
   });
 });
 
+// ── POST /friends/requests/:id/reject ──────────────────────────────────────────
+
+describe('POST /friends/requests/:id/reject', () => {
+  it('returns 401 when unauthenticated', async () => {
+    const res = await request(buildApp()).post('/friends/requests/req-1/reject');
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 when the friend request does not exist', async () => {
+    mockFrRequestDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .post('/friends/requests/req-1/reject')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 403 when the request was not sent to the current user', async () => {
+    mockFrRequestDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ id: 'req-1', fromUid: OTHER_UID, toUid: 'someone-else', status: 'pending', createdAt: '' }),
+    });
+
+    const res = await request(buildApp())
+      .post('/friends/requests/req-1/reject')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 409 when the request is no longer pending', async () => {
+    mockFrRequestDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ id: 'req-1', fromUid: OTHER_UID, toUid: TEST_UID, status: 'accepted', createdAt: '' }),
+    });
+
+    const res = await request(buildApp())
+      .post('/friends/requests/req-1/reject')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(409);
+  });
+
+  it('rejects the request and updates status to rejected', async () => {
+    mockFrRequestDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ id: 'req-1', fromUid: OTHER_UID, toUid: TEST_UID, status: 'pending', createdAt: '' }),
+    });
+    mockFrRequestDocUpdate.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .post('/friends/requests/req-1/reject')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ success: true, friendRequestId: 'req-1' });
+    expect(mockFrRequestDocUpdate).toHaveBeenCalledWith({ status: 'rejected' });
+    // Should NOT create a friendship document
+    expect(mockFriendDocSet).not.toHaveBeenCalled();
+  });
+});
+
 // ── DELETE /friends/:uid ───────────────────────────────────────────────────────
 
 describe('DELETE /friends/:uid', () => {

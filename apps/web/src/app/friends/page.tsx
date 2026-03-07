@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { apiGet, apiPost, apiDelete } from '@/lib/api';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { useFriends, queryKeys } from '@/lib/queries';
 import type { FriendsData, FriendWithProfile } from '@/lib/queries';
 import { NavBar } from '@/components/NavBar';
@@ -70,6 +70,87 @@ export default function FriendsPage() {
   const [sendingBbRequest, setSendingBbRequest] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
+
+  // ── Optimistic mutation: accept friend request ────────────────────────────
+  const acceptMutation = useMutation({
+    mutationFn: (requestId: string) => apiPost(`/friends/requests/${requestId}/accept`),
+    onMutate: async (requestId) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.friends });
+      const previous = queryClient.getQueryData<FriendsData>(queryKeys.friends);
+      queryClient.setQueryData<FriendsData>(queryKeys.friends, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          friendRequests: {
+            ...old.friendRequests,
+            incoming: old.friendRequests.incoming.filter((r) => r.id !== requestId),
+          },
+        };
+      });
+      return { previous };
+    },
+    onError: (_err, _requestId, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.friends, context.previous);
+      }
+      setError('Failed to accept friend request');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.friends });
+    },
+  });
+
+  // ── Optimistic mutation: reject friend request ────────────────────────────
+  const rejectMutation = useMutation({
+    mutationFn: (requestId: string) => apiPost(`/friends/requests/${requestId}/reject`),
+    onMutate: async (requestId) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.friends });
+      const previous = queryClient.getQueryData<FriendsData>(queryKeys.friends);
+      queryClient.setQueryData<FriendsData>(queryKeys.friends, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          friendRequests: {
+            ...old.friendRequests,
+            incoming: old.friendRequests.incoming.filter((r) => r.id !== requestId),
+          },
+        };
+      });
+      return { previous };
+    },
+    onError: (_err, _requestId, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.friends, context.previous);
+      }
+      setError('Failed to reject friend request');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.friends });
+    },
+  });
+
+  // ── Optimistic mutation: remove friend ────────────────────────────────────
+  const removeFriendMutation = useMutation({
+    mutationFn: (friendUid: string) => apiDelete(`/friends/${friendUid}`),
+    onMutate: async (friendUid) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.friends });
+      const previous = queryClient.getQueryData<FriendsData>(queryKeys.friends);
+      queryClient.setQueryData<FriendsData>(queryKeys.friends, (old) => {
+        if (!old) return old;
+        return { ...old, friends: old.friends.filter((f) => f.uid !== friendUid) };
+      });
+      return { previous };
+    },
+    onError: (_err, _friendUid, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(queryKeys.friends, context.previous);
+      }
+      setError('Failed to remove friend');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.friends });
+    },
+  });
 
   const getBurnBuddyStatus = useMemo(() => {
     return (friendUid: string): BurnBuddyStatus => {
@@ -143,29 +224,6 @@ export default function FriendsPage() {
       setError('Failed to send friend request');
     } finally {
       setSendingRequest(false);
-    }
-  };
-
-  const handleAcceptRequest = async (requestId: string) => {
-    try {
-      await apiPost(`/friends/requests/${requestId}/accept`);
-      await invalidateFriends();
-    } catch {
-      setError('Failed to accept friend request');
-    }
-  };
-
-  const handleRemoveFriend = async (friendUid: string) => {
-    try {
-      await apiDelete(`/friends/${friendUid}`);
-      // Optimistically remove from cache
-      queryClient.setQueryData<FriendsData>(queryKeys.friends, (old) => {
-        if (!old) return old;
-        return { ...old, friends: old.friends.filter((f) => f.uid !== friendUid) };
-      });
-      await invalidateFriends();
-    } catch {
-      setError('Failed to remove friend');
     }
   };
 
@@ -337,16 +395,16 @@ export default function FriendsPage() {
                     </div>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => handleAcceptRequest(req.id)}
-                        className="cursor-pointer rounded-md bg-success px-3 py-1.5 text-xs font-medium text-white hover:bg-green-600"
+                        onClick={() => acceptMutation.mutate(req.id)}
+                        disabled={acceptMutation.isPending}
+                        className="cursor-pointer rounded-md bg-success px-3 py-1.5 text-xs font-medium text-white hover:bg-green-600 disabled:opacity-50"
                       >
                         Accept
                       </button>
                       <button
-                        onClick={() => {
-                          /* Ignore — deferred to v2 */
-                        }}
-                        className="cursor-pointer rounded-md border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+                        onClick={() => rejectMutation.mutate(req.id)}
+                        disabled={rejectMutation.isPending}
+                        className="cursor-pointer rounded-md border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50"
                       >
                         Ignore
                       </button>
@@ -423,8 +481,9 @@ export default function FriendsPage() {
                           </button>
                         )}
                         <button
-                          onClick={() => handleRemoveFriend(friend.uid)}
-                          className="cursor-pointer rounded-md border border-red-200 bg-transparent px-3 py-1.5 text-xs text-danger hover:bg-red-50"
+                          onClick={() => removeFriendMutation.mutate(friend.uid)}
+                          disabled={removeFriendMutation.isPending}
+                          className="cursor-pointer rounded-md border border-red-200 bg-transparent px-3 py-1.5 text-xs text-danger hover:bg-red-50 disabled:opacity-50"
                         >
                           Remove
                         </button>
