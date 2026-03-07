@@ -43,6 +43,11 @@ export interface FriendRequest {
   createdAt: string;
 }
 
+export interface EnrichedFriendRequest extends FriendRequest {
+  displayName: string;
+  photoURL?: string;
+}
+
 export interface BurnBuddy {
   id: string;
   uid1: string;

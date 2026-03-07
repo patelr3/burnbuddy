@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { Router, type Request, type Response } from 'express';
-import type { Friend, FriendRequest, UserProfile } from '@burnbuddy/shared';
+import type { Friend, FriendRequest, EnrichedFriendRequest, UserProfile } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
 import { cacheControl } from '../middleware/cache-control';
 import { getDb } from '../lib/firestore';
@@ -56,7 +56,8 @@ router.post('/requests', requireAuth, async (req: Request, res: Response): Promi
 
 /**
  * GET /friends/requests
- * Returns pending incoming and outgoing friend requests for the authenticated user.
+ * Returns pending incoming and outgoing friend requests for the authenticated user,
+ * enriched with displayName and photoURL for the other party.
  */
 router.get('/requests', requireAuth, async (req: Request, res: Response): Promise<void> => {
   const uid = req.user!.uid;
@@ -71,9 +72,42 @@ router.get('/requests', requireAuth, async (req: Request, res: Response): Promis
       .get(),
   ]);
 
+  const incomingRequests = incomingSnap.docs.map((doc) => doc.data() as FriendRequest);
+  const outgoingRequests = outgoingSnap.docs.map((doc) => doc.data() as FriendRequest);
+
+  // Collect unique UIDs to fetch: senders for incoming, receivers for outgoing
+  const uidsToFetch = [
+    ...new Set([
+      ...incomingRequests.map((r) => r.fromUid),
+      ...outgoingRequests.map((r) => r.toUid),
+    ]),
+  ];
+
+  // Batch-fetch user profiles in a single Firestore read
+  const profileMap: Record<string, UserProfile> = {};
+  if (uidsToFetch.length > 0) {
+    const userRefs = uidsToFetch.map((id) => db.collection('users').doc(id));
+    const userDocs = await db.getAll(...userRefs);
+    for (const doc of userDocs) {
+      if (doc.exists) {
+        const profile = doc.data() as UserProfile;
+        profileMap[profile.uid] = profile;
+      }
+    }
+  }
+
+  const enrichRequest = (request: FriendRequest, otherUid: string): EnrichedFriendRequest => {
+    const profile = profileMap[otherUid];
+    return {
+      ...request,
+      displayName: profile?.displayName ?? 'Unknown User',
+      photoURL: profile?.profilePictureUrl,
+    };
+  };
+
   res.json({
-    incoming: incomingSnap.docs.map((doc) => doc.data() as FriendRequest),
-    outgoing: outgoingSnap.docs.map((doc) => doc.data() as FriendRequest),
+    incoming: incomingRequests.map((r) => enrichRequest(r, r.fromUid)),
+    outgoing: outgoingRequests.map((r) => enrichRequest(r, r.toUid)),
   });
 });
 
