@@ -587,3 +587,37 @@ describe('GET /friends', () => {
     expect(res.body[0].uid).toBe(OTHER_UID);
   });
 });
+
+// ── TLA+ Verification Gap Tests ───────────────────────────────────────────────
+
+/**
+ * Gap G-4 — ProfileRequiredForSocialActions / CDI-1 (CrossDomainInvariants.tla)
+ *
+ * POST /friends/requests does not verify the sender has a Firestore profile.
+ * A user with a valid Firebase Auth token but no profile can send friend requests.
+ * The route only verifies Firebase Auth, then checks for duplicate pending requests.
+ *
+ * Fix: add a requireProfile middleware that fetches the user's profile and returns
+ * 403/404 if it doesn't exist.
+ */
+describe('TLA+ Gap G-4: ProfileRequiredForSocialActions — friend requests', () => {
+  it('allows friend request creation without checking sender profile existence', async () => {
+    // No pending request exists
+    mockFrRequestQueryGet.mockResolvedValueOnce({ empty: true });
+    // Request creation succeeds
+    mockFrRequestDocSet.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .post('/friends/requests')
+      .set('Authorization', VALID_TOKEN)
+      .send({ toUid: OTHER_UID });
+
+    // Request succeeds — no profile check was performed.
+    // The route only verifies Firebase Auth token, not Firestore profile existence.
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ fromUid: TEST_UID, toUid: OTHER_UID, status: 'pending' });
+
+    // Verify no user profile doc was fetched for the sender to check existence
+    expect(mockUsersDocGet).not.toHaveBeenCalled();
+  });
+});

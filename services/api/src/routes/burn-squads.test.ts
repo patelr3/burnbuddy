@@ -1245,3 +1245,70 @@ describe('GET /burn-squads/:id/group-workouts', () => {
     expect(res.body[1]).toMatchObject({ id: 'gw-2', referenceId: SQUAD_ID });
   });
 });
+
+// ── TLA+ Verification Gap Tests ───────────────────────────────────────────────
+
+/**
+ * Gap G-2 — NoSelfInvites (BurnSquadManagement.tla)
+ *
+ * POST /burn-squads/:id/members does not explicitly check `memberUid === uid`.
+ * Self-invite prevention relies on the cross-domain assumption that a user cannot
+ * be friends with themselves (friend request to self is blocked). If the friendship
+ * check were ever bypassed, a user could invite themselves to a squad.
+ *
+ * Fix: add `if (memberUid === uid) return 400` before the friendship check.
+ */
+describe('TLA+ Gap G-2: NoSelfInvites — no explicit self-invite check in POST /:id/members', () => {
+  it('does not return 400 immediately when memberUid equals own uid; falls through to friendship check', async () => {
+    // Squad exists and TEST_UID is a member
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => SAMPLE_SQUAD,
+    });
+    // Friendship check for self: user cannot be friends with themselves,
+    // so this returns false — the route rejects with 400 "must be friends"
+    mockFriendsDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .post(`/burn-squads/${SQUAD_ID}/members`)
+      .set('Authorization', VALID_TOKEN)
+      .send({ memberUid: TEST_UID });
+
+    // The response is 400 "must be friends" — NOT a dedicated "cannot invite yourself" error.
+    // This proves there is no explicit self-invite guard; prevention is indirect.
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('friends');
+    expect(res.body.error).not.toContain('yourself');
+
+    // The friendship doc was queried, confirming the route reached the friendship check
+    // instead of short-circuiting on self-invite detection.
+    expect(mockFriendsDocGet).toHaveBeenCalled();
+  });
+});
+
+/**
+ * Gap G-4 — ProfileRequiredForSocialActions / CDI-1 (CrossDomainInvariants.tla)
+ *
+ * POST /burn-squads does not verify the creator has a Firestore profile.
+ * A user with a valid Firebase Auth token but no profile can create squads.
+ */
+describe('TLA+ Gap G-4: ProfileRequiredForSocialActions — squad creation', () => {
+  it('allows squad creation without checking creator profile existence', async () => {
+    // Squad doc set succeeds
+    mockSquadDocSet.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .post('/burn-squads')
+      .set('Authorization', VALID_TOKEN)
+      .send({ name: 'Test Squad' });
+
+    // Squad creation succeeds — no profile check was performed.
+    // The route only verifies Firebase Auth token, not Firestore profile existence.
+    expect(res.status).toBe(201);
+    expect(res.body.squad).toMatchObject({
+      name: 'Test Squad',
+      adminUid: TEST_UID,
+      memberUids: [TEST_UID],
+    });
+  });
+});
