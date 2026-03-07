@@ -58,6 +58,11 @@ resource apiApp 'Microsoft.App/containerApps@2023-05-01' = {
           identity: 'system'
         }
         {
+          name: 'firebase-storage-bucket'
+          keyVaultUrl: '${keyVaultUri}/secrets/firebase-storage-bucket'
+          identity: 'system'
+        }
+        {
           name: 'otel-collector-endpoint'
           keyVaultUrl: '${keyVaultUri}/secrets/otel-collector-endpoint'
           identity: 'system'
@@ -89,6 +94,10 @@ resource apiApp 'Microsoft.App/containerApps@2023-05-01' = {
             {
               name: 'FIREBASE_SERVICE_ACCOUNT_JSON'
               secretRef: 'firebase-service-account-json'
+            }
+            {
+              name: 'FIREBASE_STORAGE_BUCKET'
+              secretRef: 'firebase-storage-bucket'
             }
             {
               name: 'OTEL_EXPORTER_OTLP_ENDPOINT'

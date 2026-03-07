@@ -46,9 +46,12 @@ const {
 vi.mock('../lib/firebase', () => ({
   admin: {
     auth: () => ({ verifyIdToken: mockVerifyIdToken }),
-    storage: () => ({ bucket: mockStorageBucket }),
   },
   initFirebase: vi.fn(),
+}));
+
+vi.mock('../lib/storage', () => ({
+  getStorageBucket: mockStorageBucket,
 }));
 
 vi.mock('../lib/firestore', () => ({

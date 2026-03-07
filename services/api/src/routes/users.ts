@@ -12,6 +12,7 @@ import { requireAuth } from '../middleware/auth';
 import { admin } from '../lib/firebase';
 import { cacheControl } from '../middleware/cache-control';
 import { getDb } from '../lib/firestore';
+import { getStorageBucket } from '../lib/storage';
 import { generateUniqueUsername, validateUsername } from '../lib/username';
 import { animeFilter } from '../lib/anime-filter';
 import { calculateStreaks, calculateHighestStreakEver } from '../services/streak-calculator';
@@ -192,7 +193,7 @@ router.post(
       return;
     }
 
-    const bucket = admin.storage().bucket();
+    const bucket = getStorageBucket();
     const filePath = `profile-pictures/${uid}/avatar.webp`;
     const storageFile = bucket.file(filePath);
 
@@ -235,7 +236,7 @@ router.post(
  */
 router.delete('/me/profile-picture', requireAuth, async (req: Request, res: Response): Promise<void> => {
   const uid = req.user!.uid;
-  const bucket = admin.storage().bucket();
+  const bucket = getStorageBucket();
   const filePath = `profile-pictures/${uid}/avatar.webp`;
   const storageFile = bucket.file(filePath);
 
