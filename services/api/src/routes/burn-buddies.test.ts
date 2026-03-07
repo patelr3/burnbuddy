@@ -972,3 +972,88 @@ describe('GET /burn-buddies/:id/calendar', () => {
     expect(res.text).toContain('SUMMARY:🔥 Workout with Buddy');
   });
 });
+
+// ── TLA+ Verification Gap Tests ───────────────────────────────────────────────
+
+/**
+ * Gap G-1 — AtMostOneBuddyPerPair (BurnBuddyManagement.tla)
+ *
+ * The accept handler creates a BurnBuddy doc with randomUUID() as the Firestore
+ * doc ID instead of a sorted composite key (e.g. "${uid1}_${uid2}"). Because the
+ * doc ID is random, Firestore cannot enforce uniqueness per pair. If user A sends
+ * a buddy request to B **and** B sends one to A, and both are accepted, two
+ * BurnBuddy documents are created for the same pair.
+ *
+ * Fix: use a sorted composite key as doc ID (matching the friendship pattern)
+ * or query for an existing BurnBuddy before creating.
+ */
+describe('TLA+ Gap G-1: AtMostOneBuddyPerPair — no duplicate-pair guard on accept', () => {
+  it('creates BurnBuddy doc with random UUID, not sorted composite key', async () => {
+    mockBBRequestDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ id: REQUEST_ID, fromUid: OTHER_UID, toUid: TEST_UID, status: 'pending', createdAt: '' }),
+    });
+    mockBBRequestDocUpdate.mockResolvedValueOnce(undefined);
+    mockBBDocSet.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .post(`/burn-buddies/requests/${REQUEST_ID}/accept`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+
+    // Verify the doc ID used is NOT the sorted composite key pattern
+    const docIdUsed = mockBBDocRef.mock.calls[0]?.[0] as string;
+    const sortedCompositeKey = [TEST_UID, OTHER_UID].sort().join('_');
+    expect(docIdUsed).not.toBe(sortedCompositeKey);
+  });
+
+  it('does not check for existing BurnBuddy before creating a new one', async () => {
+    mockBBRequestDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ id: REQUEST_ID, fromUid: OTHER_UID, toUid: TEST_UID, status: 'pending', createdAt: '' }),
+    });
+    mockBBRequestDocUpdate.mockResolvedValueOnce(undefined);
+    mockBBDocSet.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .post(`/burn-buddies/requests/${REQUEST_ID}/accept`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+
+    // No query was made to check if a BurnBuddy already exists for this pair.
+    // This means two cross-requests (A→B and B→A) can both be accepted,
+    // creating duplicate BurnBuddy docs for the same user pair.
+    expect(mockBBQueryGet).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Gap G-4 — ProfileRequiredForSocialActions / CDI-1 (CrossDomainInvariants.tla)
+ *
+ * POST /burn-buddies/requests does not verify the sender has a Firestore profile.
+ * A user with a valid Firebase Auth token but no profile can send buddy requests.
+ */
+describe('TLA+ Gap G-4: ProfileRequiredForSocialActions — burn buddy requests', () => {
+  it('allows buddy request creation without checking sender profile existence', async () => {
+    // Friendship exists
+    mockFriendsDocGet.mockResolvedValueOnce({ exists: true });
+    // No pending request
+    mockBBRequestQueryGet.mockResolvedValueOnce({ empty: true });
+    // Request creation succeeds
+    mockBBRequestDocSet.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .post('/burn-buddies/requests')
+      .set('Authorization', VALID_TOKEN)
+      .send({ toUid: OTHER_UID });
+
+    // Request succeeds — no profile check was performed.
+    // The route only verifies Firebase Auth token, not Firestore profile existence.
+    expect(res.status).toBe(201);
+
+    // Verify no user profile doc was fetched for the sender (TEST_UID)
+    expect(mockUsersDocGet).not.toHaveBeenCalled();
+  });
+});

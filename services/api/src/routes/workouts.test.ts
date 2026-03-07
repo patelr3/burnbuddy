@@ -670,3 +670,39 @@ describe('GET /workouts/partner-active', () => {
     expect(secondChunk[2]).toHaveLength(5);
   });
 });
+
+// ── TLA+ Verification Gap Tests ───────────────────────────────────────────────
+
+/**
+ * Gap G-4 — ProfileRequiredForSocialActions / CDI-1 (CrossDomainInvariants.tla)
+ *
+ * POST /workouts does not verify the user has a Firestore profile before creating
+ * a workout. The route reads the user doc only AFTER workout creation (for the
+ * sender's displayName in push notifications), and even then, a missing profile
+ * is handled gracefully (falls back to 'Someone'). A user with a valid Firebase
+ * Auth token but no profile can start workouts.
+ *
+ * Fix: add a requireProfile middleware that fetches the user's profile and returns
+ * 403/404 if it doesn't exist.
+ */
+describe('TLA+ Gap G-4: ProfileRequiredForSocialActions — workout creation', () => {
+  it('allows workout creation even when user has no Firestore profile', async () => {
+    mockWorkoutsDocSet.mockResolvedValueOnce(undefined);
+    // User profile does NOT exist — the route still creates the workout
+    mockUsersDocGet.mockResolvedValue({
+      exists: false,
+      data: () => undefined,
+    });
+
+    const res = await request(buildApp())
+      .post('/workouts')
+      .set('Authorization', VALID_TOKEN)
+      .send({ type: 'Running' });
+
+    // Workout creation succeeds despite no profile existing.
+    // The profile fetch happens only AFTER workout creation (for notification displayName),
+    // not as a pre-condition guard.
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ uid: TEST_UID, type: 'Running', status: 'active' });
+  });
+});

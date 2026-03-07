@@ -148,7 +148,7 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on all domain specs (US-002 through US-007) being complete."
     },
     {
@@ -166,7 +166,7 @@
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -182,7 +182,7 @@
         "Typecheck passes"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on all TLA+ specs and CI workflow being complete."
     },
     {
@@ -196,7 +196,7 @@
         "Tests pass"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-010 verification report identifying the gaps."
     }
   ]

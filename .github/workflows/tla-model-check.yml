@@ -1,0 +1,127 @@
+name: TLA+ Model Check
+
+on:
+  pull_request:
+    paths:
+      - 'specs/tla/**/*.tla'
+      - 'services/api/src/**/*.ts'
+
+jobs:
+  model-check:
+    name: TLC - ${{ matrix.spec.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        spec:
+          - name: FriendManagement
+            dir: specs/tla/friends
+            file: FriendManagement.tla
+            cfg: FriendManagement.cfg
+          - name: BurnBuddyManagement
+            dir: specs/tla/burn-buddies
+            file: BurnBuddyManagement.tla
+            cfg: BurnBuddyManagement.cfg
+          - name: BurnSquadManagement
+            dir: specs/tla/burn-squads
+            file: BurnSquadManagement.tla
+            cfg: BurnSquadManagement.cfg
+          - name: WorkoutLifecycle
+            dir: specs/tla/workouts
+            file: WorkoutLifecycle.tla
+            cfg: WorkoutLifecycle.cfg
+          - name: UserProfileManagement
+            dir: specs/tla/users
+            file: UserProfileManagement.tla
+            cfg: UserProfileManagement.cfg
+          - name: PushNotifications
+            dir: specs/tla/notifications
+            file: PushNotifications.tla
+            cfg: PushNotifications.cfg
+          - name: CrossDomainInvariants
+            dir: specs/tla
+            file: CrossDomainInvariants.tla
+            cfg: CrossDomainInvariants.cfg
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Download tla2tools.jar
+        run: |
+          curl -fsSL -o specs/tla/tla2tools.jar \
+            https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar
+
+      - name: Run TLC model checker
+        id: tlc
+        timeout-minutes: 10
+        working-directory: ${{ matrix.spec.dir }}
+        run: |
+          set +e
+          TLA2TOOLS="${GITHUB_WORKSPACE}/specs/tla/tla2tools.jar"
+
+          java -XX:+UseParallelGC -cp "$TLA2TOOLS" \
+            tlc2.TLC "${{ matrix.spec.file }}" \
+            -config "${{ matrix.spec.cfg }}" \
+            -workers auto \
+            -cleanup 2>&1 | tee tlc_output.txt
+
+          TLC_EXIT=$?
+          echo "exit_code=$TLC_EXIT" >> "$GITHUB_OUTPUT"
+
+          # Check for invariant violations or errors in TLC output
+          if grep -qE "Error:|Invariant .* is violated|violated" tlc_output.txt; then
+            echo "status=failure" >> "$GITHUB_OUTPUT"
+          elif [ "$TLC_EXIT" -ne 0 ]; then
+            echo "status=failure" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=success" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Save output for PR comment
+          {
+            echo "tlc_output<<TLCEOF"
+            tail -80 tlc_output.txt
+            echo "TLCEOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Comment on PR if violations found
+        if: steps.tlc.outputs.status == 'failure' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `### ❌ TLC Model Check Failed: \`${{ matrix.spec.name }}\`
+
+            <details>
+            <summary>TLC Output (last 80 lines)</summary>
+
+            \`\`\`
+            ${process.env.TLC_OUTPUT}
+            \`\`\`
+
+            </details>
+
+            **Spec:** \`${{ matrix.spec.dir }}/${{ matrix.spec.file }}\`
+            **Config:** \`${{ matrix.spec.dir }}/${{ matrix.spec.cfg }}\`
+            `;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+        env:
+          TLC_OUTPUT: ${{ steps.tlc.outputs.tlc_output }}
+
+      - name: Fail if TLC found violations
+        if: steps.tlc.outputs.status == 'failure'
+        run: |
+          echo "::error::TLC model checker found violations in ${{ matrix.spec.name }}"
+          exit 1

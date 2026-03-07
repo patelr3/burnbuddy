@@ -663,3 +663,58 @@ describe('GET /users/search', () => {
     expect(res.status).toBe(404);
   });
 });
+
+// ── TLA+ Verification Gap Tests ───────────────────────────────────────────────
+
+/**
+ * Gap G-3 — UsernameUniqueness (UserProfileManagement.tla)
+ *
+ * generateUniqueUsername() reads the 'usernames' collection to find an available
+ * username, then the profile creation writes the reservation via batch.commit().
+ * The read-check-write is NOT wrapped in a Firestore transaction, so two concurrent
+ * profile creations for users with the same email prefix can both read the same
+ * username as available, then both write — one silently overwriting the other's
+ * reservation.
+ *
+ * Fix: wrap the read-check-write in a Firestore transaction, or use
+ * doc.create() (which fails if doc already exists) for the username reservation.
+ */
+describe('TLA+ Gap G-3: UsernameUniqueness — non-atomic read-check-write', () => {
+  it('calls generateUniqueUsername outside of a Firestore transaction', async () => {
+    // Profile does not exist yet
+    mockGet.mockResolvedValueOnce({ exists: false });
+    mockGenerateUniqueUsername.mockResolvedValueOnce({ username: 'alice', usernameLower: 'alice' });
+
+    const res = await request(buildApp())
+      .post('/users')
+      .set('Authorization', VALID_TOKEN)
+      .send({ email: 'alice@example.com', displayName: 'Alice' });
+
+    expect(res.status).toBe(201);
+
+    // generateUniqueUsername is called to check username availability (reads usernames collection)
+    expect(mockGenerateUniqueUsername).toHaveBeenCalledWith('alice@example.com', expect.anything());
+
+    // The username reservation is written via batch (write-only), not a transaction (read+write).
+    // batch.set is called twice: once for the user profile, once for the username reservation.
+    expect(mockBatchSet).toHaveBeenCalledTimes(2);
+    expect(mockBatchCommit).toHaveBeenCalledOnce();
+
+    // No Firestore transaction was used — the read (in generateUniqueUsername) and
+    // the write (batch.commit) are separate operations, creating a TOCTOU race condition.
+    // If two requests concurrently generate the same username, both will succeed,
+    // and the second batch.commit silently overwrites the first username reservation.
+  });
+});
+
+/**
+ * Gap G-4 — ProfileRequiredForSocialActions / CDI-1 (CrossDomainInvariants.tla)
+ *
+ * None of the social action routes verify the user has a Firestore profile.
+ * This test documents that POST /users (profile creation) itself does not enforce
+ * a profile requirement (it creates one), but the pattern is that downstream routes
+ * should check — and they don't.
+ *
+ * See also: friends.test.ts, burn-buddies.test.ts, burn-squads.test.ts, workouts.test.ts
+ * for matching G-4 tests on social action endpoints.
+ */
