@@ -184,10 +184,20 @@ router.post(
     const fileSize = req.file.size;
     logger.info({ uid, fileSize, mimetype: req.file.mimetype }, 'Profile picture upload started');
 
+    const ANIME_FILTER_TIMEOUT_MS = Number(process.env['ANIME_FILTER_TIMEOUT_MS']) || 15_000;
     let animeBuffer: Buffer;
     try {
-      animeBuffer = await animeFilter(req.file.buffer);
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('ANIME_FILTER_TIMEOUT')), ANIME_FILTER_TIMEOUT_MS),
+      );
+      animeBuffer = await Promise.race([animeFilter(req.file.buffer), timeout]);
     } catch (err) {
+      const isTimeout = err instanceof Error && err.message === 'ANIME_FILTER_TIMEOUT';
+      if (isTimeout) {
+        logger.error({ uid, fileSize }, 'Anime filter processing timed out');
+        res.status(500).json({ error: 'Image processing timed out. Please try a smaller image.' });
+        return;
+      }
       logger.error({ err, uid, fileSize }, 'Anime filter processing failed');
       res.status(500).json({ error: 'Image processing failed. Please try a different image.' });
       return;

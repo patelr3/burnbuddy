@@ -219,6 +219,43 @@ describe('POST /users/me/profile-picture', () => {
     expect(res.body.error).toMatch(/no file/i);
   });
 
+  it('returns 500 with timeout error when anime filter takes too long', async () => {
+    // Mock animeFilter to never resolve (simulates hang)
+    mockAnimeFilter.mockReturnValue(new Promise(() => {}));
+
+    // Use a very short timeout for testing (route reads ANIME_FILTER_TIMEOUT_MS env var)
+    process.env['ANIME_FILTER_TIMEOUT_MS'] = '50';
+
+    const imageBuffer = Buffer.alloc(100, 0xff);
+    const res = await request(buildApp())
+      .post('/users/me/profile-picture')
+      .set('Authorization', VALID_TOKEN)
+      .attach('picture', imageBuffer, { filename: 'photo.jpg', contentType: 'image/jpeg' });
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toMatch(/timed out/i);
+
+    // Storage should not be called after timeout
+    expect(mockStorageSave).not.toHaveBeenCalled();
+
+    delete process.env['ANIME_FILTER_TIMEOUT_MS'];
+  });
+
+  it('returns 500 with generic error when anime filter throws', async () => {
+    mockAnimeFilter.mockRejectedValueOnce(new Error('sharp crashed'));
+
+    const imageBuffer = Buffer.alloc(100, 0xff);
+    const res = await request(buildApp())
+      .post('/users/me/profile-picture')
+      .set('Authorization', VALID_TOKEN)
+      .attach('picture', imageBuffer, { filename: 'photo.jpg', contentType: 'image/jpeg' });
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toMatch(/processing failed/i);
+
+    expect(mockStorageSave).not.toHaveBeenCalled();
+  });
+
   it('does not store original photo — only anime-converted version', async () => {
     const originalBuffer = Buffer.alloc(200, 0xab);
     const animeBuffer = Buffer.from('converted-anime-data');
