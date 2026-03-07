@@ -1,7 +1,7 @@
 {
   "project": "burnbuddy",
   "branchName": "ralph/site-perf-non-dashboard",
-  "description": "Site Performance — Non-Dashboard Pages: Eliminate N+1 waterfalls, migrate to React Query, add skeleton loaders, memoize derived state, and add lazy loading across all non-dashboard pages",
+  "description": "Site Performance \u2014 Non-Dashboard Pages: Eliminate N+1 waterfalls, migrate to React Query, add skeleton loaders, memoize derived state, and add lazy loading across all non-dashboard pages",
   "dependsOn": [],
   "userStories": [
     {
@@ -17,8 +17,8 @@
         "Tests pass"
       ],
       "priority": 1,
-      "passes": false,
-      "notes": "Backend-only change. The friends route handler currently returns raw request objects — enrich them before responding."
+      "passes": true,
+      "notes": "Backend-only change. The friends route handler currently returns raw request objects \u2014 enrich them before responding."
     },
     {
       "id": "US-002",
@@ -33,8 +33,8 @@
         "Tests pass"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": "Backend-only. Currently the frontend fetches GET /group-workouts and filters client-side — this replaces that pattern."
+      "passes": true,
+      "notes": "Backend-only. Currently the frontend fetches GET /group-workouts and filters client-side \u2014 this replaces that pattern."
     },
     {
       "id": "US-003",
@@ -49,7 +49,7 @@
         "Tests pass"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Backend-only. Mirrors US-002 pattern but for squads."
     },
     {
@@ -65,8 +65,8 @@
         "Tests pass"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": "Backend-only. Currently frontend makes individual GET /users/{uid} per squad member — this N+1 is the worst performance issue."
+      "passes": true,
+      "notes": "Backend-only. Currently frontend makes individual GET /users/{uid} per squad member \u2014 this N+1 is the worst performance issue."
     },
     {
       "id": "US-005",
@@ -84,8 +84,8 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": "This creates the hooks only — pages are migrated in subsequent stories. Hooks should use the shared QueryClient from query-provider.tsx."
+      "passes": true,
+      "notes": "This creates the hooks only \u2014 pages are migrated in subsequent stories. Hooks should use the shared QueryClient from query-provider.tsx."
     },
     {
       "id": "US-006",
@@ -103,7 +103,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-001 (enriched friend requests) and US-005 (hooks). Search/action handlers (add friend, accept request) can stay as direct API calls for now."
     },
     {
@@ -120,8 +120,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": "Depends on US-005 (hooks). Mutation handlers (save username, upload picture) stay as direct API calls — optimistic updates come in US-012."
+      "passes": true,
+      "notes": "Depends on US-005 (hooks). Mutation handlers (save username, upload picture) stay as direct API calls \u2014 optimistic updates come in US-012."
     },
     {
       "id": "US-008",
@@ -138,7 +138,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-002 (scoped buddy workouts) and US-005 (hooks)."
     },
     {
@@ -157,7 +157,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-003 (scoped squad workouts), US-004 (enriched members), and US-005 (hooks). Most complex page migration."
     },
     {
@@ -173,8 +173,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 10,
-      "passes": false,
-      "notes": "Depends on US-005 (hooks). The useProfile hook already exists but is unused — this story adopts it."
+      "passes": true,
+      "notes": "Depends on US-005 (hooks). The useProfile hook already exists but is unused \u2014 this story adopts it."
     },
     {
       "id": "US-011",
@@ -222,7 +222,7 @@
       ],
       "priority": 13,
       "passes": false,
-      "notes": "Simple cross-cutting change to apps/web/src/components/Avatar.tsx. No dependencies — can be done anytime."
+      "notes": "Simple cross-cutting change to apps/web/src/components/Avatar.tsx. No dependencies \u2014 can be done anytime."
     }
   ]
 }
