@@ -224,6 +224,39 @@ router.get('/:id/stats', requireAuth, async (req: Request, res: Response): Promi
 });
 
 /**
+ * GET /burn-buddies/:id/group-workouts
+ * Returns group workouts scoped to this Burn Buddy relationship.
+ */
+router.get('/:id/group-workouts', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const uid = req.user!.uid;
+  const id = req.params['id'] as string;
+  const db = getDb();
+
+  const burnBuddyDoc = await db.collection('burnBuddies').doc(id).get();
+
+  if (!burnBuddyDoc.exists) {
+    res.status(404).json({ error: 'Burn Buddy not found' });
+    return;
+  }
+
+  const burnBuddy = burnBuddyDoc.data() as BurnBuddy;
+
+  if (burnBuddy.uid1 !== uid && burnBuddy.uid2 !== uid) {
+    res.status(403).json({ error: 'You are not a member of this Burn Buddy relationship' });
+    return;
+  }
+
+  const groupWorkoutSnap = await db
+    .collection('groupWorkouts')
+    .where('referenceId', '==', id)
+    .get();
+
+  const groupWorkouts = groupWorkoutSnap.docs.map((doc) => doc.data() as GroupWorkout);
+
+  res.json(groupWorkouts);
+});
+
+/**
  * GET /burn-buddies/:id
  * Returns a single Burn Buddy relationship (must be a member).
  */

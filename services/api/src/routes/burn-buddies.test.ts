@@ -586,6 +586,88 @@ describe('GET /burn-buddies/:id/stats', () => {
   });
 });
 
+// ── GET /burn-buddies/:id/group-workouts ───────────────────────────────────────
+
+describe('GET /burn-buddies/:id/group-workouts', () => {
+  it('returns 401 when unauthenticated', async () => {
+    const res = await request(buildApp()).get(`/burn-buddies/${BURN_BUDDY_ID}/group-workouts`);
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 when the burn buddy does not exist', async () => {
+    mockBBDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .get(`/burn-buddies/${BURN_BUDDY_ID}/group-workouts`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 403 when user is not a member of the Burn Buddy', async () => {
+    mockBBDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ id: BURN_BUDDY_ID, uid1: 'other-1', uid2: 'other-2', createdAt: '' }),
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-buddies/${BURN_BUDDY_ID}/group-workouts`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('returns empty array when no group workouts exist', async () => {
+    mockBBDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ id: BURN_BUDDY_ID, uid1: TEST_UID, uid2: OTHER_UID, createdAt: '' }),
+    });
+    mockGroupWorkoutsQueryGet.mockResolvedValueOnce({ docs: [] });
+
+    const res = await request(buildApp())
+      .get(`/burn-buddies/${BURN_BUDDY_ID}/group-workouts`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+
+  it('returns group workouts scoped to the burn buddy', async () => {
+    mockBBDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ id: BURN_BUDDY_ID, uid1: TEST_UID, uid2: OTHER_UID, createdAt: '' }),
+    });
+    const gw1 = {
+      id: 'gw-1',
+      type: 'buddy',
+      referenceId: BURN_BUDDY_ID,
+      memberUids: [TEST_UID, OTHER_UID],
+      startedAt: '2026-03-01T10:00:00.000Z',
+      workoutIds: ['w1', 'w2'],
+    };
+    const gw2 = {
+      id: 'gw-2',
+      type: 'buddy',
+      referenceId: BURN_BUDDY_ID,
+      memberUids: [TEST_UID, OTHER_UID],
+      startedAt: '2026-03-02T10:00:00.000Z',
+      workoutIds: ['w3', 'w4'],
+    };
+    mockGroupWorkoutsQueryGet.mockResolvedValueOnce({
+      docs: [{ data: () => gw1 }, { data: () => gw2 }],
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-buddies/${BURN_BUDDY_ID}/group-workouts`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(2);
+    expect(res.body[0]).toMatchObject({ id: 'gw-1', referenceId: BURN_BUDDY_ID });
+    expect(res.body[1]).toMatchObject({ id: 'gw-2', referenceId: BURN_BUDDY_ID });
+  });
+});
+
 // ── GET /burn-buddies/:id ──────────────────────────────────────────────────────
 
 describe('GET /burn-buddies/:id', () => {
