@@ -12,9 +12,11 @@ import { requireAuth } from '../middleware/auth';
 import { admin } from '../lib/firebase';
 import { cacheControl } from '../middleware/cache-control';
 import { getDb } from '../lib/firestore';
+import { getStorageBucket } from '../lib/storage';
 import { generateUniqueUsername, validateUsername } from '../lib/username';
 import { animeFilter } from '../lib/anime-filter';
 import { calculateStreaks, calculateHighestStreakEver } from '../services/streak-calculator';
+import { logger } from '../lib/logger';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -179,25 +181,60 @@ router.post(
     }
 
     const uid = req.user!.uid;
-    const animeBuffer = await animeFilter(req.file.buffer);
+    const fileSize = req.file.size;
+    logger.info({ uid, fileSize, mimetype: req.file.mimetype }, 'Profile picture upload started');
 
-    const bucket = admin.storage().bucket();
+    const ANIME_FILTER_TIMEOUT_MS = Number(process.env['ANIME_FILTER_TIMEOUT_MS']) || 15_000;
+    let animeBuffer: Buffer;
+    try {
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('ANIME_FILTER_TIMEOUT')), ANIME_FILTER_TIMEOUT_MS),
+      );
+      animeBuffer = await Promise.race([animeFilter(req.file.buffer), timeout]);
+    } catch (err) {
+      const isTimeout = err instanceof Error && err.message === 'ANIME_FILTER_TIMEOUT';
+      if (isTimeout) {
+        logger.error({ uid, fileSize }, 'Anime filter processing timed out');
+        res.status(500).json({ error: 'Image processing timed out. Please try a smaller image.' });
+        return;
+      }
+      logger.error({ err, uid, fileSize }, 'Anime filter processing failed');
+      res.status(500).json({ error: 'Image processing failed. Please try a different image.' });
+      return;
+    }
+
+    const bucket = getStorageBucket();
     const filePath = `profile-pictures/${uid}/avatar.webp`;
     const storageFile = bucket.file(filePath);
 
-    await storageFile.save(animeBuffer, {
-      contentType: 'image/webp',
-      metadata: { cacheControl: 'public, max-age=86400' },
-    });
+    try {
+      await storageFile.save(animeBuffer, {
+        contentType: 'image/webp',
+        metadata: { cacheControl: 'public, max-age=86400' },
+      });
+    } catch (err) {
+      logger.error({ err, uid, bucket: bucket.name }, 'Firebase Storage upload failed');
+      res.status(503).json({ error: 'Storage service unavailable. Please try again.' });
+      return;
+    }
 
-    const [url] = await storageFile.getSignedUrl({
-      action: 'read',
-      expires: '2099-12-31',
-    });
+    let url: string;
+    try {
+      const [signedUrl] = await storageFile.getSignedUrl({
+        action: 'read',
+        expires: '2099-12-31',
+      });
+      url = signedUrl;
+    } catch (err) {
+      logger.error({ err, uid }, 'Failed to generate signed URL');
+      res.status(503).json({ error: 'Storage service unavailable. Please try again.' });
+      return;
+    }
 
     const db = getDb();
     await db.collection('users').doc(uid).update({ profilePictureUrl: url });
 
+    logger.info({ uid }, 'Profile picture upload completed');
     res.json({ profilePictureUrl: url });
   },
 );
@@ -209,7 +246,7 @@ router.post(
  */
 router.delete('/me/profile-picture', requireAuth, async (req: Request, res: Response): Promise<void> => {
   const uid = req.user!.uid;
-  const bucket = admin.storage().bucket();
+  const bucket = getStorageBucket();
   const filePath = `profile-pictures/${uid}/avatar.webp`;
   const storageFile = bucket.file(filePath);
 

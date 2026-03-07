@@ -74,6 +74,10 @@ Tests use `vi.mock` + `vi.hoisted` to stub firebase-admin and Firestore — no e
 
 Always use `getDb()` from `lib/firestore.ts` — never call `admin.firestore()` directly in route handlers.
 
+### Firebase Storage access
+
+Always use `getStorageBucket()` from `lib/storage.ts` — never call `admin.storage().bucket()` directly in route handlers. The helper reads `FIREBASE_STORAGE_BUCKET` env var (falls back to `{FIREBASE_PROJECT_ID}.appspot.com`). At startup, `checkStorageConnectivity()` verifies the bucket exists and logs a warning if not.
+
 ### Logging
 
 Use `pino` in API and web. The mobile app uses `createMobileLogger()` from `@burnbuddy/shared` (console wrapper matching the `Logger` interface).
