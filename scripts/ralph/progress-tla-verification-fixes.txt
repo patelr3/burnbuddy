@@ -8,6 +8,8 @@ Started: 2026-03-08
 - When adding a new Firestore read to a route, update ALL existing test cases that hit that route to mock the new read
 - Build `packages/shared` before running `yarn typecheck` in `services/api`
 - `requireProfile` middleware at `middleware/requireProfile.ts` — apply after `requireAuth` on social-action POST routes. Tests need `mockUsersDocGet.mockResolvedValueOnce({ exists: true, data: () => ({...}) })` for routes using it.
+- Use `doc.create()` (not `doc.set()`) for atomic uniqueness guarantees — it throws code 6 (ALREADY_EXISTS) if the doc exists. See username.ts `tryReserveUsername()`.
+- When removing batch writes from a route, update all test assertions from `mockBatchSet`/`mockBatchCommit` to `mockSet`
 
 ## 2026-03-08T02:25 - US-001
 - Implemented sorted composite key for BurnBuddy doc ID in accept handler
@@ -45,4 +47,42 @@ Started: 2026-03-08
   - When adding requireProfile to a route, ALL tests that set Authorization header and hit that route need a default profile mock in beforeEach
   - burn-squads.test.ts `mockUsersDocRef` originally returned `{ id }` for getAll — adding `get` to the returned object doesn't break getAll since it's independently mocked
   - Use `mockResolvedValue` (not `Once`) in beforeEach for default profile — this way all test calls pass unless explicitly overridden
+---
+
+## 2026-03-08T02:49 - US-004
+- Replaced read-check-write pattern in generateUniqueUsername() with atomic doc.create() calls
+- Added tryReserveUsername() helper that catches ALREADY_EXISTS (code 6) and retries with next suffix
+- Updated all 3 callers in users.ts to pass uid and skip batch username reservation
+- Added concurrent claim test and error propagation test in username.test.ts
+- Updated G-3 gap tests and all affected batch-assertion tests in users.test.ts
+- Files changed: `services/api/src/lib/username.ts`, `services/api/src/lib/username.test.ts`, `services/api/src/routes/users.ts`, `services/api/src/routes/users.test.ts`
+- **Learnings for future iterations:**
+  - Firestore `doc.create()` throws `{ code: 6 }` (ALREADY_EXISTS gRPC code) — use this for atomic uniqueness instead of read-then-write
+  - When changing from batch writes to single doc writes, many test assertions need updating (mockBatchSet → mockSet, mockBatchCommit removed)
+  - The generateUniqueUsername function now needs uid as a parameter since it atomically reserves during generation
+  - The PUT /me username *update* path still uses batch (for profile update + new reservation + old deletion) — only the creation/migration paths changed
+---
+
+## 2026-03-08T02:50 - US-005
+- Added explicit `if (memberUid === uid) return 400` self-invite guard in POST /:id/members before any Firestore lookups
+- Updated G-2 gap test to assert 400 "Cannot invite yourself" and verify no squad/friendship docs are queried
+- Files changed: `services/api/src/routes/burn-squads.ts`, `services/api/src/routes/burn-squads.test.ts`
+- **Learnings for future iterations:**
+  - The self-invite check goes right after input validation (`!memberUid`) and before any Firestore reads — this is the cheapest place for it
+  - The test verifies short-circuiting by asserting `mockSquadDocGet` and `mockFriendsDocGet` were NOT called
+  - Simple guard clauses like this don't need Firestore mocks in tests — the route returns before reaching any DB calls
+---
+
+## 2026-03-08T02:51 - US-006
+- Updated VERIFICATION_REPORT.md to reflect all 4 gaps as resolved
+- Changed G-1 (AtMostOneBuddyPerPair) from ⚠️ to ✅ — sorted composite key fix
+- Changed G-2 (NoSelfInvites) from ⚠️ to ✅ — explicit self-invite check
+- Changed G-3 (UsernameUniqueness) from ⚠️ to ✅ — atomic doc.create() fix
+- Changed G-4 (ProfileRequiredForSocialActions) from ❌ to ✅ — requireProfile middleware
+- Replaced "Summary of Gaps" section with "Summary of Resolved Gaps" with resolution descriptions
+- Replaced "Gap Severity Summary" with "Gap Resolution Summary" showing all ✅ Resolved
+- Files changed: `specs/tla/VERIFICATION_REPORT.md`
+- **Learnings for future iterations:**
+  - The intro paragraph uses ⚠️ and ❌ as legend examples — don't count those as unresolved gaps
+  - Keep the anchor IDs (gap-g-1 etc.) unchanged so any external links still work
 ---

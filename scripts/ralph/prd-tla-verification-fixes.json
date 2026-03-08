@@ -70,7 +70,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "generateUniqueUsername() is at username.ts:38-63. It does a read-then-write without a transaction. The profile creation batch is in users.ts around line 129-133. Firestore doc.create() throws error code 6 (ALREADY_EXISTS) if the document exists. The existing tests mock Firestore via vi.mock + vi.hoisted."
     },
     {
@@ -84,7 +84,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "The POST /:id/members handler is at burn-squads.ts around line 330-386. Add the self-invite check right after the memberUid validation (around line 340), before the squad doc lookup and friendship check."
     },
     {
@@ -101,7 +101,7 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "The verification report is at specs/tla/VERIFICATION_REPORT.md. Update the status column in each domain table (sections 2, 3, 5, 7) and the detailed gap descriptions at the bottom."
     }
   ]
