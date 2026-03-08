@@ -382,7 +382,7 @@ export default function FriendsPage() {
                     className="flex items-center justify-between rounded-lg border border-gray-700 bg-surface p-3 mb-2"
                   >
                     <div className="flex items-center gap-2.5">
-                      <Avatar displayName={req.displayName ?? req.fromUid} profilePictureUrl={req.photoURL} size="sm" />
+                      <Avatar displayName={req.displayName ?? req.fromUid} profilePictureUrl={req.photoURL} size="md" />
                       <div>
                         <strong className="text-white">{req.displayName ?? req.fromUid}</strong>
                         <span className="ml-2 inline-block rounded-full bg-green-500/20 px-2 py-0.5 text-xs text-success">
@@ -415,7 +415,7 @@ export default function FriendsPage() {
                     className="flex items-center justify-between rounded-lg border border-gray-700 bg-surface p-3 mb-2"
                   >
                     <div className="flex items-center gap-2.5">
-                      <Avatar displayName={req.displayName ?? req.toUid} profilePictureUrl={req.photoURL} size="sm" />
+                      <Avatar displayName={req.displayName ?? req.toUid} profilePictureUrl={req.photoURL} size="md" />
                       <div>
                         <strong className="text-white">{req.displayName ?? req.toUid}</strong>
                         <span className="ml-2 inline-block rounded-full bg-gray-700 px-2 py-0.5 text-xs text-gray-400">
@@ -441,20 +441,20 @@ export default function FriendsPage() {
                   return (
                     <div
                       key={friend.uid}
-                      className="flex items-center justify-between rounded-lg border border-gray-700 bg-surface p-3 mb-2 hover:bg-surface-elevated"
+                      className="flex flex-col gap-2 rounded-lg border border-gray-700 bg-surface p-3 mb-2 hover:bg-surface-elevated md:flex-row md:items-center md:justify-between"
                     >
                       <Link
                         href={`/profile/${friend.uid}`}
                         className="min-w-0 flex-1 no-underline"
                       >
                         <div className="flex items-center gap-2.5">
-                          <Avatar displayName={friend.displayName} profilePictureUrl={friend.profilePictureUrl} size="sm" />
-                          <div>
+                          <Avatar displayName={friend.displayName} profilePictureUrl={friend.profilePictureUrl} size="md" />
+                          <div className="min-w-0">
                             <strong className="text-white">{friend.displayName}</strong>
                             {friend.username && (
-                              <span className="ml-1.5 text-sm text-gray-400">@{friend.username}</span>
+                              <span className="ml-1.5 truncate text-sm text-gray-400">@{friend.username}</span>
                             )}
-                            <div className="text-xs text-gray-400">{friend.email}</div>
+                            <div className="truncate text-xs text-gray-400">{friend.email}</div>
                           </div>
                         </div>
                       </Link>
