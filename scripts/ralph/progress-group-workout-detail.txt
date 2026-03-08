@@ -1,3 +1,35 @@
 # Ralph Progress Log — Group Workout Detail Page
 Started: 2026-03-08
+
+## Codebase Patterns
+- API tests use `vi.hoisted()` + `vi.mock()` + `buildApp()` + `supertest` — always declare mocks before importing router
+- Firestore doc mock pattern: `mockDocGet.mockResolvedValueOnce({ exists: true/false, data: () => obj })`
+- Route handler pattern: `router.get('/:id', requireAuth, async (req, res) => { ... })` with `getDb()` for Firestore
+- Existing group-workouts.ts route uses `groupWorkouts` collection name in Firestore
+- User profiles are in `users` collection, workouts in `workouts` collection
+- `yarn test` in `services/api` runs vitest; `yarn typecheck` runs tsc --noEmit
+- Must run `cd packages/shared && yarn build` before API typecheck (API resolves from dist/)
+
+---
+
+## 2026-03-08T02:27 - US-001
+- Implemented GET /group-workouts/:id endpoint in services/api/src/routes/group-workouts.ts
+- Endpoint fetches group workout doc, validates membership (403) and existence (404), then enriches with participant workout details and user profiles
+- Added 5 new tests (401, 404, 403, success with enriched participants, graceful handling of missing docs)
+- Files changed: services/api/src/routes/group-workouts.ts, services/api/src/routes/group-workouts.test.ts
+- **Learnings for future iterations:**
+  - The group-workouts.test.ts mock structure needed expansion to support per-collection doc() lookups — used separate mockDocRef/mockDocGet per collection
+  - Participant enrichment joins workouts (by workoutIds) with user profiles (by memberUids) — missing docs are filtered out gracefully
+  - All 342 existing tests still pass after changes
+---
+
+## 2026-03-08T02:39 - US-002
+- Made Group Workout Log rows clickable on Burn Buddy detail page (/burn-buddies/[id])
+- Changed `<div>` to `<Link>` wrapping each group workout row, navigating to `/burn-buddies/[id]/group-workouts/[gwId]`
+- Added hover state (hover:bg-gray-800, transition-colors, rounded) and right chevron SVG icon
+- Files changed: apps/web/src/app/(main)/burn-buddies/[id]/page.tsx
+- **Learnings for future iterations:**
+  - The burn buddy page already imports `Link` from next/link — no new imports needed
+  - When converting div to Link, add `no-underline` or appropriate text classes to avoid default link styling
+  - Browser verification requires Firebase Auth config locally — beta requires login; code review + typecheck is sufficient for confirming structural changes
 ---
