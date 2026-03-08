@@ -1,7 +1,7 @@
 {
   "project": "burnbuddy",
   "branchName": "ralph/streak-dots-ui",
-  "description": "Streak Dots UI - Replace SVG streak rings with a horizontal 7-dot streak indicator (🔥 for workout days, ○ for rest days) on both web and mobile",
+  "description": "Streak Dots UI - Replace SVG streak rings with a horizontal 7-dot streak indicator (\ud83d\udd25 for workout days, \u25cb for rest days) on both web and mobile",
   "dependsOn": [],
   "userStories": [
     {
@@ -12,10 +12,10 @@
         "New component at apps/web/src/components/StreakDots.tsx",
         "Accepts props: streakCount: number, last7Days: StreakDayInfo[], color: 'orange' | 'violet', label: string",
         "Renders 7 positions left-to-right: index 0 = 6 days ago, index 6 = today (matches existing last7Days array order)",
-        "Workout days (hasWorkout: true) display a 🔥 fire emoji",
-        "Non-workout days (hasWorkout: false) display a circle character ○ in muted gray (text-muted-foreground or equivalent)",
-        "Danger state: when the most recent 6 days (indices 1–6) all have hasWorkout: false, render ALL 7 dots/circles in red (text-red-500)",
-        "Streak count and label displayed alongside the dots (e.g., '🔥 3 Burn Streak')",
+        "Workout days (hasWorkout: true) display a \ud83d\udd25 fire emoji",
+        "Non-workout days (hasWorkout: false) display a circle character \u25cb in muted gray (text-muted-foreground or equivalent)",
+        "Danger state: when the most recent 6 days (indices 1\u20136) all have hasWorkout: false, render ALL 7 dots/circles in red (text-red-500)",
+        "Streak count and label displayed alongside the dots (e.g., '\ud83d\udd25 3 Burn Streak')",
         "Day-of-week labels (M, T, W, etc.) shown below each dot using the dayLabel field from StreakDayInfo",
         "Include aria-label on the dots container describing the streak",
         "Typecheck passes"
@@ -31,13 +31,13 @@
       "acceptanceCriteria": [
         "apps/web/src/app/(main)/burn-buddies/[id]/page.tsx uses StreakDots instead of StreakRing",
         "Both burn streak (orange) and supernova streak (violet) shown as separate rows",
-        "Visual layout is clean — two rows stacked vertically with labels",
+        "Visual layout is clean \u2014 two rows stacked vertically with labels",
         "No references to StreakRing remain in this file",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -91,7 +91,7 @@
       "acceptanceCriteria": [
         "New component at apps/mobile/src/components/StreakDots.tsx",
         "Uses React Native Text and View components (not SVG)",
-        "Same visual logic as web: 🔥 for workout days, ○ for rest days, red danger state",
+        "Same visual logic as web: \ud83d\udd25 for workout days, \u25cb for rest days, red danger state",
         "Day-of-week labels shown below each dot",
         "Streak count and label displayed alongside",
         "Handles both 'orange' and 'violet' color variants",
