@@ -432,9 +432,6 @@ function HomeListView({
                             />
                             <Text style={styles.listCardName}>{buddy.partnerDisplayName}</Text>
                           </View>
-                          <View style={styles.listCardBadge}>
-                            <Text style={styles.listCardBadgeText}>Burn Buddy</Text>
-                          </View>
                         </View>
                         <View style={styles.listCardRight}>
                           <Text style={styles.streakText}>🔥 {buddy.burnStreak}</Text>
@@ -457,11 +454,6 @@ function HomeListView({
                     >
                       <View style={styles.listCardLeft}>
                         <Text style={styles.listCardName}>{squad.name}</Text>
-                        <View style={[styles.listCardBadge, styles.squadBadge]}>
-                          <Text style={[styles.listCardBadgeText, styles.squadBadgeText]}>
-                            Burn Squad
-                          </Text>
-                        </View>
                       </View>
                       <View style={styles.listCardRight}>
                         <Text style={styles.streakText}>🔥 {squad.burnStreak}</Text>
