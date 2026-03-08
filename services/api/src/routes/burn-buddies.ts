@@ -144,6 +144,38 @@ router.post(
 );
 
 /**
+ * DELETE /burn-buddies/requests/:id
+ * Cancels a pending Burn Buddy request (only the sender can cancel).
+ */
+router.delete('/requests/:id', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const uid = req.user!.uid;
+  const id = req.params['id'] as string;
+  const db = getDb();
+
+  const requestDoc = await db.collection('burnBuddyRequests').doc(id).get();
+
+  if (!requestDoc.exists) {
+    res.status(404).json({ error: 'Burn Buddy request not found' });
+    return;
+  }
+
+  const burnBuddyRequest = requestDoc.data() as BurnBuddyRequest;
+
+  if (burnBuddyRequest.fromUid !== uid) {
+    res.status(403).json({ error: 'You can only cancel Burn Buddy requests you sent' });
+    return;
+  }
+
+  if (burnBuddyRequest.status !== 'pending') {
+    res.status(409).json({ error: 'Burn Buddy request is no longer pending' });
+    return;
+  }
+
+  await db.collection('burnBuddyRequests').doc(id).delete();
+  res.status(204).send();
+});
+
+/**
  * GET /burn-buddies
  * Returns all accepted Burn Buddies for the authenticated user.
  */

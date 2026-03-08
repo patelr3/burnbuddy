@@ -9,6 +9,7 @@ const {
   mockBBRequestDocGet,
   mockBBRequestDocSet,
   mockBBRequestDocUpdate,
+  mockBBRequestDocDelete,
   mockBBRequestDocRef,
   // burnBuddyRequests — query
   mockBBRequestQueryGet,
@@ -41,10 +42,12 @@ const {
   const mockBBRequestDocGet = vi.fn();
   const mockBBRequestDocSet = vi.fn();
   const mockBBRequestDocUpdate = vi.fn();
+  const mockBBRequestDocDelete = vi.fn();
   const mockBBRequestDocRef = vi.fn(() => ({
     get: mockBBRequestDocGet,
     set: mockBBRequestDocSet,
     update: mockBBRequestDocUpdate,
+    delete: mockBBRequestDocDelete,
   }));
 
   // burnBuddyRequests — query chain
@@ -101,6 +104,7 @@ const {
     mockBBRequestDocGet,
     mockBBRequestDocSet,
     mockBBRequestDocUpdate,
+    mockBBRequestDocDelete,
     mockBBRequestDocRef,
     mockBBRequestQueryGet,
     mockBBRequestQueryChain,
@@ -194,6 +198,7 @@ beforeEach(() => {
     get: mockBBRequestDocGet,
     set: mockBBRequestDocSet,
     update: mockBBRequestDocUpdate,
+    delete: mockBBRequestDocDelete,
   }));
   mockBBDocRef.mockImplementation(() => ({
     get: mockBBDocGet,
@@ -389,6 +394,66 @@ describe('POST /burn-buddies/requests/:id/accept', () => {
     expect(res.body.burnBuddy).toMatchObject({ uid1: expect.any(String), uid2: expect.any(String) });
     expect(mockBBRequestDocUpdate).toHaveBeenCalledWith({ status: 'accepted' });
     expect(mockBBDocSet).toHaveBeenCalledOnce();
+  });
+});
+
+// ── DELETE /burn-buddies/requests/:id ──────────────────────────────────────────
+
+describe('DELETE /burn-buddies/requests/:id', () => {
+  it('returns 401 when unauthenticated', async () => {
+    const res = await request(buildApp()).delete(`/burn-buddies/requests/${REQUEST_ID}`);
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 when the request does not exist', async () => {
+    mockBBRequestDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .delete(`/burn-buddies/requests/${REQUEST_ID}`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 403 when the authenticated user is not the sender', async () => {
+    mockBBRequestDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ id: REQUEST_ID, fromUid: OTHER_UID, toUid: TEST_UID, status: 'pending', createdAt: '' }),
+    });
+
+    const res = await request(buildApp())
+      .delete(`/burn-buddies/requests/${REQUEST_ID}`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 409 when the request is no longer pending', async () => {
+    mockBBRequestDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ id: REQUEST_ID, fromUid: TEST_UID, toUid: OTHER_UID, status: 'accepted', createdAt: '' }),
+    });
+
+    const res = await request(buildApp())
+      .delete(`/burn-buddies/requests/${REQUEST_ID}`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(409);
+  });
+
+  it('deletes the request and returns 204', async () => {
+    mockBBRequestDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ id: REQUEST_ID, fromUid: TEST_UID, toUid: OTHER_UID, status: 'pending', createdAt: '' }),
+    });
+    mockBBRequestDocDelete.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .delete(`/burn-buddies/requests/${REQUEST_ID}`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(204);
+    expect(mockBBRequestDocDelete).toHaveBeenCalledOnce();
   });
 });
 
