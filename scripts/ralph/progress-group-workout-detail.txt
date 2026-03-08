@@ -59,3 +59,17 @@ Started: 2026-03-08
   - Participant cards reuse the same dark theme tokens: bg-surface for card background, border-gray-700 for borders, text-gray-400/500 for labels
   - Local dev server crashes without Firebase config — typecheck + test suite validation is the reliable quality gate
 ---
+
+## 2026-03-08T02:52 - US-005
+- Built group workout detail page for Burn Squads at apps/web/src/app/(main)/burn-squads/[id]/group-workouts/[gwId]/page.tsx
+- Page mirrors the Burn Buddies detail page (US-004) with squad-specific back link ("← Back to Squad") and participant name links pointing to /burn-squads/[id]
+- Loading skeleton shows 3 placeholder cards (vs 2 in buddy page) to better represent squad sizes
+- Cards stack vertically with space-y-3 — handles 3+ members with no horizontal overflow
+- Dark theme tokens match existing pages (bg-surface, border-gray-700, text-white/gray)
+- All acceptance criteria met: header with date, back link, participant cards, In Progress badge, loading/error states, dark theme
+- Files changed: apps/web/src/app/(main)/burn-squads/[id]/group-workouts/[gwId]/page.tsx
+- **Learnings for future iterations:**
+  - The squad detail page is structurally identical to the buddy detail page — only the back link text, route prefix, and participant link href differ
+  - Could extract a shared GroupWorkoutDetailPage component with context-specific props (backLabel, backHref, participantLinkHref) to reduce duplication
+  - The useGroupWorkoutDetail hook from queries.ts is reusable across both buddy and squad contexts — no changes needed
+---
