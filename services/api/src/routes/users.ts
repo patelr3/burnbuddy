@@ -445,6 +445,7 @@ router.get('/:uid/profile', requireAuth, async (req: Request, res: Response): Pr
 
   // 6. Calculate highest active streak and highest streak ever across all relationships
   let highestActiveStreak: ProfileStats['highestActiveStreak'] = null;
+  let highestActiveStreakLast7Days: ProfileStats['highestActiveStreakLast7Days'] = null;
   let highestStreakEver: ProfileStats['highestStreakEver'] = null;
 
   for (const bb of burnBuddies) {
@@ -452,9 +453,10 @@ router.get('/:uid/profile', requireAuth, async (req: Request, res: Response): Pr
     const partnerUid = bb.uid1 === targetUid ? bb.uid2 : bb.uid1;
     const name = partnerNames[partnerUid] ?? 'Unknown';
 
-    const { burnStreak } = calculateStreaks(gws);
+    const { burnStreak, last7Days } = calculateStreaks(gws);
     if (burnStreak > 0 && (!highestActiveStreak || burnStreak > highestActiveStreak.value)) {
       highestActiveStreak = { value: burnStreak, name };
+      highestActiveStreakLast7Days = last7Days;
     }
 
     const hse = calculateHighestStreakEver(gws);
@@ -467,9 +469,10 @@ router.get('/:uid/profile', requireAuth, async (req: Request, res: Response): Pr
     const gws = groupWorkoutsByRef[sq.id] ?? [];
     const name = sq.name;
 
-    const { burnStreak } = calculateStreaks(gws);
+    const { burnStreak, last7Days } = calculateStreaks(gws);
     if (burnStreak > 0 && (!highestActiveStreak || burnStreak > highestActiveStreak.value)) {
       highestActiveStreak = { value: burnStreak, name };
+      highestActiveStreakLast7Days = last7Days;
     }
 
     const hse = calculateHighestStreakEver(gws);
@@ -537,7 +540,7 @@ router.get('/:uid/profile', requireAuth, async (req: Request, res: Response): Pr
     username: profile.username,
     profilePictureUrl: profile.profilePictureUrl,
     highestActiveStreak,
-    highestActiveStreakLast7Days: null, // TODO: populated in US-003
+    highestActiveStreakLast7Days,
     highestStreakEver,
     firstWorkoutDate,
     workoutsAllTime: workouts.length,
