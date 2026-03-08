@@ -504,17 +504,8 @@ export default function Home() {
                     <Avatar displayName={item.name} profilePictureUrl={item.profilePictureUrl} size="sm" />
                   )}
                   <div>
-                    <div className="mb-1 flex items-center gap-2">
+                    <div className="mb-1">
                       <strong className="text-white">{item.name}</strong>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[11px] ${
-                          item.type === 'buddy'
-                            ? 'bg-amber-500/20 text-amber-400'
-                            : 'bg-secondary/20 text-secondary'
-                        }`}
-                      >
-                        {item.type === 'buddy' ? '🔥 Burn Buddy' : '🔥 Burn Squad'}
-                      </span>
                     </div>
                     <div className="text-[13px] text-gray-400">
                       {timeAgo(item.lastGroupWorkout)}
