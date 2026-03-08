@@ -441,7 +441,7 @@ export default function FriendsPage() {
                   return (
                     <div
                       key={friend.uid}
-                      className="flex items-center justify-between rounded-lg border border-gray-700 bg-surface p-3 mb-2 hover:bg-surface-elevated"
+                      className="flex flex-col gap-2 rounded-lg border border-gray-700 bg-surface p-3 mb-2 hover:bg-surface-elevated md:flex-row md:items-center md:justify-between"
                     >
                       <Link
                         href={`/profile/${friend.uid}`}
@@ -449,12 +449,12 @@ export default function FriendsPage() {
                       >
                         <div className="flex items-center gap-2.5">
                           <Avatar displayName={friend.displayName} profilePictureUrl={friend.profilePictureUrl} size="md" />
-                          <div>
+                          <div className="min-w-0">
                             <strong className="text-white">{friend.displayName}</strong>
                             {friend.username && (
-                              <span className="ml-1.5 text-sm text-gray-400">@{friend.username}</span>
+                              <span className="ml-1.5 truncate text-sm text-gray-400">@{friend.username}</span>
                             )}
-                            <div className="text-xs text-gray-400">{friend.email}</div>
+                            <div className="truncate text-xs text-gray-400">{friend.email}</div>
                           </div>
                         </div>
                       </Link>
