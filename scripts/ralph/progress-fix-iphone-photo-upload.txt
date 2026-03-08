@@ -1,3 +1,21 @@
 # Ralph Progress Log — Fix iPhone Photo Upload & Animify Timeout
 Started: 2026-03-08
+
+## Codebase Patterns
+- `anime-filter.ts` operates on in-memory buffers; pre-downscale input before parallel pipeline steps for performance
+- API typecheck requires `cd packages/shared && yarn build` first (resolves @burnbuddy/shared from dist/)
+- Run API tests with `cd services/api && yarn test -- <test-file>`
+
+---
+
+## 2026-03-08T02:24 - US-001
+- Implemented early downscale in anime filter: cap input to 1024px on longest side before posterize/edge-detection pipeline
+- Added MAX_PROCESSING_SIZE constant (1024) and pre-downscale step using sharp resize
+- Parallel pipeline steps now operate on the pre-downscaled buffer instead of re-reading from inputBuffer
+- Added performance test: 4032×3024 JPEG completes in ~278ms (well under 10s limit)
+- Files changed: `services/api/src/lib/anime-filter.ts`, `services/api/src/lib/anime-filter.test.ts`
+- **Learnings for future iterations:**
+  - The parallel pipeline (posterize, edgesX, edgesY) previously each re-decoded from inputBuffer with .rotate() — pre-downscaling into a single buffer avoids 3× redundant decode+resize
+  - sharp().resize() with fit:'cover' preserves aspect ratio while covering the target dimensions
+  - iPhone photos can be 4032×3024 (12MP) to 8064×6048 (48MP) — always cap resolution for image processing pipelines
 ---

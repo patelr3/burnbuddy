@@ -19,7 +19,7 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "The key change is in anime-filter.ts lines 36-38 where width/height are read from metadata and used as-is. Instead, cap both to 1024px max while preserving aspect ratio. The final resize to OUTPUT_SIZE (256) at the end remains unchanged."
     },
     {
