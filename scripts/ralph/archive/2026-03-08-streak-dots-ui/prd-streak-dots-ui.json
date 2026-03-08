@@ -1,0 +1,119 @@
+{
+  "project": "burnbuddy",
+  "branchName": "ralph/streak-dots-ui",
+  "description": "Streak Dots UI - Replace SVG streak rings with a horizontal 7-dot streak indicator (\ud83d\udd25 for workout days, \u25cb for rest days) on both web and mobile",
+  "dependsOn": [],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create StreakDots web component",
+      "description": "As a developer, I need a new StreakDots component for the web app that renders a horizontal row of 7 icons representing the last 7 days of streak data.",
+      "acceptanceCriteria": [
+        "New component at apps/web/src/components/StreakDots.tsx",
+        "Accepts props: streakCount: number, last7Days: StreakDayInfo[], color: 'orange' | 'violet', label: string",
+        "Renders 7 positions left-to-right: index 0 = 6 days ago, index 6 = today (matches existing last7Days array order)",
+        "Workout days (hasWorkout: true) display a \ud83d\udd25 fire emoji",
+        "Non-workout days (hasWorkout: false) display a circle character \u25cb in muted gray (text-muted-foreground or equivalent)",
+        "Danger state: when the most recent 6 days (indices 1\u20136) all have hasWorkout: false, render ALL 7 dots/circles in red (text-red-500)",
+        "Streak count and label displayed alongside the dots (e.g., '\ud83d\udd25 3 Burn Streak')",
+        "Day-of-week labels (M, T, W, etc.) shown below each dot using the dayLabel field from StreakDayInfo",
+        "Include aria-label on the dots container describing the streak",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Replace StreakRing on Burn Buddy detail page (web)",
+      "description": "As a user viewing a burn buddy's detail page, I want to see the new dot-based streak display instead of the ring so I can quickly see our workout pattern for the week.",
+      "acceptanceCriteria": [
+        "apps/web/src/app/(main)/burn-buddies/[id]/page.tsx uses StreakDots instead of StreakRing",
+        "Both burn streak (orange) and supernova streak (violet) shown as separate rows",
+        "Visual layout is clean \u2014 two rows stacked vertically with labels",
+        "No references to StreakRing remain in this file",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Replace StreakRing on Burn Squad detail page (web)",
+      "description": "As a user viewing a burn squad's detail page, I want to see the new dot-based streak display.",
+      "acceptanceCriteria": [
+        "apps/web/src/app/(main)/burn-squads/[id]/page.tsx uses StreakDots instead of StreakRing",
+        "Both burn streak and supernova streak shown as separate dot rows",
+        "No references to StreakRing remain in this file",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Replace StreakRing on Friend Profile page (web)",
+      "description": "As a user viewing a friend's profile, I want to see the new dot-based streak display.",
+      "acceptanceCriteria": [
+        "apps/web/src/app/(main)/profile/[uid]/page.tsx uses StreakDots instead of StreakRing",
+        "Streak data rendered using same highestActiveStreakLast7Days from profile stats",
+        "No references to StreakRing remain in this file",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Delete the old StreakRing component (web)",
+      "description": "As a developer, I want to remove the old StreakRing component so dead code doesn't remain in the codebase.",
+      "acceptanceCriteria": [
+        "apps/web/src/components/StreakRing.tsx is deleted",
+        "No imports of StreakRing remain anywhere in the web app",
+        "Typecheck passes (cd apps/web && yarn typecheck)",
+        "Full build passes (yarn build)"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Create StreakDots mobile component (React Native)",
+      "description": "As a mobile user, I want to see the same dot-based streak display in the React Native app so the experience is consistent across platforms.",
+      "acceptanceCriteria": [
+        "New component at apps/mobile/src/components/StreakDots.tsx",
+        "Uses React Native Text and View components (not SVG)",
+        "Same visual logic as web: \ud83d\udd25 for workout days, \u25cb for rest days, red danger state",
+        "Day-of-week labels shown below each dot",
+        "Streak count and label displayed alongside",
+        "Handles both 'orange' and 'violet' color variants",
+        "Typecheck passes (cd apps/mobile && npx tsc --noEmit)"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Integrate StreakDots into mobile screens",
+      "description": "As a mobile user, I want to see the streak dots wherever streak data is displayed in the app.",
+      "acceptanceCriteria": [
+        "Identify all mobile screens that display streak information and integrate StreakDots",
+        "If no screens currently display streaks, add the streak dots to the burn buddy detail screen",
+        "Visual parity with the web version (same icons, same danger state logic)",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}
