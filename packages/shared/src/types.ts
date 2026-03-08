@@ -105,11 +105,25 @@ export interface GroupWorkout {
   workoutIds: string[];
 }
 
+export interface StreakDayInfo {
+  date: string; // YYYY-MM-DD
+  hasWorkout: boolean;
+  groupWorkoutId: string | null;
+  dayLabel: string; // Single letter: 'M', 'T', 'W', etc.
+}
+
+export interface StreakDetail {
+  burnStreak: number;
+  supernovaStreak: number;
+  last7Days: StreakDayInfo[]; // Length 7, index 0 = 6 days ago, index 6 = today
+}
+
 export interface GroupStats {
   highestStreakEver: { value: number; date: string };
   firstGroupWorkoutDate: string | null;
   groupWorkoutsAllTime: number;
   groupWorkoutsThisMonth: number;
+  last7Days: StreakDayInfo[];
 }
 
 export const GROUP_WORKOUT_WINDOW_MS = 20 * 60 * 1000; // 20 minutes
@@ -125,6 +139,7 @@ export interface ProfileStats {
   username?: string;
   profilePictureUrl?: string;
   highestActiveStreak: { value: number; name: string } | null;
+  highestActiveStreakLast7Days: StreakDayInfo[] | null;
   highestStreakEver: { value: number; date: string; name: string } | null;
   firstWorkoutDate: string | null;
   workoutsAllTime: number;

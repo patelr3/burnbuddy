@@ -125,5 +125,6 @@ export function calculateGroupStats(groupWorkouts: GroupWorkout[]): GroupStats {
     firstGroupWorkoutDate,
     groupWorkoutsAllTime: groupWorkouts.length,
     groupWorkoutsThisMonth,
+    last7Days: [], // TODO: populated in US-002
   };
 }

@@ -537,6 +537,7 @@ router.get('/:uid/profile', requireAuth, async (req: Request, res: Response): Pr
     username: profile.username,
     profilePictureUrl: profile.profilePictureUrl,
     highestActiveStreak,
+    highestActiveStreakLast7Days: null, // TODO: populated in US-003
     highestStreakEver,
     firstWorkoutDate,
     workoutsAllTime: workouts.length,

@@ -245,6 +245,7 @@ describe('calculateGroupStats', () => {
       firstGroupWorkoutDate: null,
       groupWorkoutsAllTime: 0,
       groupWorkoutsThisMonth: 0,
+      last7Days: [],
     });
   });
 

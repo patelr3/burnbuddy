@@ -180,6 +180,7 @@ export function useBurnBuddy(id: string) {
           firstGroupWorkoutDate: null,
           groupWorkoutsAllTime: 0,
           groupWorkoutsThisMonth: 0,
+          last7Days: [],
         })),
       ]);
 
@@ -205,6 +206,7 @@ export function useBurnSquad(id: string) {
           firstGroupWorkoutDate: null,
           groupWorkoutsAllTime: 0,
           groupWorkoutsThisMonth: 0,
+          last7Days: [],
         })),
       ]);
 
