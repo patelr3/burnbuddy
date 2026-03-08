@@ -12,7 +12,7 @@ import { Avatar } from '@/components/Avatar';
 import type { UserProfile } from '@burnbuddy/shared';
 
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,30}$/;
-const ACCEPTED_IMAGE_TYPES = 'image/jpeg,image/png,image/webp';
+const ACCEPTED_IMAGE_TYPES = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
 
 function validateUsernameClient(username: string): string | null {
   if (username.length < 3) return 'Username must be at least 3 characters';
