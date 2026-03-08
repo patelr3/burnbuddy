@@ -16,56 +16,57 @@ const COLORS = {
   lightGray: '#9CA3AF',
 } as const;
 
+const EMPTY_DAYS: StreakDayInfo[] = Array.from({ length: 7 }, (_, i) => ({
+  date: `empty-${i}`,
+  dayLabel: '',
+  hasWorkout: false,
+  groupWorkoutId: null,
+}));
+
 function isDangerState(last7Days: StreakDayInfo[]): boolean {
+  if (last7Days.length === 0) return false;
   return last7Days.slice(1, 7).every((day) => !day.hasWorkout);
 }
 
 export function StreakDots({ streakCount, last7Days, color, label }: StreakDotsProps) {
+  const days = last7Days.length > 0 ? last7Days : EMPTY_DAYS;
+  const count = last7Days.length > 0 ? streakCount : 0;
   const danger = isDangerState(last7Days);
   const accentColor = danger ? COLORS.red : COLORS[color];
 
   return (
-    <View style={styles.container}>
-      {/* Streak count + label */}
-      <View style={styles.labelContainer}>
-        <Text style={[styles.fireEmoji]}>🔥</Text>
-        <Text style={[styles.countText, { color: accentColor }]}>{streakCount}</Text>
+    <View style={styles.tile}>
+      {/* Streak label + count */}
+      <View style={styles.labelRow}>
+        <Text style={styles.fireEmoji}>🔥</Text>
+        <Text style={[styles.countText, { color: accentColor }]}>{count}</Text>
         <Text style={styles.labelText}>{label}</Text>
       </View>
 
       {/* 7-dot streak indicator */}
       <View
-        style={styles.dotsContainer}
+        style={styles.dotsRow}
         accessibilityRole="image"
-        accessibilityLabel={`${label}: ${streakCount} day streak. ${last7Days.filter((d) => d.hasWorkout).length} of last 7 days with workouts.`}
+        accessibilityLabel={`${label}: ${count} day streak. ${days.filter((d) => d.hasWorkout).length} of last 7 days with workouts.`}
       >
-        {last7Days.map((day) => (
-          <View key={day.date} style={styles.dotColumn}>
-            <Text
-              style={[
-                styles.dotText,
-                {
-                  color: day.hasWorkout
-                    ? danger
-                      ? COLORS.red
-                      : undefined
-                    : danger
-                      ? COLORS.red
-                      : COLORS.gray,
-                },
-              ]}
-            >
-              {day.hasWorkout ? '🔥' : '○'}
-            </Text>
-            <Text
-              style={[
-                styles.dayLabel,
-                { color: danger ? COLORS.red : COLORS.gray },
-              ]}
-            >
-              {day.dayLabel}
-            </Text>
-          </View>
+        {days.map((day) => (
+          <Text
+            key={day.date}
+            style={[
+              styles.dotText,
+              {
+                color: day.hasWorkout
+                  ? danger
+                    ? COLORS.red
+                    : undefined
+                  : danger
+                    ? COLORS.red
+                    : COLORS.gray,
+              },
+            ]}
+          >
+            {day.hasWorkout ? '🔥' : '○'}
+          </Text>
         ))}
       </View>
     </View>
@@ -73,15 +74,19 @@ export function StreakDots({ streakCount, last7Days, color, label }: StreakDotsP
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+  tile: {
+    width: '47%',
+    backgroundColor: '#fafafa',
+    borderRadius: 10,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
   },
-  labelContainer: {
+  labelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    marginBottom: 8,
   },
   fireEmoji: {
     fontSize: 14,
@@ -94,21 +99,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.lightGray,
   },
-  dotsContainer: {
+  dotsRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 6,
-  },
-  dotColumn: {
     alignItems: 'center',
-    gap: 2,
+    gap: 6,
   },
   dotText: {
     fontSize: 16,
     lineHeight: 18,
-  },
-  dayLabel: {
-    fontSize: 10,
-    lineHeight: 12,
   },
 });
