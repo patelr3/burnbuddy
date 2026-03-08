@@ -68,11 +68,6 @@ vi.mock('../lib/firestore', () => ({
   }),
 }));
 
-// Must also mock anime-filter since users.ts imports it
-vi.mock('../lib/anime-filter', () => ({
-  animeFilter: vi.fn(),
-}));
-
 // Must also mock username module since users.ts imports it
 vi.mock('../lib/username', () => ({
   generateUniqueUsername: vi.fn(),

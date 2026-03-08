@@ -1,3 +1,19 @@
 # Ralph Progress Log — Remove Anime Filter from Profile Pictures
 Started: 2026-03-08
+
+## Codebase Patterns
+- Profile picture processing is in POST /users/me/profile-picture route in services/api/src/routes/users.ts
+- sharp is used for image processing — imported directly in route file
+- Storage upload uses `getStorageBucket()` from lib/storage.ts, saves as WebP with cache-control headers
+---
+
+## 2026-03-08T18:57 - US-001
+- Replaced animeFilter() + Promise.race timeout with simple sharp pipeline: rotate → resize 256×256 cover → WebP
+- Removed ANIME_FILTER_TIMEOUT_MS env var logic and anime-filter import
+- Updated JSDoc comment to remove anime references
+- Files changed: services/api/src/routes/users.ts
+- **Learnings for future iterations:**
+  - The anime filter was wrapped in a Promise.race with a configurable timeout — all of that is now gone
+  - The variable was renamed from `animeBuffer` to `optimizedBuffer` to reflect the new purpose
+  - sharp is already a dependency in services/api/package.json (used by anime-filter.ts) so no new deps needed
 ---

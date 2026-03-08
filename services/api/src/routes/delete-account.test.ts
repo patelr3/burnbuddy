@@ -82,7 +82,6 @@ vi.mock('../lib/firestore', () => {
   return { getDb };
 });
 
-vi.mock('../lib/anime-filter', () => ({ animeFilter: vi.fn() }));
 vi.mock('../lib/username', () => ({
   generateUniqueUsername: vi.fn(),
   validateUsername: vi.fn(),
