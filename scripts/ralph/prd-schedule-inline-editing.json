@@ -1,0 +1,52 @@
+{
+  "project": "burnbuddy",
+  "branchName": "ralph/schedule-inline-editing",
+  "description": "Schedule Inline Editing - Make schedule boxes the entry point for editing instead of header buttons",
+  "dependsOn": [],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Inline schedule editing for Burn Buddies",
+      "description": "As a user on the Burn Buddy detail page, I can manage my workout schedule entirely through the schedule box area — no header button needed. If no schedule exists, a dashed placeholder invites me to add one. If a schedule exists, tapping it opens the inline editor.",
+      "acceptanceCriteria": [
+        "Remove the 'Edit Schedule' button from the Burn Buddy detail page header (the toggle button in the top-right area near the back button)",
+        "When no workoutSchedule is set, display a dashed-border placeholder box with a '+' icon and 'Add a schedule' text in the schedule display area. Use muted/secondary styling (not the orange of an active schedule).",
+        "The placeholder box includes a small chevron (▾) indicator on the right side to hint at interactivity",
+        "Clicking the placeholder expands the existing inline day/time editor (day toggle buttons + time input + save button) directly below the placeholder",
+        "When a workoutSchedule IS set, the existing orange schedule info box gets cursor-pointer, a subtle hover effect, and a small chevron indicator (▾ when collapsed, ▴ when expanded) on the right side",
+        "Clicking the orange schedule box toggles the inline day/time editor open/closed below it, pre-populated with the current schedule days and time",
+        "The inline editor includes both 'Save Schedule' and 'Cancel' buttons side-by-side — clicking outside the editor does NOT collapse it",
+        "Saving collapses the editor and updates the displayed schedule. Cancel collapses without saving.",
+        "The 'Add to Calendar' button remains visible and functional when the editor is open",
+        "No regression in other header elements (back button, buddy name)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 1,
+      "passes": true,
+    },
+    {
+      "id": "US-002",
+      "title": "Inline schedule editing for Burn Squads",
+      "description": "As a squad admin on the Burn Squad detail page, I can manage the workout schedule through the schedule box area. Non-admins see the schedule but cannot edit. The existing settings panel schedule editing continues to work independently.",
+      "acceptanceCriteria": [
+        "When no workoutSchedule is set on a squad, display a dashed-border placeholder box with a '+' icon and 'Add a schedule' text in the schedule display area (same style as the Burn Buddy placeholder)",
+        "The placeholder includes a small chevron (▾) indicator on the right side",
+        "Only squad admins can interact with the placeholder — non-admins see nothing in the schedule area when no schedule exists",
+        "Clicking the placeholder (admin only) expands the inline day/time editor below it",
+        "When a workoutSchedule IS set, the schedule info box gets cursor-pointer, hover effect, and chevron indicator (▾/▴) — but only for admins. Non-admins see the schedule box without clickable styling.",
+        "Clicking the schedule box (admin only) toggles the inline day/time editor open/closed below it, pre-populated with the current schedule",
+        "The inline editor includes both 'Save' and 'Cancel' buttons — clicking outside does NOT collapse it",
+        "Saving collapses the editor and updates the displayed schedule. Cancel collapses without saving.",
+        "The 'Add to Calendar' button remains visible and functional when the editor is open",
+        "Schedule editing in the existing settings panel (Edit Settings button) continues to work exactly as before — this is a separate, independent entry point",
+        "A separate isEditingSchedule state is used (independent from the existing editing state that controls the settings panel)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "The page is ~452 lines. Admin check at line 143 (isAdmin). Schedule display at lines 356-364 uses violet colors. The settings panel edit form is at lines 256-329 and must NOT be changed. Add a new isEditingSchedule boolean state separate from the existing editing state. Follow the same pattern established in US-001 for the buddy page."
+    }
+  ]
+}

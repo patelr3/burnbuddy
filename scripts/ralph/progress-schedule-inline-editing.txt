@@ -1,0 +1,28 @@
+# Ralph Progress Log — Schedule Inline Editing
+Started: 2026-03-08
+
+## Codebase Patterns
+- Auth bypass for local browser testing: set `auth_session=1` cookie on localhost domain
+- Skeleton components should match the main component layout — update both when restructuring
+- Schedule box uses `border-primary/30 bg-primary/10` for active schedules, `border-dashed border-gray-600` for empty placeholders
+- Reuse existing state variables (editing, selectedDays, scheduleTime) when refactoring edit triggers
+- Web typecheck has pre-existing errors (missing module declarations); only check for new errors in your changed files
+
+---
+
+## 2026-03-08T22:17Z - US-001
+- Implemented inline schedule editing for Burn Buddies detail page
+- Removed "Edit Schedule" button from page header
+- Added dashed placeholder box (+ icon, "Add a schedule" text, ▾ chevron) when no schedule exists
+- Made orange schedule info box clickable with hover effect and chevron (▾/▴) toggle
+- Inline editor now expands below the schedule box/placeholder (not a separate panel)
+- Added Cancel button alongside Save Schedule button
+- "Add to Calendar" remains visible when editor is open
+- Updated BurnBuddySkeleton to remove header button placeholder and add schedule skeleton
+- Files changed: `apps/web/src/app/(main)/burn-buddies/[id]/page.tsx`
+- **Learnings for future iterations:**
+  - The page uses `useAuth()` loading state + `useBurnBuddy()` data loading — skeleton appears when data is loading
+  - Without Firebase credentials locally, pages show skeleton forever — use `auth_session=1` cookie to bypass middleware redirect
+  - The `flex items-center justify-between` on header div should be changed to `flex items-center` when removing the right-side button
+  - Schedule box uses a `<button>` element for semantics (cursor-pointer, clickable), not a `<div>`
+---
