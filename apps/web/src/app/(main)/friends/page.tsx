@@ -254,7 +254,7 @@ export default function FriendsPage() {
               setSearchResults([]);
               setSearchError(null);
             }}
-            className="cursor-pointer rounded-lg btn-primary-gradient px-4 py-2 text-sm font-semibold text-white"
+            className="cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
           >
             + Add Friend
           </button>
@@ -356,7 +356,7 @@ export default function FriendsPage() {
                 <button
                   onClick={handleSendBurnBuddyRequest}
                   disabled={sendingBbRequest}
-                  className="cursor-pointer rounded-md btn-primary-gradient px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                  className="cursor-pointer rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50"
                 >
                   {sendingBbRequest ? 'Sending…' : '🔥 Send Request'}
                 </button>

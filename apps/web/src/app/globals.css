@@ -82,17 +82,9 @@ body {
   background-color: #FF9500 !important;
 }
 
-/* Primary button gradient (red-orange → orange) */
-.btn-primary-gradient {
-  background: linear-gradient(135deg, #FF6B35 0%, #FF9500 100%);
-}
-.btn-primary-gradient:hover {
-  background: linear-gradient(135deg, #E55A2B 0%, #E08600 100%);
-}
-
 /* Primary action buttons (Sign In, Continue) */
 .firebaseui-form-actions .mdl-button--raised.mdl-button--colored {
-  background: linear-gradient(135deg, #FF6B35 0%, #FF9500 100%) !important;
+  background-color: #FF9500 !important;
   color: #fff !important;
   border-radius: 0.5rem !important;
   text-transform: none !important;
@@ -100,7 +92,7 @@ body {
 }
 
 .firebaseui-form-actions .mdl-button--raised.mdl-button--colored:hover {
-  background: linear-gradient(135deg, #E55A2B 0%, #E08600 100%) !important;
+  background-color: #E08600 !important;
 }
 
 /* Secondary buttons (Cancel, Back) */

@@ -335,7 +335,7 @@ export default function Home() {
         <div className="mb-6 hidden md:block">
           <button
             onClick={() => setShowWorkoutSelector(true)}
-            className="w-full cursor-pointer rounded-lg btn-primary-gradient p-4 text-base font-semibold text-white"
+            className="w-full cursor-pointer rounded-lg bg-primary p-4 text-base font-semibold text-white hover:bg-orange-600"
           >
             🔥 Start Workout
           </button>
@@ -347,7 +347,7 @@ export default function Home() {
         <div className="fixed bottom-16 left-0 right-0 z-40 border-t border-gray-800 bg-black/90 px-4 py-3 md:hidden">
           <button
             onClick={() => setShowWorkoutSelector(true)}
-            className="w-full cursor-pointer rounded-lg btn-primary-gradient p-4 text-base font-semibold text-white"
+            className="w-full cursor-pointer rounded-lg bg-primary p-4 text-base font-semibold text-white hover:bg-orange-600"
           >
             🔥 Start Workout
           </button>
@@ -397,7 +397,7 @@ export default function Home() {
               <button
                 onClick={handleStartWorkout}
                 disabled={!selectedType || (selectedType === 'Custom' && !customType.trim())}
-                className="cursor-pointer rounded-md btn-primary-gradient px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                className="cursor-pointer rounded-md bg-primary px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-600 disabled:opacity-50"
               >
                 Start Workout
               </button>
@@ -425,7 +425,7 @@ export default function Home() {
               </div>
               <button
                 onClick={() => handleAcceptBuddyRequest(req.id)}
-                className="cursor-pointer rounded btn-primary-gradient px-3.5 py-1.5 text-[13px] text-white"
+                className="cursor-pointer rounded bg-primary px-3.5 py-1.5 text-[13px] text-white hover:bg-orange-600"
               >
                 Accept
               </button>
@@ -469,14 +469,14 @@ export default function Home() {
           <Link
             href="/burn-buddies/new"
             aria-label="Add Burn Buddy"
-            className="rounded-lg btn-primary-gradient p-2 text-white no-underline"
+            className="rounded-lg bg-primary p-2 text-white no-underline hover:bg-orange-600"
           >
             <UserPlus className="h-5 w-5" />
           </Link>
           <Link
             href="/burn-squads/new"
             aria-label="Add Burn Squad"
-            className="rounded-lg btn-primary-gradient p-2 text-white no-underline"
+            className="rounded-lg bg-primary p-2 text-white no-underline hover:bg-orange-600"
           >
             <UsersRound className="h-5 w-5" />
           </Link>
@@ -526,7 +526,7 @@ export default function Home() {
                             e.preventDefault();
                             setShowWorkoutSelector(true);
                           }}
-                          className="cursor-pointer rounded btn-primary-gradient px-3 py-1.5 text-[13px] font-bold text-white"
+                          className="cursor-pointer rounded bg-primary px-3 py-1.5 text-[13px] font-bold text-white hover:bg-orange-600"
                         >
                           Join Workout
                         </button>
