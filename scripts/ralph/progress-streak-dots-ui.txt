@@ -20,3 +20,12 @@ Started: 2026-03-08
   - Danger state checks indices 1-6 (most recent 6 days), not all 7
   - Use COLOR_CLASSES map for Tailwind color class lookup by 'orange'|'violet'
 ---
+
+## 2026-03-08T18:58Z - US-003
+- Replaced StreakRing with StreakDots on burn squad detail page (`apps/web/src/app/(main)/burn-squads/[id]/page.tsx`)
+- Changed import from StreakRing to StreakDots, replaced streak rings section with two stacked StreakDots rows (burn + supernova)
+- Files changed: apps/web/src/app/(main)/burn-squads/[id]/page.tsx
+- **Learnings for future iterations:**
+  - Same pattern as burn buddy page: `flex flex-col gap-2` container with two StreakDots, no description/basePath props needed
+  - StreakDots is a drop-in replacement — just remove description and basePath props
+---
