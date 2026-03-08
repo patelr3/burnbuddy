@@ -382,7 +382,7 @@ export default function FriendsPage() {
                     className="flex items-center justify-between rounded-lg border border-gray-700 bg-surface p-3 mb-2"
                   >
                     <div className="flex items-center gap-2.5">
-                      <Avatar displayName={req.displayName ?? req.fromUid} profilePictureUrl={req.photoURL} size="sm" />
+                      <Avatar displayName={req.displayName ?? req.fromUid} profilePictureUrl={req.photoURL} size="md" />
                       <div>
                         <strong className="text-white">{req.displayName ?? req.fromUid}</strong>
                         <span className="ml-2 inline-block rounded-full bg-green-500/20 px-2 py-0.5 text-xs text-success">
@@ -415,7 +415,7 @@ export default function FriendsPage() {
                     className="flex items-center justify-between rounded-lg border border-gray-700 bg-surface p-3 mb-2"
                   >
                     <div className="flex items-center gap-2.5">
-                      <Avatar displayName={req.displayName ?? req.toUid} profilePictureUrl={req.photoURL} size="sm" />
+                      <Avatar displayName={req.displayName ?? req.toUid} profilePictureUrl={req.photoURL} size="md" />
                       <div>
                         <strong className="text-white">{req.displayName ?? req.toUid}</strong>
                         <span className="ml-2 inline-block rounded-full bg-gray-700 px-2 py-0.5 text-xs text-gray-400">
@@ -448,7 +448,7 @@ export default function FriendsPage() {
                         className="min-w-0 flex-1 no-underline"
                       >
                         <div className="flex items-center gap-2.5">
-                          <Avatar displayName={friend.displayName} profilePictureUrl={friend.profilePictureUrl} size="sm" />
+                          <Avatar displayName={friend.displayName} profilePictureUrl={friend.profilePictureUrl} size="md" />
                           <div>
                             <strong className="text-white">{friend.displayName}</strong>
                             {friend.username && (
