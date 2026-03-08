@@ -36,7 +36,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "The middleware pattern is in services/api/src/middleware/auth.ts. Use getDb() from lib/firestore.ts for Firestore access. The Express type augmentation is in services/api/src/types/express.d.ts. Tests use vi.mock + vi.hoisted to stub Firestore. The G-4 gap tests are in the 'TLA+ Gap G-4' describe block in burn-buddies.test.ts."
     },
     {
@@ -54,7 +54,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Follow the same pattern established in US-002 for burn-buddies. Each test file uses vi.mock + vi.hoisted — add the profile doc mock to beforeEach and add a test case that omits the profile. Check existing gap-documenting G-4 tests in friends.test.ts, burn-squads.test.ts, workouts.test.ts and update them to assert 403."
     },
     {

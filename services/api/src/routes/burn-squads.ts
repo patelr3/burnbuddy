@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { Router, type Request, type Response } from 'express';
 import type { BurnSquad, BurnSquadJoinRequest, EnrichedBurnSquadMember, GroupWorkout, UserProfile } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
+import { requireProfile } from '../middleware/requireProfile';
 import { cacheControl } from '../middleware/cache-control';
 import { getDb } from '../lib/firestore';
 import { calculateStreaks, calculateGroupStats } from '../services/streak-calculator';
@@ -14,7 +15,7 @@ const router = Router();
  * Creates a new Burn Squad. Creator becomes admin and first member.
  * Sends join requests to specified friend uids.
  */
-router.post('/', requireAuth, async (req: Request, res: Response): Promise<void> => {
+router.post('/', requireAuth, requireProfile, async (req: Request, res: Response): Promise<void> => {
   const adminUid = req.user!.uid;
   const { name, inviteUids, workoutSchedule } = req.body as {
     name?: string;

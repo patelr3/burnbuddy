@@ -7,6 +7,7 @@ Started: 2026-03-08
 - Tests use `vi.hoisted` + `vi.mock` for Firestore stubs; mock each collection's doc/query separately
 - When adding a new Firestore read to a route, update ALL existing test cases that hit that route to mock the new read
 - Build `packages/shared` before running `yarn typecheck` in `services/api`
+- `requireProfile` middleware at `middleware/requireProfile.ts` — apply after `requireAuth` on social-action POST routes. Tests need `mockUsersDocGet.mockResolvedValueOnce({ exists: true, data: () => ({...}) })` for routes using it.
 
 ## 2026-03-08T02:25 - US-001
 - Implemented sorted composite key for BurnBuddy doc ID in accept handler
@@ -18,4 +19,30 @@ Started: 2026-03-08
   - The accept handler previously used `randomUUID()` — the sorted composite key pattern was already used for uid1/uid2 sorting but not for the doc ID
   - When you add a new Firestore `.get()` call in a handler, you must add a corresponding `mockResolvedValueOnce` in EVERY test that reaches that code path
   - The friends collection already used sorted composite keys — this is the canonical pattern for pair-based relationships
+---
+
+## 2026-03-08T02:27 - US-002
+- Created `requireProfile` middleware at `services/api/src/middleware/requireProfile.ts`
+- Added `profile` field to Express Request type augmentation in `types/express.d.ts`
+- Applied `requireProfile` after `requireAuth` on POST /burn-buddies/requests
+- Updated G-4 gap tests: now asserts 403 when no profile, and 201 when profile exists
+- Added profile mock (`mockUsersDocGet`) to all existing POST /requests tests that pass auth
+- Files changed: `services/api/src/middleware/requireProfile.ts` (new), `services/api/src/types/express.d.ts`, `services/api/src/routes/burn-buddies.ts`, `services/api/src/routes/burn-buddies.test.ts`
+- **Learnings for future iterations:**
+  - The `requireProfile` middleware follows the exact same pattern as `requireAuth` — check condition, return error or call next()
+  - The `users` collection mock (`mockUsersDocRef`, `mockUsersDocGet`) was already set up in burn-buddies.test.ts for partner displayName lookup — reuse for profile checks
+  - When adding middleware to a route, every test for that route that passes the previous middleware needs a mock for the new middleware's Firestore read
+  - The Express type augmentation file needs `import type { UserProfile }` to properly type `req.profile`
+---
+
+## 2026-03-08T02:43 - US-003
+- Applied `requireProfile` middleware after `requireAuth` on POST /friends/requests, POST /burn-squads, and POST /workouts
+- Updated G-4 gap tests in all 3 test files to assert 403 when no profile exists, and success when profile exists
+- Added default profile mock (`mockUsersDocGet`) in beforeEach for friends.test.ts and burn-squads.test.ts (workouts.test.ts already had it)
+- burn-squads.test.ts needed a new `mockUsersDocGet` mock added to hoisted section and `mockUsersDocRef` updated to return `{ id, get: mockUsersDocGet }`
+- Files changed: `services/api/src/routes/friends.ts`, `services/api/src/routes/burn-squads.ts`, `services/api/src/routes/workouts.ts`, `services/api/src/routes/friends.test.ts`, `services/api/src/routes/burn-squads.test.ts`, `services/api/src/routes/workouts.test.ts`
+- **Learnings for future iterations:**
+  - When adding requireProfile to a route, ALL tests that set Authorization header and hit that route need a default profile mock in beforeEach
+  - burn-squads.test.ts `mockUsersDocRef` originally returned `{ id }` for getAll — adding `get` to the returned object doesn't break getAll since it's independently mocked
+  - Use `mockResolvedValue` (not `Once`) in beforeEach for default profile — this way all test calls pass unless explicitly overridden
 ---
