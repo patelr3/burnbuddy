@@ -429,7 +429,7 @@ export default function Home() {
 
       {/* Header with create buttons */}
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="m-0 text-lg font-semibold text-white">Burn Buddies &amp; Squads</h2>
+        <h2 className="m-0 text-lg font-semibold text-white">Burn Buddies</h2>
         <div className="flex gap-2">
           <Link
             href="/burn-buddies/new"
