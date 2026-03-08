@@ -308,9 +308,21 @@ export default function Home() {
         </div>
       )}
 
-      {/* Start Workout Button */}
+      {/* Start Workout Button — inline for desktop only */}
       {!activeWorkout && (
-        <div className="mb-6">
+        <div className="mb-6 hidden md:block">
+          <button
+            onClick={() => setShowWorkoutSelector(true)}
+            className="w-full cursor-pointer rounded-lg bg-primary p-4 text-base font-semibold text-white hover:bg-orange-600"
+          >
+            🔥 Start Workout
+          </button>
+        </div>
+      )}
+
+      {/* Start Workout Button — fixed bottom for mobile only */}
+      {!activeWorkout && (
+        <div className="fixed bottom-16 left-0 right-0 z-40 border-t border-gray-800 bg-black/90 px-4 py-3 md:hidden">
           <button
             onClick={() => setShowWorkoutSelector(true)}
             className="w-full cursor-pointer rounded-lg bg-primary p-4 text-base font-semibold text-white hover:bg-orange-600"
