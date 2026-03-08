@@ -1,0 +1,101 @@
+# Ralph Progress Log — Streak Ring UI
+Started: 2026-03-08
+
+## Codebase Patterns
+- Build shared package (`cd packages/shared && yarn build`) before running API/web typecheck
+- GroupStats and ProfileStats types are used in: API streak-calculator.ts, routes/users.ts, web queries.ts
+- Web queries.ts has catch fallback objects for stats that must match GroupStats shape
+- API tests use vitest with fake timers (fixed at 2026-03-02T12:00:00.000Z)
+- streak-calculator.test.ts uses `makeGroupWorkout(date)` and `daysAgoStr(n)` helpers
+---
+
+## 2026-03-08T07:43 - US-001
+- Added StreakDayInfo and StreakDetail interfaces to packages/shared/src/types.ts
+- Updated GroupStats with `last7Days: StreakDayInfo[]` field
+- Updated ProfileStats with `highestActiveStreakLast7Days: StreakDayInfo[] | null` field
+- Added temporary stubs (empty array/null) in streak-calculator.ts, users.ts, and queries.ts
+- Files changed: packages/shared/src/types.ts, services/api/src/services/streak-calculator.ts, services/api/src/services/streak-calculator.test.ts, services/api/src/routes/users.ts, apps/web/src/lib/queries.ts
+- **Learnings for future iterations:**
+  - Adding required fields to shared types causes cascading type errors in API and web
+  - Stub with TODO comments for later stories to fill in properly
+  - queries.ts catch fallback objects must match full type shape
+---
+
+## 2026-03-08T07:45 - US-002
+- Extended calculateStreaks() to return last7Days: StreakDayInfo[]
+- Added buildLast7Days() helper that maps group workouts to a 7-element array
+- Updated calculateGroupStats() to populate last7Days via buildLast7Days()
+- Added 7 new unit tests: all active, none active, alternating, gaps, multiple same day
+- Updated existing tests from toEqual to toMatchObject for backwards compat
+- Files changed: services/api/src/services/streak-calculator.ts, services/api/src/services/streak-calculator.test.ts
+- **Learnings for future iterations:**
+  - DAY_LABELS array maps getUTCDay() (0=Sun) to single letters
+  - buildLast7Days walks from 6 days ago to today (index 0 to 6)
+  - Use toMatchObject instead of toEqual when adding fields to existing return types
+---
+
+## 2026-03-08T07:47 - US-003
+- Streak endpoints already return last7Days (calculateStreaks updated in US-002)
+- Updated dashboard.ts EnrichedBurnBuddy/EnrichedBurnSquad interfaces with last7Days
+- Updated users.ts profile endpoint to track highestActiveStreakLast7Days
+- Files changed: services/api/src/routes/dashboard.ts, services/api/src/routes/users.ts
+- **Learnings for future iterations:**
+  - Dashboard enriched interfaces must mirror what calculateStreaks returns
+  - Profile endpoint loops through buddies AND squads to find highest streak
+  - toMatchObject in dashboard tests means extra fields don't break existing tests
+---
+
+## 2026-03-08T07:49 - US-004
+- Created StreakRing SVG component at apps/web/src/components/StreakRing.tsx
+- SVG ring with 7 arc segments, gap between them, day labels, center count
+- Supports orange/violet color variants with proper fills
+- Clickable segments using next/link for group workout navigation
+- Responsive sizing: 100px mobile, 112px desktop
+- Updated Streaks interface in queries.ts to include last7Days
+- Updated catch fallbacks for streaks endpoints to include last7Days: []
+- Files changed: apps/web/src/components/StreakRing.tsx, apps/web/src/lib/queries.ts
+- **Learnings for future iterations:**
+  - SVG arcs use polarToCartesian with -90 offset to start at 12 o'clock
+  - group-hover/group-focus-within pattern for tooltip popup without JS state
+  - Next.js Link wrapping SVG g elements works for clickable segments
+---
+
+## 2026-03-08T07:51 - US-005
+- Popup was already built into StreakLabel in US-004, refined for mobile support
+- Removed pointer-events-none so tooltip is interactive on touch devices
+- Uses group-hover/group-focus-within with named group (/tooltip) for scoping
+- Button element enables focus/tap behavior on mobile
+- Files changed: apps/web/src/components/StreakRing.tsx
+- **Learnings for future iterations:**
+  - group-hover + group-focus-within covers both desktop and mobile tooltip triggers
+  - Named groups (group/tooltip) avoid conflicts with parent group contexts
+  - Remove pointer-events-none if tooltip needs to be interactive
+---
+
+## 2026-03-08T07:53 - US-006
+- Replaced Burn Streak and Supernova Streak StatCards with StreakRing components
+- Rings in flex row above remaining 6 stat cards
+- Updated streaks fallback to include last7Days: []
+- Files changed: apps/web/src/app/(main)/burn-buddies/[id]/page.tsx
+- **Learnings for future iterations:**
+  - Fallback objects must match full type shape (add last7Days: [] to streak fallbacks)
+  - Use consistent description text strings for burn/supernova streak across pages
+---
+
+## 2026-03-08T07:55 - US-007
+- Replaced Burn Streak and Supernova Streak StatCards with StreakRing on squad page
+- Same layout as buddy page: flex row above remaining 6 stat cards
+- Updated streaks fallback with last7Days: []
+- Files changed: apps/web/src/app/(main)/burn-squads/[id]/page.tsx
+---
+
+## 2026-03-08T07:57 - US-008
+- Added StreakRing components to profile/[uid] page
+- Rings display highestActiveStreak value and highestActiveStreakLast7Days
+- Empty EMPTY_LAST_7_DAYS constant for when no active streak exists
+- Removed "Highest Active Streak" StatCard, kept other 4 stat cards
+- Files changed: apps/web/src/app/(main)/profile/[uid]/page.tsx
+- **Learnings for future iterations:**
+  - Profile page uses ProfileStats type directly (not a custom hook data shape)
+  - Empty basePath="" means segments are not clickable (no group workout links)
+---

@@ -18,7 +18,7 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -34,7 +34,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Build shared package first (cd packages/shared && yarn build) before running API typecheck since it depends on the new StreakDayInfo type from US-001."
     },
     {
@@ -51,7 +51,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Build shared package first (cd packages/shared && yarn build). The calculateStreaks() function already returns last7Days from US-002 — endpoints just need to pass it through in their responses."
     },
     {
@@ -77,7 +77,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Build shared package first (cd packages/shared && yarn build) to get StreakDayInfo type. SVG arcs use basic trigonometry (startAngle/endAngle per segment). To verify visually, create a temporary test page or use the component on an existing page with mock data."
     },
     {
@@ -96,7 +96,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "The StreakRing component already accepts a 'description' prop from US-004. This story adds the popup UI that displays it. Use a simple CSS hover/focus approach or a lightweight state toggle — no tooltip library needed."
     },
     {
@@ -117,7 +117,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -137,7 +137,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -156,7 +156,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "The profile endpoint now returns highestActiveStreakLast7Days from US-003. If basePath is not determinable (e.g. the user has multiple buddies), segments can be non-clickable — just don't pass groupWorkoutIds."
     }
   ]
