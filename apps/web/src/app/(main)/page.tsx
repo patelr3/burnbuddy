@@ -288,9 +288,9 @@ export default function Home() {
 
       {showCard && <GettingStartedCard onDismiss={handleDismiss} />}
 
-      {/* Active Workout Banner */}
+      {/* Active Workout Banner — inline for desktop only */}
       {activeWorkout && (
-        <div className="mb-5 flex items-center justify-between rounded-lg border border-accent-pink bg-surface px-4 py-3.5 shadow">
+        <div className="mb-5 hidden items-center justify-between rounded-lg border border-accent-pink bg-surface px-4 py-3.5 shadow md:flex">
           <div>
             <div className="text-[15px] font-bold text-accent-pink">
               🔥 Active Workout: {activeWorkout.type}
@@ -305,6 +305,28 @@ export default function Home() {
           >
             End Workout
           </button>
+        </div>
+      )}
+
+      {/* Active Workout Banner — fixed bottom for mobile only */}
+      {activeWorkout && (
+        <div className="fixed bottom-16 left-0 right-0 z-40 border-t border-gray-800 bg-black/90 px-4 py-3 md:hidden">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-[15px] font-bold text-accent-pink">
+                🔥 {activeWorkout.type}
+              </div>
+              <div className="mt-0.5 text-[13px] text-gray-300">
+                {formatElapsed(elapsed)}
+              </div>
+            </div>
+            <button
+              onClick={handleEndWorkout}
+              className="cursor-pointer rounded-md bg-red-600 px-4 py-2 text-[13px] font-bold text-white hover:bg-red-700"
+            >
+              End Workout
+            </button>
+          </div>
         </div>
       )}
 
