@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { Router, type Request, type Response } from 'express';
 import type { Friend, FriendRequest, EnrichedFriendRequest, UserProfile } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
+import { requireProfile } from '../middleware/requireProfile';
 import { cacheControl } from '../middleware/cache-control';
 import { getDb } from '../lib/firestore';
 
@@ -11,7 +12,7 @@ const router = Router();
  * POST /friends/requests
  * Sends a friend request to another user by uid.
  */
-router.post('/requests', requireAuth, async (req: Request, res: Response): Promise<void> => {
+router.post('/requests', requireAuth, requireProfile, async (req: Request, res: Response): Promise<void> => {
   const fromUid = req.user!.uid;
   const { toUid } = req.body as { toUid?: string };
 

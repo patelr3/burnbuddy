@@ -33,7 +33,8 @@ const {
   mockJoinRequestQueryChain,
   // db.getAll() for batched profile fetches
   mockGetAll,
-  // users — doc (for profile lookups)
+  // users — doc operations (for profile lookups)
+  mockUsersDocGet,
   mockUsersDocRef,
 } = vi.hoisted(() => {
   const mockVerifyIdToken = vi.fn();
@@ -95,8 +96,9 @@ const {
   // db.getAll() for batched profile fetches
   const mockGetAll = vi.fn();
 
-  // users — doc ref (for profile lookups via getAll)
-  const mockUsersDocRef = vi.fn((id: string) => ({ id }));
+  // users — doc operations (for profile lookups)
+  const mockUsersDocGet = vi.fn();
+  const mockUsersDocRef = vi.fn((id: string) => ({ id, get: mockUsersDocGet }));
 
   return {
     mockVerifyIdToken,
@@ -120,6 +122,7 @@ const {
     mockJoinRequestQueryGet,
     mockJoinRequestQueryChain,
     mockGetAll,
+    mockUsersDocGet,
     mockUsersDocRef,
   };
 });
@@ -213,6 +216,15 @@ beforeEach(() => {
     update: mockJoinRequestDocUpdate,
   }));
   mockFriendsDocRef.mockImplementation(() => ({ get: mockFriendsDocGet }));
+
+  // Re-setup users doc ref (for requireProfile middleware and getAll profile fetches)
+  mockUsersDocRef.mockImplementation((id: string) => ({ id, get: mockUsersDocGet }));
+
+  // Default: authenticated user has a profile (for requireProfile middleware)
+  mockUsersDocGet.mockResolvedValue({
+    exists: true,
+    data: () => ({ uid: TEST_UID, displayName: 'Test User', createdAt: '' }),
+  });
 });
 
 // ── GET /burn-squads/join-requests ────────────────────────────────────────────
@@ -1258,31 +1270,20 @@ describe('GET /burn-squads/:id/group-workouts', () => {
  *
  * Fix: add `if (memberUid === uid) return 400` before the friendship check.
  */
-describe('TLA+ Gap G-2: NoSelfInvites — no explicit self-invite check in POST /:id/members', () => {
-  it('does not return 400 immediately when memberUid equals own uid; falls through to friendship check', async () => {
-    // Squad exists and TEST_UID is a member
-    mockSquadDocGet.mockResolvedValueOnce({
-      exists: true,
-      data: () => SAMPLE_SQUAD,
-    });
-    // Friendship check for self: user cannot be friends with themselves,
-    // so this returns false — the route rejects with 400 "must be friends"
-    mockFriendsDocGet.mockResolvedValueOnce({ exists: false });
-
+describe('TLA+ Gap G-2: NoSelfInvites — explicit self-invite check in POST /:id/members', () => {
+  it('returns 400 immediately when memberUid equals own uid', async () => {
     const res = await request(buildApp())
       .post(`/burn-squads/${SQUAD_ID}/members`)
       .set('Authorization', VALID_TOKEN)
       .send({ memberUid: TEST_UID });
 
-    // The response is 400 "must be friends" — NOT a dedicated "cannot invite yourself" error.
-    // This proves there is no explicit self-invite guard; prevention is indirect.
+    // Explicit self-invite guard returns 400 before any Firestore lookups
     expect(res.status).toBe(400);
-    expect(res.body.error).toContain('friends');
-    expect(res.body.error).not.toContain('yourself');
+    expect(res.body.error).toBe('Cannot invite yourself');
 
-    // The friendship doc was queried, confirming the route reached the friendship check
-    // instead of short-circuiting on self-invite detection.
-    expect(mockFriendsDocGet).toHaveBeenCalled();
+    // No squad or friendship docs were queried — short-circuited early
+    expect(mockSquadDocGet).not.toHaveBeenCalled();
+    expect(mockFriendsDocGet).not.toHaveBeenCalled();
   });
 });
 
@@ -1293,7 +1294,29 @@ describe('TLA+ Gap G-2: NoSelfInvites — no explicit self-invite check in POST 
  * A user with a valid Firebase Auth token but no profile can create squads.
  */
 describe('TLA+ Gap G-4: ProfileRequiredForSocialActions — squad creation', () => {
-  it('allows squad creation without checking creator profile existence', async () => {
+  it('returns 403 when creator has no Firestore profile', async () => {
+    // Profile does NOT exist
+    mockUsersDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .post('/burn-squads')
+      .set('Authorization', VALID_TOKEN)
+      .send({ name: 'Test Squad' });
+
+    // requireProfile middleware rejects with 403
+    expect(res.status).toBe(403);
+    expect(res.body).toMatchObject({ error: 'Profile required' });
+
+    // Verify the profile doc was fetched for the creator
+    expect(mockUsersDocRef).toHaveBeenCalledWith(TEST_UID);
+
+    // Verify no squad creation occurred
+    expect(mockSquadDocSet).not.toHaveBeenCalled();
+  });
+
+  it('allows squad creation when creator has a profile', async () => {
+    // Profile exists (default from beforeEach applies — override with explicit mock)
+    mockUsersDocGet.mockResolvedValueOnce({ exists: true, data: () => ({ uid: TEST_UID, displayName: 'Test User' }) });
     // Squad doc set succeeds
     mockSquadDocSet.mockResolvedValueOnce(undefined);
 
@@ -1302,13 +1325,14 @@ describe('TLA+ Gap G-4: ProfileRequiredForSocialActions — squad creation', () 
       .set('Authorization', VALID_TOKEN)
       .send({ name: 'Test Squad' });
 
-    // Squad creation succeeds — no profile check was performed.
-    // The route only verifies Firebase Auth token, not Firestore profile existence.
     expect(res.status).toBe(201);
     expect(res.body.squad).toMatchObject({
       name: 'Test Squad',
       adminUid: TEST_UID,
       memberUids: [TEST_UID],
     });
+
+    // Verify the profile doc was fetched for the creator
+    expect(mockUsersDocRef).toHaveBeenCalledWith(TEST_UID);
   });
 });

@@ -3,6 +3,7 @@ import { Router, type Request, type Response } from 'express';
 import type { ActivePartnerWorkout, BurnBuddy, BurnSquad, UserProfile, Workout, WorkoutType } from '@burnbuddy/shared';
 import { GROUP_WORKOUT_WINDOW_MS } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
+import { requireProfile } from '../middleware/requireProfile';
 import { cacheControl } from '../middleware/cache-control';
 import { getDb } from '../lib/firestore';
 import { detectGroupWorkouts } from '../services/group-workout-detection';
@@ -101,7 +102,7 @@ router.get('/partner-active', requireAuth, cacheControl(5), async (req: Request,
  * POST /workouts
  * Starts a new workout for the authenticated user (status: active).
  */
-router.post('/', requireAuth, async (req: Request, res: Response): Promise<void> => {
+router.post('/', requireAuth, requireProfile, async (req: Request, res: Response): Promise<void> => {
   const uid = req.user!.uid;
   const { type } = req.body as { type?: WorkoutType | string };
 

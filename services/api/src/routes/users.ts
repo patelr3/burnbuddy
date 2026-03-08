@@ -114,7 +114,7 @@ router.post('/', requireAuth, async (req: Request, res: Response): Promise<void>
     return;
   }
 
-  const { username, usernameLower } = await generateUniqueUsername(email, db);
+  const { username, usernameLower } = await generateUniqueUsername(email, db, uid);
 
   const profile: UserProfile = {
     uid,
@@ -126,10 +126,8 @@ router.post('/', requireAuth, async (req: Request, res: Response): Promise<void>
     ...(fcmToken !== undefined ? { fcmToken } : {}),
   };
 
-  const batch = db.batch();
-  batch.set(docRef, profile);
-  batch.set(db.collection('usernames').doc(usernameLower), { uid });
-  await batch.commit();
+  // Username reservation was already done atomically in generateUniqueUsername
+  await docRef.set(profile);
 
   res.status(201).json(profile);
 });
@@ -332,14 +330,12 @@ router.put('/me', requireAuth, async (req: Request, res: Response): Promise<void
     if (!existingData.username && !updates.username) {
       const migrationEmail = email ?? existingData.email;
       if (migrationEmail) {
-        const { username, usernameLower } = await generateUniqueUsername(migrationEmail, db);
+        const { username, usernameLower } = await generateUniqueUsername(migrationEmail, db, uid);
         updates.username = username;
         updates.usernameLower = usernameLower;
 
-        const batch = db.batch();
-        batch.set(docRef, updates, { merge: true });
-        batch.set(db.collection('usernames').doc(usernameLower), { uid });
-        await batch.commit();
+        // Username reservation was already done atomically in generateUniqueUsername
+        await docRef.set(updates, { merge: true });
         const updated = await docRef.get();
         res.json(updated.data() as UserProfile);
         return;
@@ -355,7 +351,7 @@ router.put('/me', requireAuth, async (req: Request, res: Response): Promise<void
       return;
     }
 
-    const { username, usernameLower } = await generateUniqueUsername(email, db);
+    const { username, usernameLower } = await generateUniqueUsername(email, db, uid);
 
     const profile: UserProfile = {
       uid,
@@ -367,10 +363,8 @@ router.put('/me', requireAuth, async (req: Request, res: Response): Promise<void
       ...(fcmToken !== undefined ? { fcmToken } : {}),
     };
 
-    const batch = db.batch();
-    batch.set(docRef, profile);
-    batch.set(db.collection('usernames').doc(usernameLower), { uid });
-    await batch.commit();
+    // Username reservation was already done atomically in generateUniqueUsername
+    await docRef.set(profile);
     res.status(201).json(profile);
   }
 });

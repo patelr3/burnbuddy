@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { Router, type Request, type Response } from 'express';
 import type { BurnBuddy, BurnBuddyRequest, GroupWorkout, UserProfile, WorkoutSchedule } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
+import { requireProfile } from '../middleware/requireProfile';
 import { cacheControl } from '../middleware/cache-control';
 import { getDb } from '../lib/firestore';
 import { calculateStreaks, calculateGroupStats } from '../services/streak-calculator';
@@ -13,7 +14,7 @@ const router = Router();
  * POST /burn-buddies/requests
  * Sends a Burn Buddy request to a friend (must already be friends).
  */
-router.post('/requests', requireAuth, async (req: Request, res: Response): Promise<void> => {
+router.post('/requests', requireAuth, requireProfile, async (req: Request, res: Response): Promise<void> => {
   const fromUid = req.user!.uid;
   const { toUid } = req.body as { toUid?: string };
 
@@ -116,10 +117,19 @@ router.post(
       return;
     }
 
+    // Use sorted composite key to guarantee at most one BurnBuddy per pair (TLA+ invariant G-1)
+    const [bbUid1, bbUid2] = [burnBuddyRequest.fromUid, uid].sort();
+    const burnBuddyId = `${bbUid1}_${bbUid2}`;
+
+    // Check if a BurnBuddy already exists for this pair (cross-request scenario)
+    const existingBBDoc = await db.collection('burnBuddies').doc(burnBuddyId).get();
+    if (existingBBDoc.exists) {
+      res.status(409).json({ error: 'A Burn Buddy relationship already exists for this pair' });
+      return;
+    }
+
     await db.collection('burnBuddyRequests').doc(id).update({ status: 'accepted' });
 
-    const burnBuddyId = randomUUID();
-    const [bbUid1, bbUid2] = [burnBuddyRequest.fromUid, uid].sort();
     const burnBuddy: BurnBuddy = {
       id: burnBuddyId,
       uid1: bbUid1,

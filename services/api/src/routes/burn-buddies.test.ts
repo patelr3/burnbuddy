@@ -214,6 +214,8 @@ describe('POST /burn-buddies/requests', () => {
   });
 
   it('returns 400 when toUid is missing', async () => {
+    mockUsersDocGet.mockResolvedValueOnce({ exists: true, data: () => ({ uid: TEST_UID }) });
+
     const res = await request(buildApp())
       .post('/burn-buddies/requests')
       .set('Authorization', VALID_TOKEN)
@@ -223,6 +225,8 @@ describe('POST /burn-buddies/requests', () => {
   });
 
   it('returns 400 when toUid equals own uid', async () => {
+    mockUsersDocGet.mockResolvedValueOnce({ exists: true, data: () => ({ uid: TEST_UID }) });
+
     const res = await request(buildApp())
       .post('/burn-buddies/requests')
       .set('Authorization', VALID_TOKEN)
@@ -232,6 +236,7 @@ describe('POST /burn-buddies/requests', () => {
   });
 
   it('returns 400 when users are not friends', async () => {
+    mockUsersDocGet.mockResolvedValueOnce({ exists: true, data: () => ({ uid: TEST_UID }) });
     mockFriendsDocGet.mockResolvedValueOnce({ exists: false });
 
     const res = await request(buildApp())
@@ -244,6 +249,7 @@ describe('POST /burn-buddies/requests', () => {
   });
 
   it('returns 409 when a pending request already exists', async () => {
+    mockUsersDocGet.mockResolvedValueOnce({ exists: true, data: () => ({ uid: TEST_UID }) });
     mockFriendsDocGet.mockResolvedValueOnce({ exists: true });
     mockBBRequestQueryGet.mockResolvedValueOnce({ empty: false });
 
@@ -257,6 +263,7 @@ describe('POST /burn-buddies/requests', () => {
   });
 
   it('creates and returns a new Burn Buddy request with 201', async () => {
+    mockUsersDocGet.mockResolvedValueOnce({ exists: true, data: () => ({ uid: TEST_UID }) });
     mockFriendsDocGet.mockResolvedValueOnce({ exists: true });
     mockBBRequestQueryGet.mockResolvedValueOnce({ empty: true });
     mockBBRequestDocSet.mockResolvedValueOnce(undefined);
@@ -368,6 +375,8 @@ describe('POST /burn-buddies/requests/:id/accept', () => {
       exists: true,
       data: () => ({ id: REQUEST_ID, fromUid: OTHER_UID, toUid: TEST_UID, status: 'pending', createdAt: '' }),
     });
+    // Existing BurnBuddy check — none exists
+    mockBBDocGet.mockResolvedValueOnce({ exists: false });
     mockBBRequestDocUpdate.mockResolvedValueOnce(undefined);
     mockBBDocSet.mockResolvedValueOnce(undefined);
 
@@ -987,12 +996,14 @@ describe('GET /burn-buddies/:id/calendar', () => {
  * Fix: use a sorted composite key as doc ID (matching the friendship pattern)
  * or query for an existing BurnBuddy before creating.
  */
-describe('TLA+ Gap G-1: AtMostOneBuddyPerPair — no duplicate-pair guard on accept', () => {
-  it('creates BurnBuddy doc with random UUID, not sorted composite key', async () => {
+describe('TLA+ Gap G-1: AtMostOneBuddyPerPair — sorted composite key on accept', () => {
+  it('creates BurnBuddy doc with sorted composite key as doc ID', async () => {
     mockBBRequestDocGet.mockResolvedValueOnce({
       exists: true,
       data: () => ({ id: REQUEST_ID, fromUid: OTHER_UID, toUid: TEST_UID, status: 'pending', createdAt: '' }),
     });
+    // Existing BurnBuddy check — none exists
+    mockBBDocGet.mockResolvedValueOnce({ exists: false });
     mockBBRequestDocUpdate.mockResolvedValueOnce(undefined);
     mockBBDocSet.mockResolvedValueOnce(undefined);
 
@@ -1002,41 +1013,67 @@ describe('TLA+ Gap G-1: AtMostOneBuddyPerPair — no duplicate-pair guard on acc
 
     expect(res.status).toBe(200);
 
-    // Verify the doc ID used is NOT the sorted composite key pattern
-    const docIdUsed = (mockBBDocRef.mock.calls as unknown as string[][])[0]?.[0];
+    // Verify the doc ID used IS the sorted composite key
     const sortedCompositeKey = [TEST_UID, OTHER_UID].sort().join('_');
-    expect(docIdUsed).not.toBe(sortedCompositeKey);
+    // First call to mockBBDocRef is the existence check, second is the set
+    const docIdUsed = (mockBBDocRef.mock.calls as unknown as string[][])[0]?.[0];
+    expect(docIdUsed).toBe(sortedCompositeKey);
+
+    // Verify the BurnBuddy.id field also uses the sorted composite key
+    const setArg = mockBBDocSet.mock.calls[0]?.[0] as { id: string };
+    expect(setArg.id).toBe(sortedCompositeKey);
   });
 
-  it('does not check for existing BurnBuddy before creating a new one', async () => {
+  it('returns 409 when a BurnBuddy already exists for the pair (cross-request)', async () => {
     mockBBRequestDocGet.mockResolvedValueOnce({
       exists: true,
       data: () => ({ id: REQUEST_ID, fromUid: OTHER_UID, toUid: TEST_UID, status: 'pending', createdAt: '' }),
     });
-    mockBBRequestDocUpdate.mockResolvedValueOnce(undefined);
-    mockBBDocSet.mockResolvedValueOnce(undefined);
+    // Existing BurnBuddy check — already exists
+    mockBBDocGet.mockResolvedValueOnce({ exists: true });
 
     const res = await request(buildApp())
       .post(`/burn-buddies/requests/${REQUEST_ID}/accept`)
       .set('Authorization', VALID_TOKEN);
 
-    expect(res.status).toBe(200);
-
-    // No query was made to check if a BurnBuddy already exists for this pair.
-    // This means two cross-requests (A→B and B→A) can both be accepted,
-    // creating duplicate BurnBuddy docs for the same user pair.
-    expect(mockBBQueryGet).not.toHaveBeenCalled();
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({ error: expect.stringContaining('already exists') });
+    // Should NOT have created a new BurnBuddy doc
+    expect(mockBBDocSet).not.toHaveBeenCalled();
   });
 });
 
 /**
  * Gap G-4 — ProfileRequiredForSocialActions / CDI-1 (CrossDomainInvariants.tla)
  *
- * POST /burn-buddies/requests does not verify the sender has a Firestore profile.
- * A user with a valid Firebase Auth token but no profile can send buddy requests.
+ * POST /burn-buddies/requests now verifies the sender has a Firestore profile
+ * via the requireProfile middleware. Users without profiles get 403.
  */
 describe('TLA+ Gap G-4: ProfileRequiredForSocialActions — burn buddy requests', () => {
-  it('allows buddy request creation without checking sender profile existence', async () => {
+  it('returns 403 when sender has no Firestore profile', async () => {
+    // Profile does NOT exist
+    mockUsersDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .post('/burn-buddies/requests')
+      .set('Authorization', VALID_TOKEN)
+      .send({ toUid: OTHER_UID });
+
+    // requireProfile middleware rejects with 403
+    expect(res.status).toBe(403);
+    expect(res.body).toMatchObject({ error: 'Profile required' });
+
+    // Verify the profile doc was fetched for the sender
+    expect(mockUsersDocRef).toHaveBeenCalledWith(TEST_UID);
+
+    // Verify no friendship check or request creation occurred
+    expect(mockFriendsDocGet).not.toHaveBeenCalled();
+    expect(mockBBRequestDocSet).not.toHaveBeenCalled();
+  });
+
+  it('allows buddy request creation when sender has a profile', async () => {
+    // Profile exists
+    mockUsersDocGet.mockResolvedValueOnce({ exists: true, data: () => ({ uid: TEST_UID, displayName: 'Test User' }) });
     // Friendship exists
     mockFriendsDocGet.mockResolvedValueOnce({ exists: true });
     // No pending request
@@ -1049,11 +1086,8 @@ describe('TLA+ Gap G-4: ProfileRequiredForSocialActions — burn buddy requests'
       .set('Authorization', VALID_TOKEN)
       .send({ toUid: OTHER_UID });
 
-    // Request succeeds — no profile check was performed.
-    // The route only verifies Firebase Auth token, not Firestore profile existence.
     expect(res.status).toBe(201);
-
-    // Verify no user profile doc was fetched for the sender (TEST_UID)
-    expect(mockUsersDocGet).not.toHaveBeenCalled();
+    // Verify the profile doc was fetched for the sender
+    expect(mockUsersDocRef).toHaveBeenCalledWith(TEST_UID);
   });
 });

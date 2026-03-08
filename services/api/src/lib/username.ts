@@ -38,26 +38,45 @@ export function validateUsername(username: string): string | null {
 export async function generateUniqueUsername(
   email: string,
   db: FirebaseFirestore.Firestore,
+  uid: string,
 ): Promise<UsernameResult> {
   const raw = email.split('@')[0] ?? 'user';
   // Keep only alphanumeric and underscores, fall back to 'user' if empty
   const base = raw.replace(/[^a-zA-Z0-9_]/g, '') || 'user';
   const baseLower = base.toLowerCase();
 
-  // Check the base username first
-  const baseDoc = await db.collection('usernames').doc(baseLower).get();
-  if (!baseDoc.exists) {
+  // Atomically reserve the base username using create() (fails if doc exists)
+  if (await tryReserveUsername(db, baseLower, uid)) {
     return { username: base, usernameLower: baseLower };
   }
 
-  // Append incrementing suffixes until we find an available one
+  // Append incrementing suffixes until we atomically reserve one
   let suffix = 2;
   while (true) {
     const candidate = `${baseLower}${suffix}`;
-    const doc = await db.collection('usernames').doc(candidate).get();
-    if (!doc.exists) {
+    if (await tryReserveUsername(db, candidate, uid)) {
       return { username: `${base}${suffix}`, usernameLower: candidate };
     }
     suffix++;
+  }
+}
+
+/**
+ * Attempts to atomically reserve a username by using doc.create(),
+ * which fails with ALREADY_EXISTS (code 6) if the doc already exists.
+ * Returns true if the reservation succeeded, false if already taken.
+ */
+async function tryReserveUsername(
+  db: FirebaseFirestore.Firestore,
+  usernameLower: string,
+  uid: string,
+): Promise<boolean> {
+  try {
+    await db.collection('usernames').doc(usernameLower).create({ uid });
+    return true;
+  } catch (err: unknown) {
+    const code = (err as { code?: number }).code;
+    if (code === 6) return false; // ALREADY_EXISTS
+    throw err;
   }
 }

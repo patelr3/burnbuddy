@@ -172,6 +172,12 @@ beforeEach(() => {
     delete: mockFriendDocDelete,
   }));
   mockUsersDocRef.mockImplementation(() => ({ get: mockUsersDocGet }));
+
+  // Default: authenticated user has a profile (for requireProfile middleware)
+  mockUsersDocGet.mockResolvedValue({
+    exists: true,
+    data: () => ({ uid: TEST_UID, displayName: 'Test User', email: 'test@test.com', createdAt: '' }),
+  });
 });
 
 // ── GET /users/search ──────────────────────────────────────────────────────────
@@ -601,7 +607,29 @@ describe('GET /friends', () => {
  * 403/404 if it doesn't exist.
  */
 describe('TLA+ Gap G-4: ProfileRequiredForSocialActions — friend requests', () => {
-  it('allows friend request creation without checking sender profile existence', async () => {
+  it('returns 403 when sender has no Firestore profile', async () => {
+    // Profile does NOT exist
+    mockUsersDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .post('/friends/requests')
+      .set('Authorization', VALID_TOKEN)
+      .send({ toUid: OTHER_UID });
+
+    // requireProfile middleware rejects with 403
+    expect(res.status).toBe(403);
+    expect(res.body).toMatchObject({ error: 'Profile required' });
+
+    // Verify the profile doc was fetched for the sender
+    expect(mockUsersDocRef).toHaveBeenCalledWith(TEST_UID);
+
+    // Verify no request creation occurred
+    expect(mockFrRequestDocSet).not.toHaveBeenCalled();
+  });
+
+  it('allows friend request creation when sender has a profile', async () => {
+    // Profile exists (default from beforeEach applies — override with explicit mock)
+    mockUsersDocGet.mockResolvedValueOnce({ exists: true, data: () => ({ uid: TEST_UID, displayName: 'Test User' }) });
     // No pending request exists
     mockFrRequestQueryGet.mockResolvedValueOnce({ empty: true });
     // Request creation succeeds
@@ -612,12 +640,10 @@ describe('TLA+ Gap G-4: ProfileRequiredForSocialActions — friend requests', ()
       .set('Authorization', VALID_TOKEN)
       .send({ toUid: OTHER_UID });
 
-    // Request succeeds — no profile check was performed.
-    // The route only verifies Firebase Auth token, not Firestore profile existence.
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({ fromUid: TEST_UID, toUid: OTHER_UID, status: 'pending' });
 
-    // Verify no user profile doc was fetched for the sender to check existence
-    expect(mockUsersDocGet).not.toHaveBeenCalled();
+    // Verify the profile doc was fetched for the sender
+    expect(mockUsersDocRef).toHaveBeenCalledWith(TEST_UID);
   });
 });

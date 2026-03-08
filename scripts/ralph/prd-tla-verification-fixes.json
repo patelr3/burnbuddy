@@ -18,7 +18,7 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "The friendship pattern in friends.ts uses sorted composite key ${uid1}_${uid2} as the Firestore doc ID — replicate this pattern for burn buddies. The accept handler is around line 92-134 in burn-buddies.ts. The gap-documenting tests are in the 'TLA+ Gap G-1' describe block around line 985."
     },
     {
@@ -36,7 +36,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "The middleware pattern is in services/api/src/middleware/auth.ts. Use getDb() from lib/firestore.ts for Firestore access. The Express type augmentation is in services/api/src/types/express.d.ts. Tests use vi.mock + vi.hoisted to stub Firestore. The G-4 gap tests are in the 'TLA+ Gap G-4' describe block in burn-buddies.test.ts."
     },
     {
@@ -54,7 +54,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Follow the same pattern established in US-002 for burn-buddies. Each test file uses vi.mock + vi.hoisted — add the profile doc mock to beforeEach and add a test case that omits the profile. Check existing gap-documenting G-4 tests in friends.test.ts, burn-squads.test.ts, workouts.test.ts and update them to assert 403."
     },
     {
@@ -70,7 +70,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "generateUniqueUsername() is at username.ts:38-63. It does a read-then-write without a transaction. The profile creation batch is in users.ts around line 129-133. Firestore doc.create() throws error code 6 (ALREADY_EXISTS) if the document exists. The existing tests mock Firestore via vi.mock + vi.hoisted."
     },
     {
@@ -84,7 +84,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "The POST /:id/members handler is at burn-squads.ts around line 330-386. Add the self-invite check right after the memberUid validation (around line 340), before the squad doc lookup and friendship check."
     },
     {
@@ -101,7 +101,7 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "The verification report is at specs/tla/VERIFICATION_REPORT.md. Update the status column in each domain table (sections 2, 3, 5, 7) and the detailed gap descriptions at the bottom."
     }
   ]

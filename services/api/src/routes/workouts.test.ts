@@ -686,23 +686,38 @@ describe('GET /workouts/partner-active', () => {
  * 403/404 if it doesn't exist.
  */
 describe('TLA+ Gap G-4: ProfileRequiredForSocialActions — workout creation', () => {
-  it('allows workout creation even when user has no Firestore profile', async () => {
-    mockWorkoutsDocSet.mockResolvedValueOnce(undefined);
-    // User profile does NOT exist — the route still creates the workout
-    mockUsersDocGet.mockResolvedValue({
-      exists: false,
-      data: () => undefined,
-    });
+  it('returns 403 when user has no Firestore profile', async () => {
+    // Profile does NOT exist
+    mockUsersDocGet.mockResolvedValueOnce({ exists: false });
 
     const res = await request(buildApp())
       .post('/workouts')
       .set('Authorization', VALID_TOKEN)
       .send({ type: 'Running' });
 
-    // Workout creation succeeds despite no profile existing.
-    // The profile fetch happens only AFTER workout creation (for notification displayName),
-    // not as a pre-condition guard.
+    // requireProfile middleware rejects with 403
+    expect(res.status).toBe(403);
+    expect(res.body).toMatchObject({ error: 'Profile required' });
+
+    // Verify the profile doc was fetched for the user
+    expect(mockUsersDocRef).toHaveBeenCalledWith(TEST_UID);
+
+    // Verify no workout creation occurred
+    expect(mockWorkoutsDocSet).not.toHaveBeenCalled();
+  });
+
+  it('allows workout creation when user has a profile', async () => {
+    mockWorkoutsDocSet.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .post('/workouts')
+      .set('Authorization', VALID_TOKEN)
+      .send({ type: 'Running' });
+
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({ uid: TEST_UID, type: 'Running', status: 'active' });
+
+    // Verify the profile doc was fetched for the user
+    expect(mockUsersDocRef).toHaveBeenCalledWith(TEST_UID);
   });
 });
