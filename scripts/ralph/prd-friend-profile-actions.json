@@ -7,34 +7,34 @@
     {
       "id": "US-001",
       "title": "Update BurnBuddyManagement.tla for cascade deletion and cancel request",
-      "description": "As a developer, I need the BurnBuddyManagement TLA+ spec to model cascade friend→buddy deletion and sender-initiated request cancellation so correctness is verified before implementation.",
+      "description": "As a developer, I need the BurnBuddyManagement TLA+ spec to model cascade friend\u2192buddy deletion and sender-initiated request cancellation so correctness is verified before implementation.",
       "acceptanceCriteria": [
         "In specs/tla/burn-buddies/BurnBuddyManagement.tla, update the DeleteFriendship action to also remove the burn buddy relationship for the pair (not just pending requests): add burnBuddies' = burnBuddies \\ {{u1, u2}} and change UNCHANGED burnBuddies to include the new assignment",
-        "Add a new CancelBuddyRequest(from, to) action that allows the sender (fromUid) to withdraw a pending request — preconditions: request exists with status=pending and fromUid=from, postcondition: request removed from buddyRequests set, UNCHANGED friends and burnBuddies",
+        "Add a new CancelBuddyRequest(from, to) action that allows the sender (fromUid) to withdraw a pending request \u2014 preconditions: request exists with status=pending and fromUid=from, postcondition: request removed from buddyRequests set, UNCHANGED friends and burnBuddies",
         "Add CancelBuddyRequest to the Next state relation: \\/ \\E from, to \\in Uid : CancelBuddyRequest(from, to)",
         "Add a new invariant NoBuddyWithoutFriendship == \\A bb \\in burnBuddies : bb \\in friends, and add it to SafetyInvariant conjunction",
         "Run TLC model checker on BurnBuddyManagement.tla and confirm zero invariant violations (use: cd specs/tla/burn-buddies && java -cp /usr/local/lib/tla2tools.jar tlc2.TLC BurnBuddyManagement or the project's TLC runner if available)",
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
-      "notes": "The existing DeleteFriendship action (line 140-147) already removes pending buddy requests but has UNCHANGED burnBuddies — change this to also cascade-delete the active burn buddy. The CancelBuddyRequest action is similar to DeclineBuddyRequest but fires when the canceller equals fromUid instead of toUid."
+      "passes": true,
+      "notes": "The existing DeleteFriendship action (line 140-147) already removes pending buddy requests but has UNCHANGED burnBuddies \u2014 change this to also cascade-delete the active burn buddy. The CancelBuddyRequest action is similar to DeclineBuddyRequest but fires when the canceller equals fromUid instead of toUid."
     },
     {
       "id": "US-002",
       "title": "Update CrossDomainInvariants.tla for cascade deletion and CDI-8",
-      "description": "As a developer, I need the cross-domain invariants spec to model cascade friend→buddy deletion and add the new invariant that no burn buddy can exist without an active friendship.",
+      "description": "As a developer, I need the cross-domain invariants spec to model cascade friend\u2192buddy deletion and add the new invariant that no burn buddy can exist without an active friendship.",
       "acceptanceCriteria": [
         "In specs/tla/CrossDomainInvariants.tla, update DeleteFriendship action (line 151-155) to also cascade-delete the burn buddy: add burnBuddies' = burnBuddies \\ {{u1, u2}} and update the UNCHANGED tuple to remove burnBuddies from it",
-        "Remove or update the CDI-6 comment (lines 376-381) that says 'burn buddy relationships persist after friendship deletion — BY DESIGN'. Replace with a comment explaining burn buddies are now cascade-deleted when friendship is removed",
+        "Remove or update the CDI-6 comment (lines 376-381) that says 'burn buddy relationships persist after friendship deletion \u2014 BY DESIGN'. Replace with a comment explaining burn buddies are now cascade-deleted when friendship is removed",
         "Add new invariant CDI-8: NoBuddyWithoutFriendship == \\A bb \\in burnBuddies : bb \\in friends",
         "Add NoBuddyWithoutFriendship to the CrossDomainInvariant conjunction (line 394-396)",
         "Run TLC model checker on CrossDomainInvariants.tla and confirm zero invariant violations",
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": "CrossDomainInvariants.tla currently documents that burn buddies persist after friendship deletion as 'by design' (CDI-6). This PRD changes that behavior. The DeleteFriendship action at line 151-155 currently has UNCHANGED burnBuddies — this must change."
+      "passes": true,
+      "notes": "CrossDomainInvariants.tla currently documents that burn buddies persist after friendship deletion as 'by design' (CDI-6). This PRD changes that behavior. The DeleteFriendship action at line 151-155 currently has UNCHANGED burnBuddies \u2014 this must change."
     },
     {
       "id": "US-003",
@@ -48,7 +48,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "The shared package must be built after type changes since the API and web app resolve @burnbuddy/shared from compiled dist/ output. Run yarn build in packages/shared after editing types.ts."
     },
     {
@@ -66,8 +66,8 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": "The profile endpoint is in services/api/src/routes/users.ts. It already queries burnBuddyRequests for sent/received pending requests (around line 499-532) — extract the document ID from those query results. For burnBuddyId, find the matching burn buddy document. Build shared package first: cd packages/shared && yarn build."
+      "passes": true,
+      "notes": "The profile endpoint is in services/api/src/routes/users.ts. It already queries burnBuddyRequests for sent/received pending requests (around line 499-532) \u2014 extract the document ID from those query results. For burnBuddyId, find the matching burn buddy document. Build shared package first: cd packages/shared && yarn build."
     },
     {
       "id": "US-005",
@@ -86,7 +86,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Follow the existing test pattern: vi.hoisted mocks, buildApp(), supertest. The burn-buddies route file already has GET/POST/PUT/DELETE patterns to follow. The request document ID is from the burnBuddyRequests Firestore collection."
     },
     {
@@ -98,12 +98,12 @@
         "DELETE /friends/:uid also deletes any pending burn buddy requests between the two users (query burnBuddyRequests for pending requests in both directions)",
         "Use a Firestore batch write to delete the friend document, burn buddy document (if exists), and pending requests (if any) atomically",
         "Existing friend deletion test (204 success) still passes",
-        "New tests added: friend-only deletion (no burn buddy exists — just friend removed), friend+buddy cascade (both friend and burn buddy deleted), friend+pending-request cascade (friend and pending buddy request deleted)",
+        "New tests added: friend-only deletion (no burn buddy exists \u2014 just friend removed), friend+buddy cascade (both friend and burn buddy deleted), friend+pending-request cascade (friend and pending buddy request deleted)",
         "All API tests pass (cd services/api && yarn test)",
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "The existing DELETE /friends/:uid handler is in friends.ts around line 230-245. Use getDb() for Firestore access. The burn buddy document ID format is ${uid1}_${uid2} with sorted UIDs. Use db.batch() for atomic writes."
     },
     {
@@ -123,8 +123,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": "The profile page is at apps/web/src/app/(main)/profile/[uid]/page.tsx. It already has conditional rendering based on buddyRelationshipStatus. Use window.confirm() for confirmation dialogs. The API client is in apps/web/src/lib/api.ts — follow existing patterns (getIdToken + fetch with Bearer header). The burnBuddyId field was added to the profile response in US-004."
+      "passes": true,
+      "notes": "The profile page is at apps/web/src/app/(main)/profile/[uid]/page.tsx. It already has conditional rendering based on buddyRelationshipStatus. Use window.confirm() for confirmation dialogs. The API client is in apps/web/src/lib/api.ts \u2014 follow existing patterns (getIdToken + fetch with Bearer header). The burnBuddyId field was added to the profile response in US-004."
     },
     {
       "id": "US-008",
@@ -142,7 +142,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "The profile page currently shows static badges for pending_sent and pending_received states (around lines 113-133). Replace these with interactive buttons. The pendingBuddyRequestId field was added to the profile response in US-004. The cancel endpoint was added in US-005. Use the API client pattern from apps/web/src/lib/api.ts."
     }
   ]

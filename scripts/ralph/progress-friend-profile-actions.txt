@@ -1,3 +1,29 @@
 # Ralph Progress Log — Friend Profile Actions
 Started: 2026-03-08
 ---
+
+## 2026-03-08T08:03Z - US-007
+- Added Remove Friend (red/destructive) and Remove Burn Buddy (secondary) buttons to profile page
+- Remove Friend shows cascade warning when friend is also a burn buddy, redirects to /friends on success
+- Remove Burn Buddy shows confirmation, refreshes profile on success
+- Buttons disabled with loading state during API calls
+- Files changed: apps/web/src/app/(main)/profile/[uid]/page.tsx
+- **Learnings for future iterations:**
+  - The profile page uses useMutation from react-query for all API actions — follow the same pattern
+  - apiDelete is already available in lib/api.ts — no need to create new helpers
+  - window.confirm() is used for confirmation dialogs (no custom modal component exists yet)
+  - Browser verification requires auth — can verify build succeeds with `next build` instead
+---
+
+## 2026-03-08T08:03Z - US-008
+- Replaced static pending_sent badge with Cancel Request button (with confirmation dialog)
+- Replaced static pending_received badge with Accept (primary) and Decline (secondary) buttons
+- Accept/Decline call POST endpoints, Cancel calls DELETE endpoint — all use pendingBuddyRequestId from profile stats
+- All buttons disabled during API calls with loading text
+- Files changed: apps/web/src/app/(main)/profile/[uid]/page.tsx
+- **Learnings for future iterations:**
+  - The accept/decline endpoints use POST, not PUT — POST /burn-buddies/requests/:id/accept and /decline
+  - The cancel endpoint uses DELETE /burn-buddies/requests/:id (added in US-005)
+  - Profile page now has 6 mutations total: requestBuddy, removeFriend, removeBuddy, acceptBuddy, declineBuddy, cancelBuddyRequest
+  - isBuddyRequestActionPending groups accept/decline/cancel to prevent concurrent actions
+---

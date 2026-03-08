@@ -93,7 +93,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "The account page is at apps/web/src/app/(main)/account/page.tsx. It already has a sign-out button pattern to follow. Use the auth context from apps/web/src/lib/auth-context.tsx (provides user object and getToken). The API client is in apps/web/src/lib/api.ts — apiDelete already exists. Firebase auth imports: import { signOut, reauthenticateWithCredential, EmailAuthProvider, reauthenticateWithPopup, GoogleAuthProvider } from 'firebase/auth'. The auth object is from apps/web/src/lib/firebase-client.ts. Tailwind v4 is used — destructive styling should use red color variants (e.g., bg-red-600 text-white hover:bg-red-700). For the confirmation modal, check if the project already has a modal/dialog component; if not, create a simple one inline with Tailwind."
     }
   ]
