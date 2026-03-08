@@ -5,6 +5,10 @@ Started: 2026-03-08
 - Build shared package (`cd packages/shared && yarn build`) before running web typecheck
 - Web typecheck: `cd apps/web && yarn typecheck`
 - Use `yarn workspace web add <pkg>` to add web dependencies
+- Tailwind v4 defines colors in `apps/web/src/app/globals.css` via `@theme` directive, NOT in tailwind.config.ts
+- Firebase Auth widget styles are hardcoded in globals.css — update them when changing theme colors
+- Success states use `bg-success`/`text-success` classes (green) — leave these when changing primary color
+- Action buttons use `bg-primary` with `hover:bg-orange-600` — keep hover colors in sync with primary
 
 ---
 
@@ -15,4 +19,32 @@ Started: 2026-03-08
   - `yarn workspace web add lucide-react` is the correct command for monorepo installs
   - Peer dependency warning for react is expected (no issue at runtime)
   - Shared package must be built before web typecheck
+---
+
+## 2026-03-08T02:35 - US-002
+- Changed primary color from green (#30D158) to orange (#FF9500)
+- Files changed: globals.css, tailwind.config.ts, page.tsx, friends/page.tsx, profile/[uid]/page.tsx, account/page.tsx, burn-buddies/new/page.tsx, burn-buddies/[id]/page.tsx, signup/page.tsx
+- **Learnings for future iterations:**
+  - Tailwind v4 uses `@theme` in globals.css, NOT tailwind.config.ts — the CSS is the source of truth
+  - Firebase Auth widget styles in globals.css have hardcoded color values that must be updated separately
+  - Distinguish action buttons (bg-primary) from success states (bg-success) when replacing colors
+  - Clear `.next` cache after tailwind config changes for hot reload to work
+  - Profile badge `bg-green-500/20` with `text-primary` must be updated to `bg-orange-500/20` to match
+---
+
+## 2026-03-08T02:39 - US-003
+- Changed h2 text from 'Burn Buddies & Squads' to 'Burn Buddies' in page.tsx
+- Files changed: apps/web/src/app/(main)/page.tsx
+- **Learnings for future iterations:**
+  - The section header uses `&amp;` for the ampersand in JSX — search for `&amp;` not `&` when grepping
+  - Simple text changes are low-risk; typecheck is sufficient validation
+---
+
+## 2026-03-08T02:42 - US-004
+- Changed badge text from 'Buddy' to '🔥 Burn Buddy' and 'Squad' to '🔥 Burn Squad' in home page card labels
+- Files changed: apps/web/src/app/(main)/page.tsx
+- **Learnings for future iterations:**
+  - Badge labels are in a ternary on line ~479: `item.type === 'buddy' ? '...' : '...'`
+  - Firebase Auth not configured locally — browser verification requires beta env
+  - Badge styling (amber for buddies, secondary/blue for squads) is unchanged — only text content modified
 ---

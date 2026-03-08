@@ -29,7 +29,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "The primary color is defined in tailwind.config.ts under theme.extend.colors.primary. Some components use bg-green-500 directly instead of bg-primary — these must be found and updated."
     },
     {
@@ -42,7 +42,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -56,7 +56,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "This matches the convention already used on the friends page."
     },
     {
