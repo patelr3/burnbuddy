@@ -34,7 +34,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Sharp 0.34.5 bundles libvips with HEIF decode support in its prebuilt binaries — no extra system packages needed. The test can use a small JPEG buffer with the mimetype header set to image/heic since multer checks mimetype not actual bytes."
     },
     {
@@ -48,7 +48,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "The constant is defined near the top of the file (line 15). Just append ',image/heic,image/heif' to the string."
     },
     {

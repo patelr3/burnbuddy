@@ -19,3 +19,24 @@ Started: 2026-03-08
   - sharp().resize() with fit:'cover' preserves aspect ratio while covering the target dimensions
   - iPhone photos can be 4032×3024 (12MP) to 8064×6048 (48MP) — always cap resolution for image processing pipelines
 ---
+
+## 2026-03-08T02:25 - US-002
+- Added 'image/heic' and 'image/heif' to ALLOWED_IMAGE_TYPES in users.ts
+- Added two unit tests: one for HEIC uploads, one for HEIF uploads (both verify 200 response)
+- Files changed: `services/api/src/routes/users.ts`, `services/api/src/routes/users-profile-picture.test.ts`
+- **Learnings for future iterations:**
+  - Multer checks mimetype header, not actual file bytes — tests can use any buffer with the correct contentType
+  - Sharp 0.34.5 prebuilt binaries include HEIF decode support, no extra system packages needed
+  - ALLOWED_IMAGE_TYPES and the error message string are separate — update both if you want to list accepted types in the error
+---
+
+## 2026-03-08T02:41 - US-003
+- Added 'image/heic' and 'image/heif' to ACCEPTED_IMAGE_TYPES constant in account page
+- The hidden file input's accept attribute uses the constant, so it automatically picks up the new types
+- Verified via Next.js build output that the compiled JS includes the HEIC/HEIF types in the accept attribute
+- Files changed: `apps/web/src/app/(main)/account/page.tsx`
+- **Learnings for future iterations:**
+  - Account page requires Firebase auth — browser verification of authenticated pages needs login flow
+  - Next.js dev mode doesn't pre-build chunks; use `npx next build` then grep `.next/static/chunks/` to verify compiled output
+  - The ACCEPTED_IMAGE_TYPES constant is on line 15 of account/page.tsx and is used by the hidden file input on line 284
+---
