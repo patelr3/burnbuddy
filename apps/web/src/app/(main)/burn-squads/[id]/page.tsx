@@ -7,7 +7,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { StatCard } from '@/components/StatCard';
-import { StreakRing } from '@/components/StreakRing';
+import { StreakDots } from '@/components/StreakDots';
 import { Avatar } from '@/components/Avatar';
 import { AddToCalendarButton } from '@/components/AddToCalendarButton';
 import { useBurnSquad, queryKeys } from '@/lib/queries';
@@ -363,23 +363,19 @@ export default function BurnSquadDetailPage() {
           </div>
         )}
 
-        {/* Streak rings */}
-        <div className="mb-5 flex justify-center gap-6">
-          <StreakRing
+        {/* Streak dots */}
+        <div className="mb-5 flex flex-col gap-2">
+          <StreakDots
             streakCount={streaks.burnStreak}
             last7Days={streaks.last7Days}
             color="orange"
             label="Burn Streak"
-            description="Log at least one group workout per week to keep your burn streak alive. Miss a full week (7 days) and the streak resets to zero."
-            basePath={`/burn-squads/${id}`}
           />
-          <StreakRing
+          <StreakDots
             streakCount={streaks.supernovaStreak}
             last7Days={streaks.last7Days}
             color="violet"
             label="Supernova Streak"
-            description="Log a group workout every single day to build your supernova streak. Miss a day and the supernova streak resets to zero."
-            basePath={`/burn-squads/${id}`}
           />
         </div>
 
