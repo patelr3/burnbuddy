@@ -36,6 +36,7 @@ export default function NewBurnSquadScreen({ onBack, onSuccess }: Props) {
   const [scheduleTime, setScheduleTime] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [timeError, setTimeError] = useState(false);
 
   const loadFriends = useCallback(async () => {
     if (!user) return;
@@ -71,13 +72,20 @@ export default function NewBurnSquadScreen({ onBack, onSuccess }: Props) {
     });
   };
 
+  const canSubmit = squadName.trim() !== '' && (scheduleDays.size === 0 || scheduleTime.trim() !== '');
+
   const handleSubmit = async () => {
     if (!squadName.trim()) {
       setError('Squad name is required.');
       return;
     }
+    if (scheduleDays.size > 0 && !scheduleTime.trim()) {
+      setTimeError(true);
+      return;
+    }
     setSubmitting(true);
     setError(null);
+    setTimeError(false);
     try {
       const body: {
         name: string;
@@ -88,11 +96,10 @@ export default function NewBurnSquadScreen({ onBack, onSuccess }: Props) {
         inviteUids: [...selectedUids],
       };
       if (scheduleDays.size > 0) {
-        const schedule: WorkoutSchedule = {
+        body.workoutSchedule = {
           days: [...scheduleDays] as WorkoutSchedule['days'],
+          time: scheduleTime.trim(),
         };
-        if (scheduleTime) schedule.time = scheduleTime;
-        body.workoutSchedule = schedule;
       }
       await apiPost('/burn-squads', body);
       onSuccess();
@@ -170,17 +177,22 @@ export default function NewBurnSquadScreen({ onBack, onSuccess }: Props) {
           })}
         </View>
         {scheduleDays.size > 0 && (
-          <View style={styles.timeRow}>
-            <Text style={styles.timeLabel}>Time (optional):</Text>
-            <TextInput
-              style={styles.timeInput}
-              value={scheduleTime}
-              onChangeText={setScheduleTime}
-              placeholder="HH:MM"
-              placeholderTextColor="#9ca3af"
-              keyboardType="numbers-and-punctuation"
-            />
-          </View>
+          <>
+            <View style={styles.timeRow}>
+              <Text style={styles.timeLabel}>Time:</Text>
+              <TextInput
+                style={styles.timeInput}
+                value={scheduleTime}
+                onChangeText={(t) => { setScheduleTime(t); setTimeError(false); }}
+                placeholder="HH:MM"
+                placeholderTextColor="#9ca3af"
+                keyboardType="numbers-and-punctuation"
+              />
+            </View>
+            {timeError && (
+              <Text style={styles.timeErrorText}>Please select a workout time</Text>
+            )}
+          </>
         )}
       </ScrollView>
 
@@ -190,10 +202,10 @@ export default function NewBurnSquadScreen({ onBack, onSuccess }: Props) {
         </TouchableOpacity>
         <TouchableOpacity
           onPress={handleSubmit}
-          disabled={submitting || !squadName.trim()}
+          disabled={submitting || !canSubmit}
           style={[
             styles.submitButton,
-            (submitting || !squadName.trim()) && styles.disabledButton,
+            (submitting || !canSubmit) && styles.disabledButton,
           ]}
         >
           <Text style={styles.submitButtonText}>
@@ -292,6 +304,7 @@ const styles = StyleSheet.create({
     color: '#333',
     minWidth: 80,
   },
+  timeErrorText: { color: '#ef4444', fontSize: 12, marginBottom: 8 },
   footer: {
     flexDirection: 'row',
     gap: 10,
