@@ -337,7 +337,7 @@ export default function AccountPage() {
                 <button
                   onClick={handleUsernameSave}
                   disabled={usernameMutation.isPending || !isUsernameDirty || !!validationError}
-                  className="cursor-pointer rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="cursor-pointer rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {usernameMutation.isPending ? 'Saving…' : 'Save'}
                 </button>
@@ -365,7 +365,7 @@ export default function AccountPage() {
                 className={`cursor-pointer rounded-md border-none px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-60 ${
                   profile?.gettingStartedDismissed
                     ? 'bg-success hover:bg-green-600'
-                    : 'bg-primary hover:bg-green-600'
+                    : 'bg-primary hover:bg-orange-600'
                 }`}
               >
                 {profile?.gettingStartedDismissed ? 'Re-enable Getting Started card' : 'Hide Getting Started card'}

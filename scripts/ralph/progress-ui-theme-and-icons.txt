@@ -1,3 +1,18 @@
 # Ralph Progress Log — UI Theme & Icon Updates
 Started: 2026-03-08
+
+## Codebase Patterns
+- Build shared package (`cd packages/shared && yarn build`) before running web typecheck
+- Web typecheck: `cd apps/web && yarn typecheck`
+- Use `yarn workspace web add <pkg>` to add web dependencies
+
+---
+
+## 2026-03-08T02:23 - US-001
+- Installed lucide-react@0.577.0 in apps/web workspace
+- Files changed: apps/web/package.json, yarn.lock
+- **Learnings for future iterations:**
+  - `yarn workspace web add lucide-react` is the correct command for monorepo installs
+  - Peer dependency warning for react is expected (no issue at runtime)
+  - Shared package must be built before web typecheck
 ---

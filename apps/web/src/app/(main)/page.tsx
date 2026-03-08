@@ -312,7 +312,7 @@ export default function Home() {
         <div className="mb-6">
           <button
             onClick={() => setShowWorkoutSelector(true)}
-            className="w-full cursor-pointer rounded-lg bg-primary p-4 text-base font-semibold text-white hover:bg-green-600"
+            className="w-full cursor-pointer rounded-lg bg-primary p-4 text-base font-semibold text-white hover:bg-orange-600"
           >
             🔥 Start Workout
           </button>
@@ -362,7 +362,7 @@ export default function Home() {
               <button
                 onClick={handleStartWorkout}
                 disabled={!selectedType || (selectedType === 'Custom' && !customType.trim())}
-                className="cursor-pointer rounded-md bg-primary px-5 py-2.5 text-sm font-bold text-white hover:bg-green-600 disabled:opacity-50"
+                className="cursor-pointer rounded-md bg-primary px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-600 disabled:opacity-50"
               >
                 Start Workout
               </button>
@@ -390,7 +390,7 @@ export default function Home() {
               </div>
               <button
                 onClick={() => handleAcceptBuddyRequest(req.id)}
-                className="cursor-pointer rounded bg-primary px-3.5 py-1.5 text-[13px] text-white hover:bg-green-600"
+                className="cursor-pointer rounded bg-primary px-3.5 py-1.5 text-[13px] text-white hover:bg-orange-600"
               >
                 Accept
               </button>
@@ -433,7 +433,7 @@ export default function Home() {
         <div className="flex gap-2">
           <Link
             href="/burn-buddies/new"
-            className="rounded bg-green-500 px-3.5 py-2 text-[13px] text-white no-underline hover:bg-green-600"
+            className="rounded bg-primary px-3.5 py-2 text-[13px] text-white no-underline hover:bg-orange-600"
           >
             + Burn Buddy
           </Link>
@@ -498,7 +498,7 @@ export default function Home() {
                             e.preventDefault();
                             setShowWorkoutSelector(true);
                           }}
-                          className="cursor-pointer rounded bg-primary px-3 py-1.5 text-[13px] font-bold text-white hover:bg-green-600"
+                          className="cursor-pointer rounded bg-primary px-3 py-1.5 text-[13px] font-bold text-white hover:bg-orange-600"
                         >
                           Join Workout
                         </button>

@@ -122,7 +122,7 @@ export default function FriendProfilePage() {
                   </span>
                 )}
                 {profile.buddyRelationshipStatus === 'pending_received' && (
-                  <span className="rounded-full bg-green-500/20 px-3 py-1.5 text-xs font-medium text-primary">
+                  <span className="rounded-full bg-orange-500/20 px-3 py-1.5 text-xs font-medium text-primary">
                     🔥 Request Received
                   </span>
                 )}
@@ -130,7 +130,7 @@ export default function FriendProfilePage() {
                   <button
                     onClick={() => requestBuddyMutation.mutate()}
                     disabled={requestBuddyMutation.isPending}
-                    className="cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50"
+                    className="cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50"
                   >
                     {requestBuddyMutation.isPending ? 'Sending…' : '🔥 Request Burn Buddy'}
                   </button>

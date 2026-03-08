@@ -24,7 +24,7 @@ export default function SignupPage() {
         <h1 className="mb-4 text-2xl font-bold text-white">🔥 BurnBuddy</h1>
         <p className="mb-4 text-gray-400">
           Sign up on our{' '}
-          <Link href="/login" className="font-semibold text-primary hover:text-green-400 underline">
+          <Link href="/login" className="font-semibold text-primary hover:text-orange-400 underline">
             login page
           </Link>
         </p>
