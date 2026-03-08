@@ -1,0 +1,163 @@
+{
+  "project": "burnbuddy",
+  "branchName": "ralph/streak-ring-ui",
+  "description": "Streak Ring UI - Replace plain streak numbers with 7-segment ring visualizations showing last 7 days of workout activity, with explanation popups for each streak type",
+  "dependsOn": ["ralph/profiles-streaks-stats"],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add shared types for streak day breakdown",
+      "description": "As a developer, I need shared types for per-day workout data so both API and web can reference them.",
+      "acceptanceCriteria": [
+        "Add StreakDayInfo interface to packages/shared/src/types.ts with fields: date (string, YYYY-MM-DD), hasWorkout (boolean), groupWorkoutId (string | null), dayLabel (string — single letter like 'M', 'T', 'W')",
+        "Add StreakDetail interface to packages/shared/src/types.ts with fields: burnStreak (number), supernovaStreak (number), last7Days (StreakDayInfo[] — length 7, index 0 = 6 days ago, index 6 = today)",
+        "Update existing GroupStats type to include last7Days: StreakDayInfo[]",
+        "Update existing ProfileStats type to include highestActiveStreakLast7Days: StreakDayInfo[] | null (the last-7-days for the relationship with the highest active streak)",
+        "Export StreakDayInfo and StreakDetail from the shared package index",
+        "Shared package builds successfully (cd packages/shared && yarn build)",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Extend streak calculator to return last-7-days breakdown",
+      "description": "As a developer, I need the streak calculation logic to return which of the last 7 days had group workouts so the UI can render ring segments.",
+      "acceptanceCriteria": [
+        "calculateStreaks() in services/api/src/services/streak-calculator.ts returns a new last7Days field: an array of 7 StreakDayInfo objects (index 0 = 6 days ago, index 6 = today)",
+        "Each StreakDayInfo contains: date in ISO format (YYYY-MM-DD), hasWorkout boolean, groupWorkoutId (the group workout ID if one exists that day, null otherwise), dayLabel (single-letter day-of-week e.g. 'M', 'T', 'W')",
+        "Existing burnStreak and supernovaStreak return values remain unchanged",
+        "Existing unit tests still pass (cd services/api && yarn test -- streak-calculator)",
+        "New unit tests cover last7Days for: all 7 active, none active, alternating days, streak with gaps, multiple workouts on same day (picks first groupWorkoutId)",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Build shared package first (cd packages/shared && yarn build) before running API typecheck since it depends on the new StreakDayInfo type from US-001."
+    },
+    {
+      "id": "US-003",
+      "title": "Update API streak endpoints to return last-7-days data",
+      "description": "As a developer, I need all streak-related API endpoints to include the last7Days array in their responses.",
+      "acceptanceCriteria": [
+        "GET /burn-buddies/:id/streaks returns { burnStreak, supernovaStreak, last7Days } matching the StreakDetail type, where last7Days is StreakDayInfo[]",
+        "GET /burn-squads/:id/streaks returns { burnStreak, supernovaStreak, last7Days } matching the StreakDetail type",
+        "GET /users/:uid/profile response includes highestActiveStreakLast7Days in ProfileStats — the last7Days array from the buddy/squad that has the highest active streak",
+        "Dashboard endpoint (GET /dashboard) enriches each buddy/squad with last7Days alongside existing streak fields",
+        "Existing API tests still pass (cd services/api && yarn test)",
+        "New or updated tests verify last7Days is present and correct in burn-buddies, burn-squads, and dashboard responses",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Build shared package first (cd packages/shared && yarn build). The calculateStreaks() function already returns last7Days from US-002 — endpoints just need to pass it through in their responses."
+    },
+    {
+      "id": "US-004",
+      "title": "Create StreakRing SVG component",
+      "description": "As a user, I want to see my streak visualized as a ring split into 7 segments so I can quickly understand my recent workout consistency.",
+      "acceptanceCriteria": [
+        "New component at apps/web/src/components/StreakRing.tsx",
+        "Accepts props: streakCount (number), last7Days (StreakDayInfo[]), color ('orange' | 'violet'), label (string), description (string), basePath (string — e.g. '/burn-buddies/abc123' used to construct group workout navigation links)",
+        "Renders an SVG ring split into 7 equal arc segments with small gaps (~4 degrees) between them",
+        "Segments start from the top (12 o'clock position), proceeding clockwise, index 0 (6 days ago) first",
+        "Each segment is filled with the variant color at full opacity if hasWorkout is true, or at ~20% opacity if false",
+        "Each segment displays the dayLabel (single letter: M, T, W, etc.) inside the arc",
+        "Filled segments with a groupWorkoutId are clickable links that navigate to {basePath}/group-workouts/{groupWorkoutId}",
+        "Clickable segments show a pointer cursor on hover",
+        "Center of the ring displays the streak count as a large bold number",
+        "Label below the ring reads the label prop (e.g. 'Burn Streak' or 'Supernova Streak')",
+        "Orange variant uses the existing --color-primary / amber theme colors for filled segments",
+        "Violet variant uses violet/purple colors (e.g. #8b5cf6 / violet-500) for filled segments",
+        "Ring is responsive — approximately 100-120px diameter on desktop, scaling down on mobile",
+        "Component is self-contained with no external SVG dependencies",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Build shared package first (cd packages/shared && yarn build) to get StreakDayInfo type. SVG arcs use basic trigonometry (startAngle/endAngle per segment). To verify visually, create a temporary test page or use the component on an existing page with mock data."
+    },
+    {
+      "id": "US-005",
+      "title": "Add streak explanation popups to StreakRing",
+      "description": "As a user, I want to understand how each streak type works so I can maintain my streaks effectively.",
+      "acceptanceCriteria": [
+        "The label text below the ring in StreakRing.tsx includes a small info icon (ⓘ or an SVG info circle icon) next to the label text to signal a popup is available",
+        "Hovering (desktop) or tapping (mobile) the label+icon shows a popup/tooltip displaying the description prop text",
+        "Burn Streak description text: 'Log at least one group workout per week to keep your burn streak alive. Miss a full week (7 days) and the streak resets to zero.'",
+        "Supernova Streak description text: 'Log a group workout every single day to build your supernova streak. Miss a day and the supernova streak resets to zero.'",
+        "Popup is styled with a dark background (e.g. bg-gray-900), light text, subtle border, and rounded corners consistent with the app dark theme",
+        "Popup is positioned above or below the label and does not overflow the viewport",
+        "Popup dismisses when the cursor moves away (desktop) or user taps elsewhere (mobile)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "The StreakRing component already accepts a 'description' prop from US-004. This story adds the popup UI that displays it. Use a simple CSS hover/focus approach or a lightweight state toggle — no tooltip library needed."
+    },
+    {
+      "id": "US-006",
+      "title": "Replace streak stat cards with rings on burn buddy detail page",
+      "description": "As a user viewing a burn buddy's detail page, I want to see streak rings instead of plain number cards.",
+      "acceptanceCriteria": [
+        "On apps/web/src/app/(main)/burn-buddies/[id]/page.tsx, the 'Burn Streak' and 'Supernova Streak' StatCard tiles are replaced with StreakRing components",
+        "Burn Streak ring uses color='orange', Supernova Streak ring uses color='violet'",
+        "Two rings are displayed side-by-side in a flex row, centered above the remaining stats grid",
+        "Pass basePath='/burn-buddies/{id}' so clickable segments link to the correct group workout detail page",
+        "Pass description text for burn streak: 'Log at least one group workout per week to keep your burn streak alive. Miss a full week (7 days) and the streak resets to zero.'",
+        "Pass description text for supernova streak: 'Log a group workout every single day to build your supernova streak. Miss a day and the supernova streak resets to zero.'",
+        "Ring segments accurately reflect the last 7 days of group workout activity from the streaks endpoint response",
+        "Remaining 6 stat cards (Highest Streak, First Workout, Total Workouts, This Month, This Week, Burn Buddy Since) are unchanged",
+        "Page fetches last7Days from the existing /burn-buddies/:id/streaks endpoint (which now includes last7Days from US-003)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Replace streak stat cards with rings on burn squad detail page",
+      "description": "As a user viewing a burn squad's detail page, I want to see the same streak ring visualization.",
+      "acceptanceCriteria": [
+        "On apps/web/src/app/(main)/burn-squads/[id]/page.tsx, the 'Burn Streak' and 'Supernova Streak' StatCard tiles are replaced with StreakRing components",
+        "Same visual treatment as burn buddy page: orange for burn streak, violet for supernova streak",
+        "Two rings displayed side-by-side in a flex row above remaining stats grid",
+        "Pass basePath='/burn-squads/{id}' for group workout navigation links",
+        "Pass the same description texts as the burn buddy page for both streak types",
+        "Ring segments accurately reflect squad group workout activity for last 7 days",
+        "Remaining stat cards unchanged",
+        "Page fetches last7Days from the existing /burn-squads/:id/streaks endpoint",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Add streak rings to friend profile page",
+      "description": "As a user viewing a friend's profile, I want to see their streak visualized as rings so I can see their recent consistency.",
+      "acceptanceCriteria": [
+        "On apps/web/src/app/(main)/profile/[uid]/page.tsx, add burn streak and supernova streak StreakRing components",
+        "Rings display the highestActiveStreak value as the streak count and highestActiveStreakLast7Days as the ring segments (from the ProfileStats response)",
+        "If the friend has no active streak (highestActiveStreak is null), rings show 0 in center with all segments empty (all hasWorkout: false)",
+        "Pass the same description texts for both streak types",
+        "For basePath, use the path of the buddy/squad that has the highest active streak (if available), otherwise omit clickable navigation",
+        "Streak explanation popups work identically to buddy/squad detail pages",
+        "Rings are positioned prominently in the stats section, above other stat cards",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "The profile endpoint now returns highestActiveStreakLast7Days from US-003. If basePath is not determinable (e.g. the user has multiple buddies), segments can be non-clickable — just don't pass groupWorkoutIds."
+    }
+  ]
+}

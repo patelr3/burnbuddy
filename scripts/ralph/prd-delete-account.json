@@ -1,0 +1,100 @@
+{
+  "project": "burnbuddy",
+  "branchName": "ralph/delete-account",
+  "description": "Delete Account - Allow users to permanently delete their BurnBuddy account and all associated data with two-step confirmation",
+  "dependsOn": [],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Model account deletion in TLA+ spec with new invariants",
+      "description": "As a developer, I need formal verification that account deletion leaves no orphaned state so I can implement the feature with confidence.",
+      "acceptanceCriteria": [
+        "Add DeleteProfile(uid) action to specs/tla/users/UserProfileManagement.tla that removes uid from createdProfiles, frees the username reservation in usernameOwner (set to 'free'), and resets hasPicture to FALSE",
+        "DeleteProfile guard: profile must exist (ProfileExists(uid))",
+        "Add DeleteProfile to the Next state relation: \\/ \\E uid \\in Uid : DeleteProfile(uid)",
+        "Add new invariant NoOrphanedAuthUsers: for every uid NOT in createdProfiles, no username in usernameOwner maps to that uid",
+        "Add new invariant DeletionIsComplete: if a UID is not in createdProfiles, its username reservation must be 'free' — this is equivalent to NoOrphanedAuthUsers but stated from the username perspective",
+        "Add both new invariants to the SafetyInvariant conjunction",
+        "Update specs/tla/users/UserProfileManagement.cfg to add NoOrphanedAuthUsers and DeletionIsComplete to the INVARIANT list",
+        "Existing invariants still pass: NoOrphanedReservations, UsernameUniqueness, UsernameChangeAtomic, NoProfileWithoutReservation, ReservationsMatchProfiles, BoundedProfiles",
+        "Run TLC model checker: cd specs/tla/users && java -cp /usr/local/lib/tla2tools.jar tlc2.TLC UserProfileManagement.tla -config UserProfileManagement.cfg -workers auto — zero violations",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "The existing spec is at specs/tla/users/UserProfileManagement.tla. State variables are: createdProfiles (SUBSET Uid), profileUsername (Uid -> Username), hasPicture (Uid -> BOOLEAN), usernameOwner (Username -> Uid ∪ {'free'}), retryCount (Uid -> 0..3). The DeleteProfile action should use LET oldName == profileUsername[uid] to free the correct username reservation. For values of non-created UIDs, profileUsername and hasPicture keep stale values (this is fine — the spec only reads them when uid ∈ createdProfiles). The cfg file uses model values: Uid = {u1, u2, u3}, Username = {name1, name2, name3, name4}."
+    },
+    {
+      "id": "US-002",
+      "title": "Add DELETE /users/me API endpoint with full data cleanup",
+      "description": "As a user, I want to call DELETE /users/me so that my account and all associated data are permanently removed.",
+      "acceptanceCriteria": [
+        "New DELETE /users/me endpoint added to services/api/src/routes/users.ts, protected by requireAuth middleware",
+        "Endpoint first queries burnSquads collection for documents where adminUid equals req.user.uid — if any found, returns 409 with JSON body { error: 'Must transfer or delete squads first', squads: [array of squad names] }",
+        "Loads the user profile from users/{uid} to get the username (usernameLower field) for reservation cleanup",
+        "Deletes users/{uid} document",
+        "Deletes usernames/{usernameLower} document (the username reservation)",
+        "Queries and batch-deletes all workouts where uid field equals the user's uid",
+        "Queries and batch-deletes all friends documents where uid1 or uid2 equals the user's uid (friend doc IDs use sorted composite keys like uid1_uid2)",
+        "Queries and batch-deletes all friendRequests where fromUid or toUid equals the user's uid",
+        "Queries and batch-deletes all burnBuddies where uid1 or uid2 equals the user's uid",
+        "Queries and batch-deletes all burnBuddyRequests where fromUid or toUid equals the user's uid",
+        "Queries and batch-deletes all burnSquadJoinRequests where uid equals the user's uid",
+        "Queries burnSquads where memberUids array-contains the user's uid (non-admin ones) and removes the uid from each squad's memberUids array using FieldValue.arrayRemove",
+        "Queries groupWorkouts where memberUids array-contains the user's uid — if removing the user would leave fewer than 2 members, deletes the document; otherwise removes the uid from memberUids",
+        "Deletes profile picture from Firebase Storage at profile-pictures/{uid}/avatar.webp using getStorageBucket() — ignores 404 errors",
+        "Deletes the Firebase Auth user record via admin.auth().deleteUser(uid) as the FINAL step",
+        "Returns 200 with { deleted: true } on success",
+        "Each collection cleanup is wrapped in try/catch — log errors via req.log (pino) but continue with remaining cleanup",
+        "For collections with potentially many documents (workouts), delete in batches of 500 (Firestore batch limit)",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Follow existing patterns: use getDb() from lib/firestore.ts for Firestore access, getStorageBucket() from lib/storage.ts for Storage, admin from lib/firebase.ts for Auth. Use req.log (pino logger attached to request) for logging. The route file already has DELETE /users/me/profile-picture as a pattern to follow. Use admin.firestore.FieldValue.arrayRemove() for squad membership updates. The requireAuth middleware sets req.user.uid. Import admin from ../lib/firebase."
+    },
+    {
+      "id": "US-003",
+      "title": "Add unit tests for DELETE /users/me endpoint",
+      "description": "As a developer, I need comprehensive unit tests for the delete account endpoint so regressions are caught early.",
+      "acceptanceCriteria": [
+        "New test file services/api/src/routes/delete-account.test.ts (or tests added to existing users.test.ts)",
+        "Tests follow the project's vi.hoisted + vi.mock + supertest + buildApp() pattern used in other test files like friends.test.ts and workouts.test.ts",
+        "Test: returns 401 when no Authorization header is provided",
+        "Test: returns 409 with squad names when user is admin of one or more BurnSquads",
+        "Test: returns 200 and calls deleteUser on Firebase Auth on successful deletion",
+        "Test: verifies Firestore delete is called for users/{uid} and usernames/{usernameLower} documents",
+        "Test: verifies batch delete is called for workouts, friends, friendRequests, burnBuddies, burnBuddyRequests, burnSquadJoinRequests collections",
+        "Test: verifies Storage file delete is called for profile picture",
+        "Test: verifies Firebase Auth deleteUser is the last cleanup step (called after all Firestore cleanup)",
+        "vi.resetAllMocks() in beforeEach with default mock implementations re-applied",
+        "All API tests pass: cd services/api && yarn test",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Follow the exact mock pattern from services/api/src/routes/friends.test.ts or workouts.test.ts: (1) vi.hoisted(() => { return { mockGet, mockSet, mockDelete, ... } }) (2) vi.mock('../lib/firebase', ...) and vi.mock('../lib/firestore', ...) (3) import router after mocks (4) buildApp() helper creates Express app with the router mounted. Mock getDb() to return an object with collection().where().get(), doc().delete(), batch(), etc. Mock admin.auth().deleteUser(). Use supertest to call DELETE /users/me with Authorization Bearer header. The verifyIdToken mock should return { uid: 'test-uid' }."
+    },
+    {
+      "id": "US-004",
+      "title": "Add delete account UI to web account page with two-step confirmation",
+      "description": "As a user, I want a Delete Account button on my account page with a confirmation dialog and re-authentication so I can permanently delete my account.",
+      "acceptanceCriteria": [
+        "A 'Delete Account' button with red/destructive Tailwind styling appears at the bottom of apps/web/src/app/(main)/account/page.tsx, visually separated from other actions",
+        "Clicking the button opens a confirmation dialog (can use a modal component or browser confirm) with text: 'This will permanently delete your account, all workouts, friendships, and burn buddy relationships. This action cannot be undone.'",
+        "Dialog has 'Cancel' (secondary) and 'Delete My Account' (red/destructive) buttons",
+        "Clicking 'Delete My Account' triggers Firebase re-authentication: for email/password users, prompt for password using reauthenticateWithCredential(); for Google/social users, use reauthenticateWithPopup() — check auth.currentUser.providerData[0].providerId to determine which flow",
+        "After successful re-auth, calls apiDelete('/users/me') using the existing API client in apps/web/src/lib/api.ts",
+        "If API returns 409 (squad admin), display error message listing the squads the user must transfer/delete first — do NOT sign the user out",
+        "On successful 200 response, sign out the user (signOut from firebase/auth), clear the auth_session cookie, and redirect to /login",
+        "Show a loading spinner on the delete button and disable it while the API call is in progress",
+        "If re-authentication fails (wrong password, popup closed), show an error message and do NOT proceed with deletion",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "The account page is at apps/web/src/app/(main)/account/page.tsx. It already has a sign-out button pattern to follow. Use the auth context from apps/web/src/lib/auth-context.tsx (provides user object and getToken). The API client is in apps/web/src/lib/api.ts — apiDelete already exists. Firebase auth imports: import { signOut, reauthenticateWithCredential, EmailAuthProvider, reauthenticateWithPopup, GoogleAuthProvider } from 'firebase/auth'. The auth object is from apps/web/src/lib/firebase-client.ts. Tailwind v4 is used — destructive styling should use red color variants (e.g., bg-red-600 text-white hover:bg-red-700). For the confirmation modal, check if the project already has a modal/dialog component; if not, create a simple one inline with Tailwind."
+    }
+  ]
+}
