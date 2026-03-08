@@ -7,7 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { StatCard } from '@/components/StatCard';
-import { StreakRing } from '@/components/StreakRing';
+import { StreakDots } from '@/components/StreakDots';
 import { Avatar } from '@/components/Avatar';
 import { useProfile, queryKeys } from '@/lib/queries';
 import type { ProfileStats, StreakDayInfo } from '@burnbuddy/shared';
@@ -244,23 +244,19 @@ export default function FriendProfilePage() {
               </div>
             </div>
 
-            {/* Streak rings */}
-            <div className="mb-5 flex justify-center gap-6">
-              <StreakRing
+            {/* Streak dots */}
+            <div className="mb-5 flex flex-col gap-2">
+              <StreakDots
                 streakCount={profile.highestActiveStreak?.value ?? 0}
                 last7Days={profile.highestActiveStreakLast7Days ?? EMPTY_LAST_7_DAYS}
                 color="orange"
                 label="Burn Streak"
-                description="Log at least one group workout per week to keep your burn streak alive. Miss a full week (7 days) and the streak resets to zero."
-                basePath=""
               />
-              <StreakRing
+              <StreakDots
                 streakCount={profile.highestActiveStreak?.value ?? 0}
                 last7Days={profile.highestActiveStreakLast7Days ?? EMPTY_LAST_7_DAYS}
                 color="violet"
                 label="Supernova Streak"
-                description="Log a group workout every single day to build your supernova streak. Miss a day and the supernova streak resets to zero."
-                basePath=""
               />
             </div>
 

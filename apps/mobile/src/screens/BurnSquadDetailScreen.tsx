@@ -13,7 +13,8 @@ import {
 import { useAuth } from '../lib/auth-context';
 import { apiGet, apiPut, apiDelete } from '../lib/api';
 import { Avatar } from '../components/Avatar';
-import type { BurnSquad, GroupWorkout, WorkoutSchedule } from '@burnbuddy/shared';
+import type { BurnSquad, GroupWorkout, WorkoutSchedule, StreakDayInfo } from '@burnbuddy/shared';
+import { StreakDots } from '../components/StreakDots';
 
 interface Props {
   squadId: string;
@@ -30,6 +31,7 @@ interface MemberProfile {
 interface Streaks {
   burnStreak: number;
   supernovaStreak: number;
+  last7Days: StreakDayInfo[];
 }
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
@@ -73,7 +75,7 @@ export default function BurnSquadDetailScreen({ squadId, onBack }: Props) {
   const { user } = useAuth();
   const [squad, setSquad] = useState<BurnSquad | null>(null);
   const [members, setMembers] = useState<MemberProfile[]>([]);
-  const [streaks, setStreaks] = useState<Streaks>({ burnStreak: 0, supernovaStreak: 0 });
+  const [streaks, setStreaks] = useState<Streaks>({ burnStreak: 0, supernovaStreak: 0, last7Days: [] });
   const [groupWorkouts, setGroupWorkouts] = useState<GroupWorkout[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -114,6 +116,7 @@ export default function BurnSquadDetailScreen({ squadId, onBack }: Props) {
         apiGet<Streaks>(`/burn-squads/${squadId}/streaks`).catch(() => ({
           burnStreak: 0,
           supernovaStreak: 0,
+          last7Days: [] as StreakDayInfo[],
         })),
         apiGet<GroupWorkout[]>('/group-workouts').catch(() => [] as GroupWorkout[]),
       ]);
@@ -341,16 +344,26 @@ export default function BurnSquadDetailScreen({ squadId, onBack }: Props) {
           </View>
         )}
 
+        {/* Streak Dots */}
+        {streaks.last7Days.length > 0 && (
+          <View style={styles.streakDotsSection}>
+            <StreakDots
+              streakCount={streaks.burnStreak}
+              last7Days={streaks.last7Days}
+              color="orange"
+              label="Burn Streak"
+            />
+            <StreakDots
+              streakCount={streaks.supernovaStreak}
+              last7Days={streaks.last7Days}
+              color="violet"
+              label="Supernova"
+            />
+          </View>
+        )}
+
         {/* Stats Grid */}
         <View style={styles.statsGrid}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>🔥 {streaks.burnStreak}</Text>
-            <Text style={styles.statLabel}>Burn Streak</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>⭐ {streaks.supernovaStreak}</Text>
-            <Text style={styles.statLabel}>Supernova Streak</Text>
-          </View>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{workoutsThisWeek}</Text>
             <Text style={styles.statLabel}>This Week</Text>
@@ -449,6 +462,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   badgeText: { fontSize: 12, color: '#5b21b6', fontWeight: '600' },
+  streakDotsSection: {
+    gap: 8,
+    marginBottom: 16,
+  },
   scheduleRow: {
     backgroundColor: '#f5f3ff',
     borderWidth: 1,
