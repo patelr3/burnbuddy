@@ -145,4 +145,7 @@ export interface ProfileStats {
   workoutsAllTime: number;
   workoutsThisMonth: number;
   buddyRelationshipStatus: 'none' | 'pending_sent' | 'pending_received' | 'buddies';
+  friendshipStatus: 'friends';
+  pendingBuddyRequestId: string | null;
+  burnBuddyId: string | null;
 }

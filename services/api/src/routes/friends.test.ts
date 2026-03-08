@@ -29,6 +29,16 @@ const {
   mockUsersDocRef,
   // db.getAll() for batched profile fetches
   mockGetAll,
+  // burnBuddies collection — doc-based operations (cascade deletion)
+  mockBurnBuddyDocGet,
+  mockBurnBuddyDocRef,
+  // burnBuddyRequests collection — query-based operations (cascade deletion)
+  mockBBRequestQueryGet,
+  mockBBRequestQueryChain,
+  // Firestore batch operations
+  mockBatchDelete,
+  mockBatchCommit,
+  mockBatch,
 } = vi.hoisted(() => {
   const mockVerifyIdToken = vi.fn();
 
@@ -82,6 +92,27 @@ const {
   // db.getAll() for batched profile fetches
   const mockGetAll = vi.fn();
 
+  // burnBuddies — doc operations (cascade deletion check)
+  const mockBurnBuddyDocGet = vi.fn();
+  const mockBurnBuddyDocRef = vi.fn(() => ({
+    get: mockBurnBuddyDocGet,
+  }));
+
+  // burnBuddyRequests — query chain (cascade deletion)
+  const mockBBRequestQueryGet = vi.fn();
+  const mockBBRequestQueryChain = {
+    where: vi.fn(),
+    get: mockBBRequestQueryGet,
+  };
+
+  // Firestore batch operations
+  const mockBatchDelete = vi.fn();
+  const mockBatchCommit = vi.fn();
+  const mockBatch = vi.fn(() => ({
+    delete: mockBatchDelete,
+    commit: mockBatchCommit,
+  }));
+
   return {
     mockVerifyIdToken,
     mockFrRequestDocGet,
@@ -101,6 +132,13 @@ const {
     mockUsersDocGet,
     mockUsersDocRef,
     mockGetAll,
+    mockBurnBuddyDocGet,
+    mockBurnBuddyDocRef,
+    mockBBRequestQueryGet,
+    mockBBRequestQueryChain,
+    mockBatchDelete,
+    mockBatchCommit,
+    mockBatch,
   };
 });
 
@@ -126,9 +164,16 @@ vi.mock('../lib/firestore', () => ({
       if (name === 'users') {
         return { where: () => mockUsersQueryChain, doc: mockUsersDocRef };
       }
+      if (name === 'burnBuddies') {
+        return { doc: mockBurnBuddyDocRef };
+      }
+      if (name === 'burnBuddyRequests') {
+        return { where: () => mockBBRequestQueryChain };
+      }
       return {};
     },
     getAll: mockGetAll,
+    batch: mockBatch,
   }),
 }));
 
@@ -172,6 +217,15 @@ beforeEach(() => {
     delete: mockFriendDocDelete,
   }));
   mockUsersDocRef.mockImplementation(() => ({ get: mockUsersDocGet }));
+  mockBurnBuddyDocRef.mockImplementation(() => ({
+    get: mockBurnBuddyDocGet,
+  }));
+  mockBBRequestQueryChain.where.mockReturnThis();
+  mockBatch.mockImplementation(() => ({
+    delete: mockBatchDelete,
+    commit: mockBatchCommit,
+  }));
+  mockBatchCommit.mockResolvedValue(undefined);
 
   // Default: authenticated user has a profile (for requireProfile middleware)
   mockUsersDocGet.mockResolvedValue({
@@ -508,16 +562,55 @@ describe('DELETE /friends/:uid', () => {
     expect(res.status).toBe(404);
   });
 
-  it('deletes the friendship and returns 204', async () => {
+  it('deletes only the friendship when no burn buddy or pending requests exist', async () => {
     mockFriendDocGet.mockResolvedValueOnce({ exists: true });
-    mockFriendDocDelete.mockResolvedValueOnce(undefined);
+    mockBurnBuddyDocGet.mockResolvedValueOnce({ exists: false });
+    mockBBRequestQueryGet
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [] });
 
     const res = await request(buildApp())
       .delete(`/friends/${OTHER_UID}`)
       .set('Authorization', VALID_TOKEN);
 
     expect(res.status).toBe(204);
-    expect(mockFriendDocDelete).toHaveBeenCalledOnce();
+    expect(mockBatch).toHaveBeenCalledOnce();
+    expect(mockBatchDelete).toHaveBeenCalledOnce(); // only friend doc
+    expect(mockBatchCommit).toHaveBeenCalledOnce();
+  });
+
+  it('cascade-deletes burn buddy when both friendship and burn buddy exist', async () => {
+    mockFriendDocGet.mockResolvedValueOnce({ exists: true });
+    mockBurnBuddyDocGet.mockResolvedValueOnce({ exists: true });
+    mockBBRequestQueryGet
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [] });
+
+    const res = await request(buildApp())
+      .delete(`/friends/${OTHER_UID}`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(204);
+    expect(mockBatchDelete).toHaveBeenCalledTimes(2); // friend doc + burn buddy doc
+    expect(mockBatchCommit).toHaveBeenCalledOnce();
+  });
+
+  it('cascade-deletes pending burn buddy requests when removing a friend', async () => {
+    mockFriendDocGet.mockResolvedValueOnce({ exists: true });
+    mockBurnBuddyDocGet.mockResolvedValueOnce({ exists: false });
+    const pendingRequestRef = { id: 'bb-req-1' };
+    mockBBRequestQueryGet
+      .mockResolvedValueOnce({ docs: [{ ref: pendingRequestRef }] }) // sent direction
+      .mockResolvedValueOnce({ docs: [] }); // received direction
+
+    const res = await request(buildApp())
+      .delete(`/friends/${OTHER_UID}`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(204);
+    expect(mockBatchDelete).toHaveBeenCalledTimes(2); // friend doc + pending request
+    expect(mockBatchDelete).toHaveBeenCalledWith(pendingRequestRef);
+    expect(mockBatchCommit).toHaveBeenCalledOnce();
   });
 });
 

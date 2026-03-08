@@ -270,6 +270,9 @@ describe('GET /users/:uid/profile', () => {
       workoutsAllTime: 0,
       workoutsThisMonth: 0,
       buddyRelationshipStatus: 'none',
+      friendshipStatus: 'friends',
+      pendingBuddyRequestId: null,
+      burnBuddyId: null,
     });
   });
 
@@ -372,6 +375,10 @@ describe('GET /users/:uid/profile', () => {
     expect(res.status).toBe(200);
     expect(res.body.displayName).toBe('Target User');
     expect(res.body.buddyRelationshipStatus).toBe('buddies');
+    const [sortedUid1, sortedUid2] = [REQUESTER_UID, TARGET_UID].sort();
+    expect(res.body.burnBuddyId).toBe(`${sortedUid1}_${sortedUid2}`);
+    expect(res.body.pendingBuddyRequestId).toBeNull();
+    expect(res.body.friendshipStatus).toBe('friends');
     expect(res.body.highestActiveStreak).not.toBeNull();
     expect(res.body.highestActiveStreak.name).toBe('Requester User');
     expect(res.body.highestStreakEver).not.toBeNull();
@@ -382,7 +389,7 @@ describe('GET /users/:uid/profile', () => {
     expect(res.body.workoutsThisMonth).toBeGreaterThanOrEqual(2);
   });
 
-  it('returns buddyRelationshipStatus as pending_sent', async () => {
+  it('returns buddyRelationshipStatus as pending_sent with request ID', async () => {
     // Target user profile
     mockUsersDocGet.mockResolvedValueOnce({
       exists: true,
@@ -398,7 +405,10 @@ describe('GET /users/:uid/profile', () => {
     // No individual workouts
     mockWorkoutsQueryGet.mockResolvedValueOnce({ docs: [] });
     // Pending sent request
-    mockBBRequestQueryGet.mockResolvedValueOnce({ empty: false, docs: [{ data: () => ({}) }] });
+    mockBBRequestQueryGet.mockResolvedValueOnce({
+      empty: false,
+      docs: [{ id: 'req-sent-001', data: () => ({}) }],
+    });
 
     const res = await request(buildApp())
       .get(`/users/${TARGET_UID}/profile`)
@@ -406,9 +416,11 @@ describe('GET /users/:uid/profile', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.buddyRelationshipStatus).toBe('pending_sent');
+    expect(res.body.pendingBuddyRequestId).toBe('req-sent-001');
+    expect(res.body.burnBuddyId).toBeNull();
   });
 
-  it('returns buddyRelationshipStatus as pending_received', async () => {
+  it('returns buddyRelationshipStatus as pending_received with request ID', async () => {
     // Target user profile
     mockUsersDocGet.mockResolvedValueOnce({
       exists: true,
@@ -425,7 +437,10 @@ describe('GET /users/:uid/profile', () => {
     mockWorkoutsQueryGet.mockResolvedValueOnce({ docs: [] });
     // No sent request, but has received request
     mockBBRequestQueryGet.mockResolvedValueOnce({ empty: true, docs: [] }); // sent
-    mockBBRequestQueryGet.mockResolvedValueOnce({ empty: false, docs: [{ data: () => ({}) }] }); // received
+    mockBBRequestQueryGet.mockResolvedValueOnce({
+      empty: false,
+      docs: [{ id: 'req-recv-002', data: () => ({}) }],
+    }); // received
 
     const res = await request(buildApp())
       .get(`/users/${TARGET_UID}/profile`)
@@ -433,6 +448,8 @@ describe('GET /users/:uid/profile', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.buddyRelationshipStatus).toBe('pending_received');
+    expect(res.body.pendingBuddyRequestId).toBe('req-recv-002');
+    expect(res.body.burnBuddyId).toBeNull();
   });
 
   it('aggregates stats across multiple buddy and squad relationships', async () => {
@@ -537,6 +554,8 @@ describe('GET /users/:uid/profile', () => {
     expect(res.body.highestStreakEver.value).toBe(3);
     expect(res.body.highestStreakEver.name).toBe('Morning Crew');
     expect(res.body.buddyRelationshipStatus).toBe('none');
+    expect(res.body.pendingBuddyRequestId).toBeNull();
+    expect(res.body.burnBuddyId).toBeNull();
   });
 
   it('uses batched getAll for partner lookups and in-query for group workouts', async () => {
@@ -591,6 +610,9 @@ describe('GET /users/:uid/profile', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.buddyRelationshipStatus).toBe('buddies');
+    const [sortedUid1, sortedUid2] = [REQUESTER_UID, TARGET_UID].sort();
+    expect(res.body.burnBuddyId).toBe(`${sortedUid1}_${sortedUid2}`);
+    expect(res.body.pendingBuddyRequestId).toBeNull();
     // Verify getAll was called once with 2 doc refs (batched, not per-partner)
     expect(mockGetAll).toHaveBeenCalledTimes(1);
     expect(mockGetAll.mock.calls[0]).toHaveLength(2);

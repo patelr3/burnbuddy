@@ -20,11 +20,12 @@
     CDI-5: Deleting friend prevents new burn buddy requests (structural)
     CDI-6: Deleting burn buddy orphans GroupWorkouts — documented by-design behavior
     CDI-7: Deleting burn squad orphans GroupWorkouts — documented by-design behavior
+    CDI-8: No burn buddy without an active friendship (cascade-enforced)
 
   Maps to: All route handlers in services/api/src/routes/
 
   Discrepancies documented inline:
-    - Burn buddy relationships persist after friendship deletion (by design)
+    - Burn buddy relationships are cascade-deleted when friendship is deleted
     - GroupWorkouts persist after buddy/squad deletion (by design — historical records)
     - The API friend request handler (friends.ts) does NOT explicitly check for
       profile existence — it relies on the frontend flow. A direct API call with
@@ -145,13 +146,14 @@ CreateFriendship(u1, u2) ==
 
 (* Delete a friendship. CDI-5: this prevents new burn buddy requests
    between these users (CreateBurnBuddy checks friendship in its guard).
-   Existing burn buddy relationships are NOT deleted — by design.
-   DISCREPANCY: The API does not cascade-delete burn buddies on friend
-   deletion. Burn buddy relationships persist as orphaned records. *)
+   CDI-8: burn buddy relationship is cascade-deleted to maintain the
+   invariant that no burn buddy can exist without an active friendship.
+   Pending burn buddy requests are also removed in the API implementation. *)
 DeleteFriendship(u1, u2) ==
     /\ {u1, u2} \in friends
     /\ friends' = friends \ {{u1, u2}}
-    /\ UNCHANGED <<createdProfiles, burnBuddies, squads,
+    /\ burnBuddies' = burnBuddies \ {{u1, u2}}
+    /\ UNCHANGED <<createdProfiles, squads,
                    time, workouts, groupWorkouts>>
 
 \* ====================================================================
@@ -378,7 +380,9 @@ ProfileRequiredForSocialActions ==
    remain in the database. This is intentional: GroupWorkouts are immutable
    historical records of past concurrent workout sessions.
    Observable: gw.gwType = "buddy" /\ gw.referenceId \notin burnBuddies
-   is EXPECTED in reachable states after buddy deletion. *)
+   is EXPECTED in reachable states after buddy deletion.
+   Note: burn buddies are also cascade-deleted when friendship is removed
+   (DeleteFriendship), which can also orphan GroupWorkouts. *)
 
 (* CDI-7: Deleting squad orphans GroupWorkouts — BY DESIGN.
    After DeleteSquad, GroupWorkouts with referenceId = deleted squad ID
@@ -386,13 +390,23 @@ ProfileRequiredForSocialActions ==
    Observable: gw.gwType = "squad" /\ ~SquadExists(gw.referenceId)
    is EXPECTED in reachable states after squad deletion. *)
 
+(* CDI-8: No burn buddy without an active friendship.
+   Every burn buddy pair must have a corresponding active friendship.
+   Enforced by: CreateBurnBuddy guards on {u1, u2} \in friends,
+   and DeleteFriendship cascade-deletes the burn buddy pair.
+   Maps to: DELETE /friends/:uid in friends.ts cascade-deletes burn buddies. *)
+NoBuddyWithoutFriendship ==
+    \A bb \in burnBuddies : bb \in friends
+
 (* Combined cross-domain invariant.
    Only includes verifiable state predicates. Structural properties
    (CDI-2 through CDI-5) are enforced by action guards and verified
    by TLC exploring all interleavings. By-design behaviors (CDI-6,
-   CDI-7) are documented but intentionally not checked as violations. *)
+   CDI-7) are documented but intentionally not checked as violations.
+   CDI-8 is actively checked — burn buddy requires active friendship. *)
 CrossDomainInvariant ==
     /\ TypeOK
     /\ ProfileRequiredForSocialActions
+    /\ NoBuddyWithoutFriendship
 
 ====

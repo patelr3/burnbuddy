@@ -240,7 +240,36 @@ router.delete('/:uid', requireAuth, async (req: Request, res: Response): Promise
     return;
   }
 
-  await db.collection('friends').doc(friendDocId).delete();
+  const batch = db.batch();
+
+  // Delete the friendship
+  batch.delete(db.collection('friends').doc(friendDocId));
+
+  // Cascade-delete active burn buddy if exists (same composite key)
+  const burnBuddyDoc = await db.collection('burnBuddies').doc(friendDocId).get();
+  if (burnBuddyDoc.exists) {
+    batch.delete(db.collection('burnBuddies').doc(friendDocId));
+  }
+
+  // Cascade-delete pending burn buddy requests in both directions
+  const [sentSnap, receivedSnap] = await Promise.all([
+    db.collection('burnBuddyRequests')
+      .where('fromUid', '==', currentUid)
+      .where('toUid', '==', targetUid)
+      .where('status', '==', 'pending')
+      .get(),
+    db.collection('burnBuddyRequests')
+      .where('fromUid', '==', targetUid)
+      .where('toUid', '==', currentUid)
+      .where('status', '==', 'pending')
+      .get(),
+  ]);
+
+  for (const doc of [...sentSnap.docs, ...receivedSnap.docs]) {
+    batch.delete(doc.ref);
+  }
+
+  await batch.commit();
   res.status(204).send();
 });
 

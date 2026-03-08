@@ -500,6 +500,8 @@ router.get('/:uid/profile', requireAuth, async (req: Request, res: Response): Pr
 
   // 8. Determine burn buddy relationship status between requester and target
   let buddyRelationshipStatus: ProfileStats['buddyRelationshipStatus'] = 'none';
+  let pendingBuddyRequestId: string | null = null;
+  let burnBuddyId: string | null = null;
 
   const isBuddy = burnBuddies.some(
     (bb) =>
@@ -509,6 +511,8 @@ router.get('/:uid/profile', requireAuth, async (req: Request, res: Response): Pr
 
   if (isBuddy) {
     buddyRelationshipStatus = 'buddies';
+    const [bbUid1, bbUid2] = [requesterUid, targetUid].sort();
+    burnBuddyId = `${bbUid1}_${bbUid2}`;
   } else {
     const [sentSnap, receivedSnap] = await Promise.all([
       db
@@ -529,8 +533,10 @@ router.get('/:uid/profile', requireAuth, async (req: Request, res: Response): Pr
 
     if (!sentSnap.empty) {
       buddyRelationshipStatus = 'pending_sent';
+      pendingBuddyRequestId = sentSnap.docs[0]!.id;
     } else if (!receivedSnap.empty) {
       buddyRelationshipStatus = 'pending_received';
+      pendingBuddyRequestId = receivedSnap.docs[0]!.id;
     }
   }
 
@@ -546,6 +552,9 @@ router.get('/:uid/profile', requireAuth, async (req: Request, res: Response): Pr
     workoutsAllTime: workouts.length,
     workoutsThisMonth,
     buddyRelationshipStatus,
+    friendshipStatus: 'friends' as const,
+    pendingBuddyRequestId,
+    burnBuddyId,
   };
 
   res.json(profileStats);
