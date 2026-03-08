@@ -28,6 +28,11 @@ router.post('/', requireAuth, requireProfile, async (req: Request, res: Response
     return;
   }
 
+  if (workoutSchedule && (!workoutSchedule.time || workoutSchedule.time.trim() === '')) {
+    res.status(400).json({ error: 'Workout time is required' });
+    return;
+  }
+
   const db = getDb();
   const squadId = randomUUID();
   const now = new Date().toISOString();
@@ -498,6 +503,11 @@ router.put(
 
     if (!settings) {
       res.status(400).json({ error: 'settings is required' });
+      return;
+    }
+
+    if (settings.workoutSchedule && (!settings.workoutSchedule.time || settings.workoutSchedule.time.trim() === '')) {
+      res.status(400).json({ error: 'Workout time is required' });
       return;
     }
 

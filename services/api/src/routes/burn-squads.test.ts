@@ -382,6 +382,40 @@ describe('POST /burn-squads', () => {
     expect(res.body.joinRequests).toHaveLength(0);
     expect(mockJoinRequestDocSet).not.toHaveBeenCalled();
   });
+
+  it('returns 400 when workoutSchedule is provided without time', async () => {
+    const res = await request(buildApp())
+      .post('/burn-squads')
+      .set('Authorization', VALID_TOKEN)
+      .send({ name: 'Morning Crew', workoutSchedule: { days: ['Mon', 'Wed'] } });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: 'Workout time is required' });
+    expect(mockSquadDocSet).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when workoutSchedule time is empty string', async () => {
+    const res = await request(buildApp())
+      .post('/burn-squads')
+      .set('Authorization', VALID_TOKEN)
+      .send({ name: 'Morning Crew', workoutSchedule: { days: ['Mon'], time: '' } });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: 'Workout time is required' });
+    expect(mockSquadDocSet).not.toHaveBeenCalled();
+  });
+
+  it('creates a squad with workoutSchedule when time is provided', async () => {
+    mockSquadDocSet.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .post('/burn-squads')
+      .set('Authorization', VALID_TOKEN)
+      .send({ name: 'Morning Crew', workoutSchedule: { days: ['Mon', 'Wed'], time: '07:00' } });
+
+    expect(res.status).toBe(201);
+    expect(res.body.squad.settings.workoutSchedule).toMatchObject({ days: ['Mon', 'Wed'], time: '07:00' });
+  });
 });
 
 // ── GET /burn-squads ───────────────────────────────────────────────────────────
@@ -834,6 +868,60 @@ describe('PUT /burn-squads/:id/settings', () => {
     expect(res.body).toMatchObject({ success: true });
     expect(mockSquadDocUpdate).toHaveBeenCalledWith({
       settings: { onlyAdminsCanAddMembers: true },
+    });
+  });
+
+  it('returns 400 when settings include workoutSchedule without time', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => SAMPLE_SQUAD,
+    });
+
+    const res = await request(buildApp())
+      .put(`/burn-squads/${SQUAD_ID}/settings`)
+      .set('Authorization', VALID_TOKEN)
+      .send({ settings: { workoutSchedule: { days: ['Mon', 'Wed'] } } });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: 'Workout time is required' });
+    expect(mockSquadDocUpdate).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when settings include workoutSchedule with empty time', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => SAMPLE_SQUAD,
+    });
+
+    const res = await request(buildApp())
+      .put(`/burn-squads/${SQUAD_ID}/settings`)
+      .set('Authorization', VALID_TOKEN)
+      .send({ settings: { workoutSchedule: { days: ['Tue'], time: '' } } });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: 'Workout time is required' });
+    expect(mockSquadDocUpdate).not.toHaveBeenCalled();
+  });
+
+  it('updates settings with workoutSchedule when time is provided', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => SAMPLE_SQUAD,
+    });
+    mockSquadDocUpdate.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .put(`/burn-squads/${SQUAD_ID}/settings`)
+      .set('Authorization', VALID_TOKEN)
+      .send({ settings: { workoutSchedule: { days: ['Mon', 'Fri'], time: '06:30' } } });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ success: true });
+    expect(mockSquadDocUpdate).toHaveBeenCalledWith({
+      settings: {
+        onlyAdminsCanAddMembers: false,
+        workoutSchedule: { days: ['Mon', 'Fri'], time: '06:30' },
+      },
     });
   });
 });
