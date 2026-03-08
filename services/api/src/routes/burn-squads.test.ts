@@ -1270,31 +1270,20 @@ describe('GET /burn-squads/:id/group-workouts', () => {
  *
  * Fix: add `if (memberUid === uid) return 400` before the friendship check.
  */
-describe('TLA+ Gap G-2: NoSelfInvites — no explicit self-invite check in POST /:id/members', () => {
-  it('does not return 400 immediately when memberUid equals own uid; falls through to friendship check', async () => {
-    // Squad exists and TEST_UID is a member
-    mockSquadDocGet.mockResolvedValueOnce({
-      exists: true,
-      data: () => SAMPLE_SQUAD,
-    });
-    // Friendship check for self: user cannot be friends with themselves,
-    // so this returns false — the route rejects with 400 "must be friends"
-    mockFriendsDocGet.mockResolvedValueOnce({ exists: false });
-
+describe('TLA+ Gap G-2: NoSelfInvites — explicit self-invite check in POST /:id/members', () => {
+  it('returns 400 immediately when memberUid equals own uid', async () => {
     const res = await request(buildApp())
       .post(`/burn-squads/${SQUAD_ID}/members`)
       .set('Authorization', VALID_TOKEN)
       .send({ memberUid: TEST_UID });
 
-    // The response is 400 "must be friends" — NOT a dedicated "cannot invite yourself" error.
-    // This proves there is no explicit self-invite guard; prevention is indirect.
+    // Explicit self-invite guard returns 400 before any Firestore lookups
     expect(res.status).toBe(400);
-    expect(res.body.error).toContain('friends');
-    expect(res.body.error).not.toContain('yourself');
+    expect(res.body.error).toBe('Cannot invite yourself');
 
-    // The friendship doc was queried, confirming the route reached the friendship check
-    // instead of short-circuiting on self-invite detection.
-    expect(mockFriendsDocGet).toHaveBeenCalled();
+    // No squad or friendship docs were queried — short-circuited early
+    expect(mockSquadDocGet).not.toHaveBeenCalled();
+    expect(mockFriendsDocGet).not.toHaveBeenCalled();
   });
 });
 

@@ -341,6 +341,11 @@ router.post(
       return;
     }
 
+    if (memberUid === uid) {
+      res.status(400).json({ error: 'Cannot invite yourself' });
+      return;
+    }
+
     const db = getDb();
 
     const squadDoc = await db.collection('burnSquads').doc(squadId).get();
