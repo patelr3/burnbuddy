@@ -93,6 +93,36 @@ export default function FriendProfilePage() {
 
   const isActionPending = removeFriendMutation.isPending || removeBuddyMutation.isPending;
 
+  const acceptBuddyMutation = useMutation({
+    mutationFn: () => apiPost(`/burn-buddies/requests/${profile!.pendingBuddyRequestId}/accept`),
+    onMutate: () => setMutationError(null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile(uid) });
+    },
+    onError: () => setMutationError('Failed to accept burn buddy request.'),
+  });
+
+  const declineBuddyMutation = useMutation({
+    mutationFn: () => apiPost(`/burn-buddies/requests/${profile!.pendingBuddyRequestId}/decline`),
+    onMutate: () => setMutationError(null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile(uid) });
+    },
+    onError: () => setMutationError('Failed to decline burn buddy request.'),
+  });
+
+  const cancelBuddyRequestMutation = useMutation({
+    mutationFn: () => apiDelete(`/burn-buddies/requests/${profile!.pendingBuddyRequestId}`),
+    onMutate: () => setMutationError(null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile(uid) });
+    },
+    onError: () => setMutationError('Failed to cancel burn buddy request.'),
+  });
+
+  const isBuddyRequestActionPending =
+    acceptBuddyMutation.isPending || declineBuddyMutation.isPending || cancelBuddyRequestMutation.isPending;
+
   function handleRemoveFriend() {
     if (!profile) return;
     const isBuddy = profile.buddyRelationshipStatus === 'buddies';
@@ -108,6 +138,13 @@ export default function FriendProfilePage() {
     if (!profile) return;
     if (window.confirm(`End burn buddy relationship with ${profile.displayName}? You will remain friends.`)) {
       removeBuddyMutation.mutate();
+    }
+  }
+
+  function handleCancelBuddyRequest() {
+    if (!profile) return;
+    if (window.confirm(`Cancel burn buddy request to ${profile.displayName}?`)) {
+      cancelBuddyRequestMutation.mutate();
     }
   }
 
@@ -157,14 +194,31 @@ export default function FriendProfilePage() {
                   </span>
                 )}
                 {profile.buddyRelationshipStatus === 'pending_sent' && (
-                  <span className="rounded-full bg-yellow-500/20 px-3 py-1.5 text-xs font-medium text-yellow-400">
-                    🔥 Request Pending
-                  </span>
+                  <button
+                    onClick={handleCancelBuddyRequest}
+                    disabled={isBuddyRequestActionPending}
+                    className="cursor-pointer rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-2 text-xs font-semibold text-yellow-400 hover:bg-yellow-500/20 disabled:opacity-50"
+                  >
+                    {cancelBuddyRequestMutation.isPending ? 'Cancelling…' : '🔥 Cancel Request'}
+                  </button>
                 )}
                 {profile.buddyRelationshipStatus === 'pending_received' && (
-                  <span className="rounded-full bg-orange-500/20 px-3 py-1.5 text-xs font-medium text-primary">
-                    🔥 Request Received
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => acceptBuddyMutation.mutate()}
+                      disabled={isBuddyRequestActionPending}
+                      className="cursor-pointer rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-orange-600 disabled:opacity-50"
+                    >
+                      {acceptBuddyMutation.isPending ? 'Accepting…' : '🔥 Accept'}
+                    </button>
+                    <button
+                      onClick={() => declineBuddyMutation.mutate()}
+                      disabled={isBuddyRequestActionPending}
+                      className="cursor-pointer rounded-lg border border-gray-600 bg-transparent px-4 py-2 text-xs font-semibold text-gray-300 hover:border-gray-500 hover:text-white disabled:opacity-50"
+                    >
+                      {declineBuddyMutation.isPending ? 'Declining…' : 'Decline'}
+                    </button>
+                  </div>
                 )}
                 {profile.buddyRelationshipStatus === 'none' && (
                   <button
