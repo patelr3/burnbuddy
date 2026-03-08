@@ -244,8 +244,8 @@ export default function FriendProfilePage() {
               </div>
             </div>
 
-            {/* Streak dots */}
-            <div className="mb-5 flex flex-col gap-2">
+            {/* Stats grid */}
+            <div className="grid grid-cols-2 gap-3">
               <StreakDots
                 streakCount={profile.highestActiveStreak?.value ?? 0}
                 last7Days={profile.highestActiveStreakLast7Days ?? EMPTY_LAST_7_DAYS}
@@ -258,10 +258,6 @@ export default function FriendProfilePage() {
                 color="violet"
                 label="Supernova Streak"
               />
-            </div>
-
-            {/* Stats grid */}
-            <div className="grid grid-cols-2 gap-3">
               <StatCard
                 label="Highest Streak Ever"
                 value={profile.highestStreakEver ? `${profile.highestStreakEver.value}` : '—'}
