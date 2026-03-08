@@ -61,7 +61,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "The timeout is on line 73 of api.ts: const timeoutMs = 20_000. Change to 45_000. The server-side anime filter timeout is 15s, so 45s gives ample room for network transfer on slow mobile connections."
     },
     {
@@ -77,7 +77,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "The overlay span is inside the avatar button, after the Avatar component render. Remove the entire {!uploadPictureMutation.isPending && (<span>...</span>)} block. Add opacity transition classes to the button itself."
     }
   ]

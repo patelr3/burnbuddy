@@ -40,3 +40,24 @@ Started: 2026-03-08
   - Next.js dev mode doesn't pre-build chunks; use `npx next build` then grep `.next/static/chunks/` to verify compiled output
   - The ACCEPTED_IMAGE_TYPES constant is on line 15 of account/page.tsx and is used by the hidden file input on line 284
 ---
+
+## 2026-03-08T02:43 - US-004
+- Changed timeoutMs from 20_000 to 45_000 in apiUploadFile (apps/web/src/lib/api.ts line 73)
+- Gives ample room for network transfer + server-side anime filter processing (15s timeout)
+- Files changed: `apps/web/src/lib/api.ts`
+- **Learnings for future iterations:**
+  - The upload timeout is a client-side AbortController in apiUploadFile, not a server config
+  - Error message for abort is hardcoded in the catch block, not configurable
+---
+
+## 2026-03-08T02:45 - US-005
+- Removed the camera SVG icon overlay span from the avatar button in account/page.tsx
+- Replaced `group` class with `transition-opacity hover:opacity-80` for a subtle hover effect
+- Preserved focus:ring-2 focus:ring-primary focus:ring-offset-2 accessibility styling
+- Verified via Next.js build output: no camera SVG path in compiled JS, hover:opacity-80 present
+- Files changed: `apps/web/src/app/(main)/account/page.tsx`
+- **Learnings for future iterations:**
+  - Account page requires Firebase auth — can't do live browser verification without login flow
+  - Verify compiled output via `npx next build` + grep `.next/static/chunks/` as alternative to live browser testing
+  - When removing group-hover elements, also remove the `group` class from the parent if no other group-hover references remain
+---
