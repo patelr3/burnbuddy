@@ -342,19 +342,6 @@ function HomeListView({
 
         {showGettingStarted && <GettingStartedCard onDismiss={handleDismissCard} />}
 
-        {/* Active Workout Banner */}
-        {activeWorkout && (
-          <View style={styles.workoutBanner}>
-            <View style={styles.workoutBannerLeft}>
-              <Text style={styles.workoutBannerTitle}>🔥 Active: {activeWorkout.type}</Text>
-              <Text style={styles.workoutBannerElapsed}>{formatElapsed(elapsed)}</Text>
-            </View>
-            <TouchableOpacity style={styles.endWorkoutButton} onPress={handleEndWorkout}>
-              <Text style={styles.endWorkoutButtonText}>End Workout</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
         {/* Action Buttons */}
         <View style={styles.actionRow}>
           <TouchableOpacity style={styles.actionButton} onPress={onNavigateToNewBuddy}>
@@ -491,8 +478,20 @@ function HomeListView({
         )}
       </ScrollView>
 
-      {/* Fixed Bottom Start Workout Button */}
-      {!activeWorkout && (
+      {/* Fixed Bottom Workout Area */}
+      {activeWorkout ? (
+        <View style={styles.bottomWorkoutArea}>
+          <View style={styles.workoutBanner}>
+            <View style={styles.workoutBannerLeft}>
+              <Text style={styles.workoutBannerTitle}>🔥 Active: {activeWorkout.type}</Text>
+              <Text style={styles.workoutBannerElapsed}>{formatElapsed(elapsed)}</Text>
+            </View>
+            <TouchableOpacity style={styles.endWorkoutButton} onPress={handleEndWorkout}>
+              <Text style={styles.endWorkoutButtonText}>End Workout</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
         <View style={styles.bottomWorkoutArea}>
           <TouchableOpacity
             style={styles.startWorkoutButton}
@@ -731,7 +730,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    marginBottom: 14,
   },
   workoutBannerLeft: { flex: 1 },
   workoutBannerTitle: { fontSize: 15, fontWeight: '700', color: '#713f12' },
