@@ -51,3 +51,17 @@ Started: 2026-03-08
   - StreakRing had zero remaining imports after US-002/003/004, so deletion was clean
   - Always grep for the component name across the whole app before deleting to confirm zero references
 ---
+
+## 2026-03-08T19:02Z - US-006
+- Created `apps/mobile/src/components/StreakDots.tsx` — React Native horizontal 7-dot streak indicator
+- Uses View, Text, StyleSheet (no SVG) — same visual logic as web component
+- 🔥 for workout days, ○ (gray) for rest days, red danger state when indices 1-6 all have no workout
+- Day-of-week labels below each dot, streak count + label displayed inline
+- Handles both 'orange' (#FF9500) and 'violet' (#8B5CF6) color variants
+- Files changed: apps/mobile/src/components/StreakDots.tsx (new)
+- **Learnings for future iterations:**
+  - Mobile components use StyleSheet.create + hex color values (no Tailwind)
+  - Follow Avatar.tsx pattern: inline props interface, StyleSheet at bottom, named export
+  - React Native `gap` property works in flexbox containers (no spacer views needed)
+  - Mobile typecheck: `cd apps/mobile && npx tsc --noEmit`
+---
