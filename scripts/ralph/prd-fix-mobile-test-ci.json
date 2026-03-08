@@ -1,0 +1,53 @@
+{
+  "project": "burnbuddy",
+  "branchName": "ralph/fix-mobile-test-ci",
+  "description": "Fix Mobile Test CI Failures - Update 3 broken mobile unit tests to match current UI after PR #32 merged",
+  "dependsOn": [],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Fix HomeScreen burn buddy and burn squad badge tests",
+      "description": "As a developer, I want the HomeScreen burn buddy and burn squad list rendering tests to pass so that CI is green.",
+      "acceptanceCriteria": [
+        "Update assertion at HomeScreen.test.tsx:173 — 'Burn Buddy' no longer appears as standalone badge (only '+ Burn Buddy' in add button). Inspect HomeScreen.tsx to find what buddy list items actually render and assert on that",
+        "Update assertion at HomeScreen.test.tsx:191 — 'Burn Squad' no longer appears as standalone badge (only '+ Burn Squad' in add button). Inspect HomeScreen.tsx to find what squad list items actually render and assert on that",
+        "Do NOT delete test logic — update assertions to verify equivalent behavior with the new UI",
+        "Test passes locally with: yarn workspace mobile test -- HomeScreen.test",
+        "No other HomeScreen tests regress",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Fix FriendsScreen friend list email test",
+      "description": "As a developer, I want the FriendsScreen friend list rendering test to pass so that CI is green.",
+      "acceptanceCriteria": [
+        "Update assertion at FriendsScreen.test.tsx:121 — friend list items no longer display email as visible text. Inspect FriendsScreen.tsx to determine what friend list items currently render (likely just displayName and avatar) and assert on correct output",
+        "Do NOT delete test logic — update assertions to verify equivalent behavior with the new UI",
+        "Test passes locally with: yarn workspace mobile test -- FriendsScreen.test",
+        "No other FriendsScreen tests regress",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Verify full mobile test suite passes",
+      "description": "As a developer, I want to confirm all 36 mobile tests pass after the fixes with no regressions.",
+      "acceptanceCriteria": [
+        "Run full mobile test suite with: yarn workspace mobile test",
+        "All 36 tests pass with 0 failures",
+        "No test logic was deleted — only assertions updated to match current UI",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
