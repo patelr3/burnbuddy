@@ -342,30 +342,6 @@ function HomeListView({
 
         {showGettingStarted && <GettingStartedCard onDismiss={handleDismissCard} />}
 
-        {/* Active Workout Banner */}
-        {activeWorkout && (
-          <View style={styles.workoutBanner}>
-            <View style={styles.workoutBannerLeft}>
-              <Text style={styles.workoutBannerTitle}>🔥 Active: {activeWorkout.type}</Text>
-              <Text style={styles.workoutBannerElapsed}>{formatElapsed(elapsed)}</Text>
-            </View>
-            <TouchableOpacity style={styles.endWorkoutButton} onPress={handleEndWorkout}>
-              <Text style={styles.endWorkoutButtonText}>End Workout</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Start Workout Button */}
-        {!activeWorkout && (
-          <TouchableOpacity
-            style={styles.startWorkoutButton}
-            onPress={() => setShowWorkoutSelector(true)}
-            testID="home-start-workout-button"
-          >
-            <Text style={styles.startWorkoutButtonText}>🏃 Start Workout</Text>
-          </TouchableOpacity>
-        )}
-
         {/* Action Buttons */}
         <View style={styles.actionRow}>
           <TouchableOpacity style={styles.actionButton} onPress={onNavigateToNewBuddy}>
@@ -456,9 +432,6 @@ function HomeListView({
                             />
                             <Text style={styles.listCardName}>{buddy.partnerDisplayName}</Text>
                           </View>
-                          <View style={styles.listCardBadge}>
-                            <Text style={styles.listCardBadgeText}>Burn Buddy</Text>
-                          </View>
                         </View>
                         <View style={styles.listCardRight}>
                           <Text style={styles.streakText}>🔥 {buddy.burnStreak}</Text>
@@ -481,11 +454,6 @@ function HomeListView({
                     >
                       <View style={styles.listCardLeft}>
                         <Text style={styles.listCardName}>{squad.name}</Text>
-                        <View style={[styles.listCardBadge, styles.squadBadge]}>
-                          <Text style={[styles.listCardBadgeText, styles.squadBadgeText]}>
-                            Burn Squad
-                          </Text>
-                        </View>
                       </View>
                       <View style={styles.listCardRight}>
                         <Text style={styles.streakText}>🔥 {squad.burnStreak}</Text>
@@ -501,6 +469,31 @@ function HomeListView({
           </>
         )}
       </ScrollView>
+
+      {/* Fixed Bottom Workout Area */}
+      {activeWorkout ? (
+        <View style={styles.bottomWorkoutArea}>
+          <View style={styles.workoutBanner}>
+            <View style={styles.workoutBannerLeft}>
+              <Text style={styles.workoutBannerTitle}>🔥 Active: {activeWorkout.type}</Text>
+              <Text style={styles.workoutBannerElapsed}>{formatElapsed(elapsed)}</Text>
+            </View>
+            <TouchableOpacity style={styles.endWorkoutButton} onPress={handleEndWorkout}>
+              <Text style={styles.endWorkoutButtonText}>End Workout</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.bottomWorkoutArea}>
+          <TouchableOpacity
+            style={styles.startWorkoutButton}
+            onPress={() => setShowWorkoutSelector(true)}
+            testID="home-start-workout-button"
+          >
+            <Text style={styles.startWorkoutButtonText}>🏃 Start Workout</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Workout Type Selector Modal */}
       <Modal visible={showWorkoutSelector} transparent animationType="slide">
@@ -639,7 +632,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#E05A00' },
   signOutText: { color: '#E05A00', fontSize: 14 },
   content: { flex: 1 },
-  contentContainer: { padding: 16 },
+  contentContainer: { padding: 16, paddingBottom: 24 },
   errorText: { color: '#ef4444', marginBottom: 12 },
   loader: { marginTop: 40 },
   actionRow: {
@@ -729,7 +722,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    marginBottom: 14,
   },
   workoutBannerLeft: { flex: 1 },
   workoutBannerTitle: { fontSize: 15, fontWeight: '700', color: '#713f12' },
@@ -741,12 +733,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   endWorkoutButtonText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  bottomWorkoutArea: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    backgroundColor: '#fff',
+  },
   startWorkoutButton: {
     backgroundColor: '#E05A00',
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',
-    marginBottom: 14,
   },
   startWorkoutButtonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   // Modal styles
