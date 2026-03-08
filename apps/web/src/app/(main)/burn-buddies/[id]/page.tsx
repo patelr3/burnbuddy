@@ -135,7 +135,7 @@ export default function BurnBuddyDetailPage() {
     setSaving(true);
     try {
       const workoutSchedule: WorkoutSchedule | undefined =
-        selectedDays.length > 0 ? { days: selectedDays, time: scheduleTime || undefined } : undefined;
+        selectedDays.length > 0 ? { days: selectedDays, time: scheduleTime || '' } : undefined;
       const updated = await apiPut<BurnBuddy>(`/burn-buddies/${id}`, { workoutSchedule });
       queryClient.setQueryData<BurnBuddyData>(queryKeys.burnBuddy(id), (old) =>
         old ? { ...old, burnBuddy: updated } : old,

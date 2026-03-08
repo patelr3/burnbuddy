@@ -152,7 +152,7 @@ export default function BurnSquadDetailPage() {
     setSaving(true);
     try {
       const workoutSchedule: WorkoutSchedule | undefined =
-        selectedDays.length > 0 ? { days: selectedDays, time: scheduleTime || undefined } : undefined;
+        selectedDays.length > 0 ? { days: selectedDays, time: scheduleTime || '' } : undefined;
       const updated = await apiPut<BurnSquad>(`/burn-squads/${id}`, {
         name: editName,
         settings: {

@@ -74,8 +74,8 @@ export default function NewBurnSquadPage() {
       if (scheduleDays.size > 0) {
         const schedule: WorkoutSchedule = {
           days: [...scheduleDays] as WorkoutSchedule['days'],
+          time: scheduleTime || '',
         };
-        if (scheduleTime) schedule.time = scheduleTime;
         body.workoutSchedule = schedule;
       }
       await apiPost('/burn-squads', body);
