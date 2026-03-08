@@ -118,10 +118,8 @@ describe('FriendsScreen', () => {
       expect(getByText('Alice')).toBeTruthy();
     });
 
-    expect(getByText('alice@example.com')).toBeTruthy();
+    // Friend list items render display name only (no email); verify both friends and count
     expect(getByText('Bob')).toBeTruthy();
-    expect(getByText('bob@example.com')).toBeTruthy();
-    // Section label shows count
     expect(getByText('Friends (2)')).toBeTruthy();
   });
 

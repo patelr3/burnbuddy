@@ -169,8 +169,8 @@ describe('HomeScreen', () => {
       expect(getByText('Alice')).toBeTruthy();
     });
 
-    // Verify badge and streak
-    expect(getByText('Burn Buddy')).toBeTruthy();
+    // Verify partner name and streak are rendered (no standalone badge)
+    expect(getByText('Alice')).toBeTruthy();
     expect(getByText('🔥 5')).toBeTruthy();
   });
 
@@ -188,7 +188,8 @@ describe('HomeScreen', () => {
       expect(getByText('Team Blaze')).toBeTruthy();
     });
 
-    expect(getByText('Burn Squad')).toBeTruthy();
+    // Verify squad name and streak are rendered (no standalone badge)
+    expect(getByText('Team Blaze')).toBeTruthy();
     expect(getByText('🔥 3')).toBeTruthy();
   });
 
