@@ -99,4 +99,19 @@ describe('animeFilter', () => {
     expect(metadata.width).toBe(256);
     expect(metadata.height).toBe(256);
   });
+
+  it('processes a 4032×3024 image (iPhone size) in under 10 seconds', async () => {
+    const input = await createTestImage('jpeg', 4032, 3024);
+
+    const start = performance.now();
+    const result = await animeFilter(input);
+    const elapsed = performance.now() - start;
+
+    expect(elapsed).toBeLessThan(10_000);
+
+    const metadata = await sharp(result).metadata();
+    expect(metadata.format).toBe('webp');
+    expect(metadata.width).toBe(256);
+    expect(metadata.height).toBe(256);
+  });
 });
