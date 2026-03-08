@@ -348,6 +348,12 @@ router.put('/:id', requireAuth, async (req: Request, res: Response): Promise<voi
   }
 
   const { workoutSchedule } = req.body as { workoutSchedule?: WorkoutSchedule };
+
+  if (workoutSchedule && (!workoutSchedule.time || workoutSchedule.time.trim() === '')) {
+    res.status(400).json({ error: 'Workout time is required' });
+    return;
+  }
+
   await db.collection('burnBuddies').doc(id).update({ workoutSchedule: workoutSchedule ?? null });
 
   res.json({ ...burnBuddy, workoutSchedule });

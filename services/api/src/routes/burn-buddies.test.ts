@@ -834,6 +834,34 @@ describe('PUT /burn-buddies/:id', () => {
     expect(res.body).toMatchObject({ id: BURN_BUDDY_ID, workoutSchedule: schedule });
     expect(mockBBDocUpdate).toHaveBeenCalledWith({ workoutSchedule: schedule });
   });
+
+  it('returns 400 when workout schedule is provided without time', async () => {
+    const bb = { id: BURN_BUDDY_ID, uid1: TEST_UID, uid2: OTHER_UID, createdAt: '2026-01-01T00:00:00.000Z' };
+    mockBBDocGet.mockResolvedValueOnce({ exists: true, data: () => bb });
+
+    const res = await request(buildApp())
+      .put(`/burn-buddies/${BURN_BUDDY_ID}`)
+      .set('Authorization', VALID_TOKEN)
+      .send({ workoutSchedule: { days: ['Mon', 'Wed'] } });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: 'Workout time is required' });
+    expect(mockBBDocUpdate).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when workout schedule time is empty string', async () => {
+    const bb = { id: BURN_BUDDY_ID, uid1: TEST_UID, uid2: OTHER_UID, createdAt: '2026-01-01T00:00:00.000Z' };
+    mockBBDocGet.mockResolvedValueOnce({ exists: true, data: () => bb });
+
+    const res = await request(buildApp())
+      .put(`/burn-buddies/${BURN_BUDDY_ID}`)
+      .set('Authorization', VALID_TOKEN)
+      .send({ workoutSchedule: { days: ['Mon'], time: '' } });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: 'Workout time is required' });
+    expect(mockBBDocUpdate).not.toHaveBeenCalled();
+  });
 });
 
 // ── DELETE /burn-buddies/:id ───────────────────────────────────────────────────

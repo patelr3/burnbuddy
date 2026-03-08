@@ -6,11 +6,13 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { useAuth } from '../lib/auth-context';
-import { apiGet } from '../lib/api';
+import { apiGet, apiPut } from '../lib/api';
 import { Avatar } from '../components/Avatar';
-import type { BurnBuddy, GroupWorkout } from '@burnbuddy/shared';
+import type { BurnBuddy, GroupWorkout, WorkoutSchedule } from '@burnbuddy/shared';
 
 interface Props {
   buddyId: string;
@@ -21,6 +23,9 @@ interface Streaks {
   burnStreak: number;
   supernovaStreak: number;
 }
+
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+type Day = (typeof DAYS)[number];
 
 function buddyAge(iso: string): string {
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
@@ -65,6 +70,13 @@ export default function BurnBuddyDetailScreen({ buddyId, onBack }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Schedule editing state
+  const [editing, setEditing] = useState(false);
+  const [selectedDays, setSelectedDays] = useState<Day[]>([]);
+  const [scheduleTime, setScheduleTime] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [timeError, setTimeError] = useState(false);
+
   const loadData = useCallback(async () => {
     if (!user) return;
     setError(null);
@@ -77,6 +89,11 @@ export default function BurnBuddyDetailScreen({ buddyId, onBack }: Props) {
 
       setBuddy(buddyData);
       setStreaks(streakData);
+
+      if (buddyData.workoutSchedule) {
+        setSelectedDays((buddyData.workoutSchedule.days as Day[]) ?? []);
+        setScheduleTime(buddyData.workoutSchedule.time ?? '');
+      }
 
       const buddyWorkouts = allGroupWorkouts
         .filter((gw) => gw.referenceId === buddyId && gw.type === 'buddy')
@@ -100,6 +117,38 @@ export default function BurnBuddyDetailScreen({ buddyId, onBack }: Props) {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  const toggleDay = (day: Day) => {
+    setSelectedDays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day],
+    );
+  };
+
+  const canSaveSchedule = selectedDays.length === 0 || scheduleTime.trim() !== '';
+
+  const handleSaveSchedule = async () => {
+    if (selectedDays.length > 0 && !scheduleTime.trim()) {
+      setTimeError(true);
+      return;
+    }
+    setSaving(true);
+    setTimeError(false);
+    try {
+      const workoutSchedule: WorkoutSchedule | undefined =
+        selectedDays.length > 0
+          ? { days: selectedDays, time: scheduleTime.trim() }
+          : undefined;
+      const updated = await apiPut<BurnBuddy>(`/burn-buddies/${buddyId}`, {
+        workoutSchedule,
+      });
+      setBuddy(updated);
+      setEditing(false);
+    } catch {
+      Alert.alert('Error', 'Failed to save schedule');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -136,7 +185,11 @@ export default function BurnBuddyDetailScreen({ buddyId, onBack }: Props) {
           <Text style={styles.backText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{partnerName}</Text>
-        <View style={styles.headerSide} />
+        <View style={styles.headerSide}>
+          <TouchableOpacity onPress={() => { setEditing((e) => !e); setTimeError(false); }}>
+            <Text style={styles.editText}>{editing ? 'Done' : 'Edit'}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
@@ -151,6 +204,71 @@ export default function BurnBuddyDetailScreen({ buddyId, onBack }: Props) {
         <View style={styles.badge}>
           <Text style={styles.badgeText}>Burn Buddy</Text>
         </View>
+
+        {/* Schedule display */}
+        {!editing && buddy.workoutSchedule && buddy.workoutSchedule.days.length > 0 && (
+          <View style={styles.scheduleRow}>
+            <Text style={styles.scheduleText}>
+              Schedule: {buddy.workoutSchedule.days.join(', ')}
+              {buddy.workoutSchedule.time && ` at ${buddy.workoutSchedule.time}`}
+            </Text>
+          </View>
+        )}
+
+        {/* Schedule editor */}
+        {editing && (
+          <View style={styles.settingsPanel}>
+            <Text style={styles.settingsPanelTitle}>Workout Schedule</Text>
+            <View style={styles.daysRow}>
+              {DAYS.map((day) => (
+                <TouchableOpacity
+                  key={day}
+                  onPress={() => toggleDay(day)}
+                  style={[styles.dayButton, selectedDays.includes(day) && styles.dayButtonOn]}
+                >
+                  <Text
+                    style={[
+                      styles.dayButtonText,
+                      selectedDays.includes(day) && styles.dayButtonTextOn,
+                    ]}
+                  >
+                    {day}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {selectedDays.length > 0 && (
+              <>
+                <View style={styles.timeRow}>
+                  <Text style={styles.timeLabel}>Time:</Text>
+                  <TextInput
+                    style={styles.timeInput}
+                    value={scheduleTime}
+                    onChangeText={(t) => { setScheduleTime(t); setTimeError(false); }}
+                    placeholder="HH:MM"
+                    placeholderTextColor="#9ca3af"
+                    keyboardType="numbers-and-punctuation"
+                  />
+                </View>
+                {timeError && (
+                  <Text style={styles.timeErrorText}>Please select a workout time</Text>
+                )}
+              </>
+            )}
+            <TouchableOpacity
+              onPress={handleSaveSchedule}
+              disabled={saving || !canSaveSchedule}
+              style={[
+                styles.saveButton,
+                (saving || !canSaveSchedule) && styles.disabledButton,
+              ]}
+            >
+              <Text style={styles.saveButtonText}>
+                {saving ? 'Saving…' : 'Save Schedule'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Stats Grid */}
         <View style={styles.statsGrid}>
@@ -219,6 +337,7 @@ const styles = StyleSheet.create({
   },
   headerSide: { minWidth: 70 },
   backText: { color: '#E05A00', fontSize: 15 },
+  editText: { color: '#E05A00', fontSize: 15, textAlign: 'right' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#333', flex: 1, textAlign: 'center' },
   content: { flex: 1 },
   contentContainer: { padding: 16 },
@@ -236,6 +355,72 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   badgeText: { fontSize: 12, color: '#E05A00', fontWeight: '600' },
+  scheduleRow: {
+    backgroundColor: '#fff3e0',
+    borderWidth: 1,
+    borderColor: '#fed7aa',
+    borderRadius: 6,
+    padding: 10,
+    marginBottom: 16,
+  },
+  scheduleText: { fontSize: 13, color: '#E05A00' },
+  settingsPanel: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    padding: 16,
+    backgroundColor: '#f8fafc',
+    marginBottom: 20,
+  },
+  settingsPanelTitle: { fontSize: 15, fontWeight: '700', color: '#333', marginBottom: 14 },
+  daysRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 12,
+  },
+  dayButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#fff',
+  },
+  dayButtonOn: {
+    borderColor: '#E05A00',
+    backgroundColor: '#fff3e0',
+  },
+  dayButtonText: { fontSize: 12, color: '#374151' },
+  dayButtonTextOn: { color: '#E05A00' },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 8,
+  },
+  timeLabel: { fontSize: 13, color: '#6b7280' },
+  timeInput: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    fontSize: 14,
+    color: '#333',
+    backgroundColor: '#fff',
+    minWidth: 80,
+  },
+  timeErrorText: { color: '#ef4444', fontSize: 12, marginBottom: 8 },
+  saveButton: {
+    backgroundColor: '#E05A00',
+    paddingVertical: 10,
+    borderRadius: 6,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  disabledButton: { opacity: 0.6 },
+  saveButtonText: { color: '#fff', fontWeight: '600', fontSize: 14 },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

@@ -66,7 +66,7 @@ export interface BurnBuddyRequest {
 
 export interface WorkoutSchedule {
   days: Array<'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun'>;
-  time?: string;
+  time: string;
 }
 
 export interface BurnSquad {

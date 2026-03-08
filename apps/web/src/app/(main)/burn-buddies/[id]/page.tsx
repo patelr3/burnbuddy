@@ -118,6 +118,9 @@ export default function BurnBuddyDetailPage() {
   const [selectedDays, setSelectedDays] = useState<Day[]>([]);
   const [scheduleTime, setScheduleTime] = useState('');
   const [saving, setSaving] = useState(false);
+  const [timeError, setTimeError] = useState(false);
+
+  const canSaveSchedule = selectedDays.length > 0 && scheduleTime.trim() !== '';
 
   const notFound = !!error;
 
@@ -133,10 +136,15 @@ export default function BurnBuddyDetailPage() {
   );
 
   const handleSaveSchedule = async () => {
+    if (!scheduleTime.trim()) {
+      setTimeError(true);
+      return;
+    }
+    setTimeError(false);
     setSaving(true);
     try {
       const workoutSchedule: WorkoutSchedule | undefined =
-        selectedDays.length > 0 ? { days: selectedDays, time: scheduleTime || undefined } : undefined;
+        selectedDays.length > 0 ? { days: selectedDays, time: scheduleTime } : undefined;
       const updated = await apiPut<BurnBuddy>(`/burn-buddies/${id}`, { workoutSchedule });
       queryClient.setQueryData<BurnBuddyData>(queryKeys.burnBuddy(id), (old) =>
         old ? { ...old, burnBuddy: updated } : old,
@@ -203,6 +211,7 @@ export default function BurnBuddyDetailPage() {
           <button
             onClick={() => {
               setEditing((e) => !e);
+              setTimeError(false);
               if (!editing && burnBuddy.workoutSchedule) {
                 setSelectedDays((burnBuddy.workoutSchedule.days as Day[]) ?? []);
                 setScheduleTime(burnBuddy.workoutSchedule.time ?? '');
@@ -236,18 +245,23 @@ export default function BurnBuddyDetailPage() {
                 </button>
               ))}
             </div>
-            <div className="mb-3 flex items-center gap-2">
-              <label className="text-[13px] text-gray-400">Time (optional):</label>
-              <input
-                type="time"
-                value={scheduleTime}
-                onChange={(e) => setScheduleTime(e.target.value)}
-                className="rounded-md border border-gray-600 bg-surface-elevated px-2 py-1 text-[13px] text-white focus:outline-none focus:ring-2 focus:ring-primary"
-              />
+            <div className="mb-3">
+              <div className="flex items-center gap-2">
+                <label className="text-[13px] text-gray-400">Time:</label>
+                <input
+                  type="time"
+                  value={scheduleTime}
+                  onChange={(e) => { setScheduleTime(e.target.value); setTimeError(false); }}
+                  className="rounded-md border border-gray-600 bg-surface-elevated px-2 py-1 text-[13px] text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              {timeError && (
+                <p className="mt-1 text-xs text-red-400">Please select a workout time</p>
+              )}
             </div>
             <button
               onClick={handleSaveSchedule}
-              disabled={saving}
+              disabled={saving || !canSaveSchedule}
               className="cursor-pointer rounded-md border-none bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50"
             >
               {saving ? 'Saving…' : 'Save Schedule'}

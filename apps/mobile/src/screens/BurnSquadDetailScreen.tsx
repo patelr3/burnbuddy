@@ -86,6 +86,7 @@ export default function BurnSquadDetailScreen({ squadId, onBack }: Props) {
   const [scheduleTime, setScheduleTime] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [timeError, setTimeError] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -141,12 +142,19 @@ export default function BurnSquadDetailScreen({ squadId, onBack }: Props) {
     );
   };
 
+  const canSaveSettings = editName.trim() !== '' && (selectedDays.length === 0 || scheduleTime.trim() !== '');
+
   const handleSaveSettings = async () => {
+    if (selectedDays.length > 0 && !scheduleTime.trim()) {
+      setTimeError(true);
+      return;
+    }
     setSaving(true);
+    setTimeError(false);
     try {
       const workoutSchedule: WorkoutSchedule | undefined =
         selectedDays.length > 0
-          ? { days: selectedDays, time: scheduleTime || undefined }
+          ? { days: selectedDays, time: scheduleTime.trim() }
           : undefined;
       const updated = await apiPut<BurnSquad>(`/burn-squads/${squadId}`, {
         name: editName,
@@ -291,26 +299,31 @@ export default function BurnSquadDetailScreen({ squadId, onBack }: Props) {
               ))}
             </View>
             {selectedDays.length > 0 && (
-              <View style={styles.timeRow}>
-                <Text style={styles.timeLabel}>Time (optional):</Text>
-                <TextInput
-                  style={styles.timeInput}
-                  value={scheduleTime}
-                  onChangeText={setScheduleTime}
-                  placeholder="HH:MM"
-                  placeholderTextColor="#9ca3af"
-                  keyboardType="numbers-and-punctuation"
-                />
-              </View>
+              <>
+                <View style={styles.timeRow}>
+                  <Text style={styles.timeLabel}>Time:</Text>
+                  <TextInput
+                    style={styles.timeInput}
+                    value={scheduleTime}
+                    onChangeText={(t) => { setScheduleTime(t); setTimeError(false); }}
+                    placeholder="HH:MM"
+                    placeholderTextColor="#9ca3af"
+                    keyboardType="numbers-and-punctuation"
+                  />
+                </View>
+                {timeError && (
+                  <Text style={styles.timeErrorText}>Please select a workout time</Text>
+                )}
+              </>
             )}
 
             <View style={styles.settingsActions}>
               <TouchableOpacity
                 onPress={handleSaveSettings}
-                disabled={saving || !editName.trim()}
+                disabled={saving || !canSaveSettings}
                 style={[
                   styles.saveButton,
-                  (saving || !editName.trim()) && styles.disabledButton,
+                  (saving || !canSaveSettings) && styles.disabledButton,
                 ]}
               >
                 <Text style={styles.saveButtonText}>{saving ? 'Saving…' : 'Save Settings'}</Text>
@@ -511,6 +524,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     minWidth: 80,
   },
+  timeErrorText: { color: '#ef4444', fontSize: 12, marginBottom: 8 },
   settingsActions: { flexDirection: 'row', gap: 8 },
   saveButton: {
     flex: 1,

@@ -27,6 +27,9 @@ export default function NewBurnSquadPage() {
   const [scheduleTime, setScheduleTime] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [timeError, setTimeError] = useState(false);
+
+  const canSubmit = squadName.trim() !== '' && (scheduleDays.size === 0 || scheduleTime.trim() !== '');
 
   useEffect(() => {
     if (!user) return;
@@ -60,6 +63,11 @@ export default function NewBurnSquadPage() {
       setError('Squad name is required.');
       return;
     }
+    if (scheduleDays.size > 0 && !scheduleTime.trim()) {
+      setTimeError(true);
+      return;
+    }
+    setTimeError(false);
     setSending(true);
     setError(null);
     try {
@@ -74,8 +82,8 @@ export default function NewBurnSquadPage() {
       if (scheduleDays.size > 0) {
         const schedule: WorkoutSchedule = {
           days: [...scheduleDays] as WorkoutSchedule['days'],
+          time: scheduleTime || '',
         };
-        if (scheduleTime) schedule.time = scheduleTime;
         body.workoutSchedule = schedule;
       }
       await apiPost('/burn-squads', body);
@@ -180,15 +188,20 @@ export default function NewBurnSquadPage() {
           </div>
           {scheduleDays.size > 0 && (
             <div>
-              <label className="mb-1 block text-[13px] text-gray-400">
-                Time (optional)
-              </label>
-              <input
-                type="time"
-                value={scheduleTime}
-                onChange={(e) => setScheduleTime(e.target.value)}
-                className="rounded-md border border-gray-600 bg-surface-elevated px-2.5 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-secondary"
-              />
+              <div className="flex items-center gap-2">
+                <label className="text-[13px] text-gray-400">
+                  Time:
+                </label>
+                <input
+                  type="time"
+                  value={scheduleTime}
+                  onChange={(e) => { setScheduleTime(e.target.value); setTimeError(false); }}
+                  className="rounded-md border border-gray-600 bg-surface-elevated px-2.5 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-secondary"
+                />
+              </div>
+              {timeError && (
+                <p className="mt-1 text-xs text-red-400">Please select a workout time</p>
+              )}
             </div>
           )}
         </div>
@@ -203,7 +216,7 @@ export default function NewBurnSquadPage() {
           </Link>
           <button
             onClick={handleSubmit}
-            disabled={sending || !squadName.trim()}
+            disabled={sending || !canSubmit}
             className="cursor-pointer rounded-md border-none bg-secondary px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50"
           >
             {sending ? 'Creating…' : 'Create Burn Squad'}
