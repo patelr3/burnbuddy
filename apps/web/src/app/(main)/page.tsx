@@ -8,6 +8,7 @@ import { apiPost, apiPut, apiPatch } from '@/lib/api';
 import { GettingStartedCard } from '@/components/GettingStartedCard';
 import { Avatar } from '@/components/Avatar';
 import Link from 'next/link';
+import { UserPlus, UsersRound } from 'lucide-react';
 import type { Workout, WorkoutType, WorkoutSchedule } from '@burnbuddy/shared';
 
 const WORKOUT_TYPES: WorkoutType[] = [
@@ -433,15 +434,17 @@ export default function Home() {
         <div className="flex gap-2">
           <Link
             href="/burn-buddies/new"
-            className="rounded bg-primary px-3.5 py-2 text-[13px] text-white no-underline hover:bg-orange-600"
+            aria-label="Add Burn Buddy"
+            className="rounded-lg bg-primary p-2 text-white no-underline hover:bg-orange-600"
           >
-            + Burn Buddy
+            <UserPlus className="h-5 w-5" />
           </Link>
           <Link
             href="/burn-squads/new"
-            className="rounded bg-blue-500 px-3.5 py-2 text-[13px] text-white no-underline hover:bg-blue-600"
+            aria-label="Add Burn Squad"
+            className="rounded-lg bg-primary p-2 text-white no-underline hover:bg-orange-600"
           >
-            + Burn Squad
+            <UsersRound className="h-5 w-5" />
           </Link>
         </div>
       </div>
