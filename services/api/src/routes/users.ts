@@ -14,7 +14,7 @@ import { cacheControl } from '../middleware/cache-control';
 import { getDb } from '../lib/firestore';
 import { getStorageBucket } from '../lib/storage';
 import { generateUniqueUsername, validateUsername } from '../lib/username';
-import { animeFilter } from '../lib/anime-filter';
+import sharp from 'sharp';
 import { calculateStreaks, calculateHighestStreakEver } from '../services/streak-calculator';
 import { logger } from '../lib/logger';
 
@@ -151,8 +151,8 @@ router.get('/me', requireAuth, cacheControl(0), async (req: Request, res: Respon
 
 /**
  * POST /users/me/profile-picture
- * Uploads a profile picture, converts it to anime style, stores it in Firebase Storage,
- * and updates the user's Firestore document with the download URL.
+ * Uploads a profile picture, resizes to 256×256, converts to WebP, stores it in
+ * Firebase Storage, and updates the user's Firestore document with the download URL.
  */
 router.post(
   '/me/profile-picture',
@@ -182,21 +182,15 @@ router.post(
     const fileSize = req.file.size;
     logger.info({ uid, fileSize, mimetype: req.file.mimetype }, 'Profile picture upload started');
 
-    const ANIME_FILTER_TIMEOUT_MS = Number(process.env['ANIME_FILTER_TIMEOUT_MS']) || 15_000;
-    let animeBuffer: Buffer;
+    let optimizedBuffer: Buffer;
     try {
-      const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('ANIME_FILTER_TIMEOUT')), ANIME_FILTER_TIMEOUT_MS),
-      );
-      animeBuffer = await Promise.race([animeFilter(req.file.buffer), timeout]);
+      optimizedBuffer = await sharp(req.file.buffer)
+        .rotate()
+        .resize(256, 256, { fit: 'cover' })
+        .webp()
+        .toBuffer();
     } catch (err) {
-      const isTimeout = err instanceof Error && err.message === 'ANIME_FILTER_TIMEOUT';
-      if (isTimeout) {
-        logger.error({ uid, fileSize }, 'Anime filter processing timed out');
-        res.status(500).json({ error: 'Image processing timed out. Please try a smaller image.' });
-        return;
-      }
-      logger.error({ err, uid, fileSize }, 'Anime filter processing failed');
+      logger.error({ err, uid, fileSize }, 'Image processing failed');
       res.status(500).json({ error: 'Image processing failed. Please try a different image.' });
       return;
     }
@@ -206,7 +200,7 @@ router.post(
     const storageFile = bucket.file(filePath);
 
     try {
-      await storageFile.save(animeBuffer, {
+      await storageFile.save(optimizedBuffer, {
         contentType: 'image/webp',
         metadata: { cacheControl: 'public, max-age=86400' },
       });

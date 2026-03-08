@@ -6,7 +6,8 @@ const {
   mockVerifyIdToken,
   mockUsersDocUpdate,
   mockUsersDocRef,
-  mockAnimeFilter,
+  mockSharpToBuffer,
+  mockSharpConstructor,
   mockStorageSave,
   mockGetSignedUrl,
   mockStorageFile,
@@ -19,7 +20,8 @@ const {
     update: mockUsersDocUpdate,
   }));
 
-  const mockAnimeFilter = vi.fn();
+  const mockSharpToBuffer = vi.fn();
+  const mockSharpConstructor = vi.fn();
 
   const mockStorageSave = vi.fn();
   const mockGetSignedUrl = vi.fn();
@@ -35,7 +37,8 @@ const {
     mockVerifyIdToken,
     mockUsersDocUpdate,
     mockUsersDocRef,
-    mockAnimeFilter,
+    mockSharpToBuffer,
+    mockSharpConstructor,
     mockStorageSave,
     mockGetSignedUrl,
     mockStorageFile,
@@ -65,8 +68,9 @@ vi.mock('../lib/firestore', () => ({
   }),
 }));
 
-vi.mock('../lib/anime-filter', () => ({
-  animeFilter: mockAnimeFilter,
+// Mock sharp — returns a chainable builder with toBuffer at the end
+vi.mock('sharp', () => ({
+  default: mockSharpConstructor,
 }));
 
 // Must also mock username module since users.ts imports it
@@ -98,7 +102,14 @@ beforeEach(() => {
   vi.resetAllMocks();
 
   mockVerifyIdToken.mockResolvedValue({ uid: TEST_UID });
-  mockAnimeFilter.mockResolvedValue(Buffer.from('anime-image-data'));
+  mockSharpToBuffer.mockResolvedValue(Buffer.from('optimized-image-data'));
+  const sharpChain = {
+    rotate: vi.fn().mockReturnThis(),
+    resize: vi.fn().mockReturnThis(),
+    webp: vi.fn().mockReturnThis(),
+    toBuffer: mockSharpToBuffer,
+  };
+  mockSharpConstructor.mockReturnValue(sharpChain);
   mockStorageSave.mockResolvedValue(undefined);
   mockGetSignedUrl.mockResolvedValue([SIGNED_URL]);
   mockUsersDocUpdate.mockResolvedValue(undefined);
@@ -134,14 +145,14 @@ describe('POST /users/me/profile-picture', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ profilePictureUrl: SIGNED_URL });
 
-    // Verify anime filter was called with the uploaded buffer
-    expect(mockAnimeFilter).toHaveBeenCalledOnce();
-    expect(Buffer.isBuffer(mockAnimeFilter.mock.calls[0][0])).toBe(true);
+    // Verify sharp was called for image processing
+    expect(mockSharpConstructor).toHaveBeenCalledOnce();
+    expect(mockSharpToBuffer).toHaveBeenCalledOnce();
 
     // Verify storage upload
     expect(mockStorageFile).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/avatar.webp`);
     expect(mockStorageSave).toHaveBeenCalledWith(
-      Buffer.from('anime-image-data'),
+      Buffer.from('optimized-image-data'),
       expect.objectContaining({ contentType: 'image/webp' }),
     );
 
@@ -190,8 +201,7 @@ describe('POST /users/me/profile-picture', () => {
     expect(res.status).toBe(413);
     expect(res.body.error).toMatch(/too large/i);
 
-    // Anime filter and storage should not be called
-    expect(mockAnimeFilter).not.toHaveBeenCalled();
+    // Processing and storage should not be called
     expect(mockStorageSave).not.toHaveBeenCalled();
   });
 
@@ -230,7 +240,6 @@ describe('POST /users/me/profile-picture', () => {
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/invalid file type/i);
 
-    expect(mockAnimeFilter).not.toHaveBeenCalled();
     expect(mockStorageSave).not.toHaveBeenCalled();
   });
 
@@ -243,30 +252,8 @@ describe('POST /users/me/profile-picture', () => {
     expect(res.body.error).toMatch(/no file/i);
   });
 
-  it('returns 500 with timeout error when anime filter takes too long', async () => {
-    // Mock animeFilter to never resolve (simulates hang)
-    mockAnimeFilter.mockReturnValue(new Promise(() => {}));
-
-    // Use a very short timeout for testing (route reads ANIME_FILTER_TIMEOUT_MS env var)
-    process.env['ANIME_FILTER_TIMEOUT_MS'] = '50';
-
-    const imageBuffer = Buffer.alloc(100, 0xff);
-    const res = await request(buildApp())
-      .post('/users/me/profile-picture')
-      .set('Authorization', VALID_TOKEN)
-      .attach('picture', imageBuffer, { filename: 'photo.jpg', contentType: 'image/jpeg' });
-
-    expect(res.status).toBe(500);
-    expect(res.body.error).toMatch(/timed out/i);
-
-    // Storage should not be called after timeout
-    expect(mockStorageSave).not.toHaveBeenCalled();
-
-    delete process.env['ANIME_FILTER_TIMEOUT_MS'];
-  });
-
-  it('returns 500 with generic error when anime filter throws', async () => {
-    mockAnimeFilter.mockRejectedValueOnce(new Error('sharp crashed'));
+  it('returns 500 when image processing fails', async () => {
+    mockSharpToBuffer.mockRejectedValueOnce(new Error('sharp crashed'));
 
     const imageBuffer = Buffer.alloc(100, 0xff);
     const res = await request(buildApp())
@@ -280,10 +267,10 @@ describe('POST /users/me/profile-picture', () => {
     expect(mockStorageSave).not.toHaveBeenCalled();
   });
 
-  it('does not store original photo — only anime-converted version', async () => {
+  it('stores only the optimized buffer, not the original', async () => {
     const originalBuffer = Buffer.alloc(200, 0xab);
-    const animeBuffer = Buffer.from('converted-anime-data');
-    mockAnimeFilter.mockResolvedValueOnce(animeBuffer);
+    const optimizedBuffer = Buffer.from('converted-optimized-data');
+    mockSharpToBuffer.mockResolvedValueOnce(optimizedBuffer);
 
     const res = await request(buildApp())
       .post('/users/me/profile-picture')
@@ -292,10 +279,10 @@ describe('POST /users/me/profile-picture', () => {
 
     expect(res.status).toBe(200);
 
-    // Only one storage save — with the anime buffer, not the original
+    // Only one storage save — with the optimized buffer, not the original
     expect(mockStorageSave).toHaveBeenCalledOnce();
     expect(mockStorageSave).toHaveBeenCalledWith(
-      animeBuffer,
+      optimizedBuffer,
       expect.objectContaining({ contentType: 'image/webp' }),
     );
   });

@@ -7,8 +7,6 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
-  Animated,
-  Easing,
 } from 'react-native';
 import { signOut } from 'firebase/auth';
 import * as ImagePicker from 'expo-image-picker';
@@ -29,9 +27,7 @@ export default function AccountScreen() {
 
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [showExtendedUpload, setShowExtendedUpload] = useState(false);
   const [removing, setRemoving] = useState(false);
-  const sparkleAnim = useRef(new Animated.Value(0)).current;
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastAssetRef = useRef<{ uri: string; mimeType: string } | null>(null);
   const cancelledRef = useRef(false);
@@ -52,30 +48,7 @@ export default function AccountScreen() {
     loadProfile();
   }, [loadProfile]);
 
-  useEffect(() => {
-    if (uploading) {
-      const loop = Animated.loop(
-        Animated.timing(sparkleAnim, {
-          toValue: 1,
-          duration: 1200,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        }),
-      );
-      loop.start();
-      return () => loop.stop();
-    }
-    sparkleAnim.setValue(0);
-  }, [uploading, sparkleAnim]);
 
-  useEffect(() => {
-    if (!uploading) {
-      setShowExtendedUpload(false);
-      return;
-    }
-    const timer = setTimeout(() => setShowExtendedUpload(true), 5000);
-    return () => clearTimeout(timer);
-  }, [uploading]);
 
   const uploadAsset = async (uri: string, mimeType: string) => {
     const controller = new AbortController();
@@ -195,10 +168,6 @@ export default function AccountScreen() {
   }
 
   const displayName = user?.displayName ?? profile?.displayName ?? 'User';
-  const sparkleRotate = sparkleAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -218,9 +187,7 @@ export default function AccountScreen() {
             />
             {uploading ? (
               <View style={styles.avatarOverlay}>
-                <Animated.Text style={[styles.sparkleText, { transform: [{ rotate: sparkleRotate }] }]}>
-                  ✨
-                </Animated.Text>
+                <ActivityIndicator size="small" color="#E05A00" />
               </View>
             ) : (
               <TouchableOpacity
@@ -235,20 +202,14 @@ export default function AccountScreen() {
           </View>
           {uploading && (
             <View style={styles.uploadFeedback}>
-              <Text style={styles.uploadingText}>
-                {showExtendedUpload
-                  ? '✨ Still working… this can take a moment for large photos'
-                  : '✨ Anime-fying...'}
-              </Text>
-              {showExtendedUpload && (
-                <TouchableOpacity
-                  onPress={handleCancelUpload}
-                  style={styles.cancelButton}
-                  testID="account-cancel-upload"
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-              )}
+              <Text style={styles.uploadingText}>Uploading…</Text>
+              <TouchableOpacity
+                onPress={handleCancelUpload}
+                style={styles.cancelButton}
+                testID="account-cancel-upload"
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
             </View>
           )}
           {uploadError && (
@@ -432,13 +393,10 @@ const styles = StyleSheet.create({
   cameraIcon: {
     fontSize: 14,
   },
-  sparkleText: {
-    fontSize: 14,
-  },
   uploadingText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#7c3aed',
+    color: '#6b7280',
     textAlign: 'center',
   },
   uploadFeedback: {

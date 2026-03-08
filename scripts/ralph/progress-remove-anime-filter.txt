@@ -1,3 +1,78 @@
 # Ralph Progress Log — Remove Anime Filter from Profile Pictures
 Started: 2026-03-08
+
+## Codebase Patterns
+- Profile picture processing is in POST /users/me/profile-picture route in services/api/src/routes/users.ts
+- sharp is used for image processing — imported directly in route file
+- Storage upload uses `getStorageBucket()` from lib/storage.ts, saves as WebP with cache-control headers
+- When mocking sharp in tests, use a hoisted constructor mock + chainable pattern (rotate/resize/webp return this, toBuffer is the terminal mock)
+- vi.resetAllMocks() clears all mock implementations — re-apply chainable mocks in beforeEach
+---
+
+## 2026-03-08T18:57 - US-001
+- Replaced animeFilter() + Promise.race timeout with simple sharp pipeline: rotate → resize 256×256 cover → WebP
+- Removed ANIME_FILTER_TIMEOUT_MS env var logic and anime-filter import
+- Updated JSDoc comment to remove anime references
+- Files changed: services/api/src/routes/users.ts
+- **Learnings for future iterations:**
+  - The anime filter was wrapped in a Promise.race with a configurable timeout — all of that is now gone
+  - The variable was renamed from `animeBuffer` to `optimizedBuffer` to reflect the new purpose
+  - sharp is already a dependency in services/api/package.json (used by anime-filter.ts) so no new deps needed
+---
+
+## 2026-03-08T19:03 - US-002
+- Deleted services/api/src/lib/anime-filter.ts and anime-filter.test.ts
+- Removed vi.mock('../lib/anime-filter') from delete-account.test.ts and users-delete-profile-picture.test.ts
+- Files changed: services/api/src/lib/anime-filter.ts (deleted), services/api/src/lib/anime-filter.test.ts (deleted), services/api/src/routes/delete-account.test.ts, services/api/src/routes/users-delete-profile-picture.test.ts
+- **Learnings for future iterations:**
+  - Test files that import the users router mock ALL modules the router imports — removing a dependency from the router means removing corresponding vi.mock from ALL test files that test that router
+  - The anime-filter mock was in 3 test files: delete-account, users-delete-profile-picture, and users-profile-picture
+---
+
+## 2026-03-08T19:03 - US-003
+- Replaced mockAnimeFilter with mockSharpToBuffer + mockSharpConstructor in profile picture test
+- Mocked sharp module with chainable builder pattern (rotate→resize→webp→toBuffer)
+- Removed anime filter timeout test case (no longer applicable)
+- Updated successful upload assertions to verify sharp processing
+- Renamed "anime filter throws" test to "sharp processing fails"
+- Renamed "does not store original — only anime" test to "stores only the optimized buffer"
+- Files changed: services/api/src/routes/users-profile-picture.test.ts
+- **Learnings for future iterations:**
+  - Sharp must be mocked with a chainable API: mockReturnThis() for rotate/resize/webp, separate mock for toBuffer
+  - Must use vi.hoisted for both the toBuffer mock AND the constructor mock, then re-apply chain in beforeEach (vi.resetAllMocks clears implementations)
+  - vi.mock('sharp', () => ({ default: mockSharpConstructor })) works for ESM default import mocking
+---
+
+## 2026-03-08T19:03 - US-004
+- Changed bouncing ✨ spinner to a CSS spin animation (border-based spinner in gray-700 circle)
+- Changed "✨ Anime-fying your photo…" to "Uploading photo…" with neutral gray color
+- Removed purple gradient background from loading state
+- Files changed: apps/web/src/app/(main)/account/page.tsx
+- **Learnings for future iterations:**
+  - Account page requires auth — browser verification redirects to /login without credentials
+  - The upload spinner is shown conditionally via `uploadPictureMutation.isPending` from react-query
+  - Tailwind's `animate-spin` with `border-t-primary` creates a simple spinner without needing any extra components
+---
+
+## 2026-03-08T19:11 - US-005
+- Replaced rotating ✨ spinner with ActivityIndicator in avatar overlay
+- Changed '✨ Anime-fying...' to 'Uploading…'
+- Removed extended 'Still working…' message and 5-second delay timer (showExtendedUpload)
+- Removed Animated/Easing imports and sparkle animation code
+- Simplified to always show cancel button during upload
+- Files changed: apps/mobile/src/screens/AccountScreen.tsx
+- **Learnings for future iterations:**
+  - The mobile upload UI had a separate `showExtendedUpload` state with 5s timer for the anime processing delay — now removed since upload is fast
+  - ActivityIndicator from react-native is the standard loading spinner component
+  - Animated and Easing imports were only used for the sparkle animation
+---
+
+## 2026-03-08T19:11 - US-006
+- Verified no ANIME_FILTER_TIMEOUT_MS references remain in Bicep, docker-compose, or env files (already cleaned in US-001)
+- Verified sharp dependency retained in services/api/package.json (^0.34.5)
+- All 377 API tests pass, typecheck clean
+- No code changes needed — all infra references were removed in prior stories
+- **Learnings for future iterations:**
+  - Archived PRDs in scripts/ralph/archive/ and docs/prds/complete/ contain historical anime references — these are documentation and should not be modified
+  - The ANIME_FILTER_TIMEOUT_MS env var was only in the route handler code, not in any Bicep/infra templates
 ---
