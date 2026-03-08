@@ -542,6 +542,9 @@ router.get('/:uid/profile', requireAuth, async (req: Request, res: Response): Pr
     workoutsAllTime: workouts.length,
     workoutsThisMonth,
     buddyRelationshipStatus,
+    friendshipStatus: 'friends' as const,
+    pendingBuddyRequestId: null,
+    burnBuddyId: null,
   };
 
   res.json(profileStats);
