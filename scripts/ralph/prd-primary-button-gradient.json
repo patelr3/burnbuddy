@@ -1,0 +1,111 @@
+{
+  "project": "BurnBuddy",
+  "branchName": "ralph/primary-button-gradient",
+  "description": "Primary Button Gradient - Add a red-orange to orange diagonal gradient to all primary action buttons across the web app",
+  "dependsOn": [],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Define gradient CSS class",
+      "description": "As a developer, I need a reusable CSS class that applies the primary gradient and hover state so I can use it across all buttons without duplicating styles.",
+      "acceptanceCriteria": [
+        "Add a `.btn-primary-gradient` class in `apps/web/src/app/globals.css`",
+        "Normal state background: `linear-gradient(135deg, #FF6B35 0%, #FF9500 100%)` (red-orange to primary orange, diagonal)",
+        "Hover state background: darkened gradient `linear-gradient(135deg, #E55A2B 0%, #E08600 100%)`",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Apply gradient to dashboard buttons",
+      "description": "As a user, I want the Start Workout button and other dashboard action buttons to have the gradient so they feel more vibrant and engaging.",
+      "acceptanceCriteria": [
+        "Desktop 'Start Workout' button in `apps/web/src/app/(main)/page.tsx` uses `btn-primary-gradient` class instead of `bg-primary` + `hover:bg-orange-600`",
+        "Mobile 'Start Workout' button (fixed bottom bar) uses `btn-primary-gradient`",
+        "Workout type modal 'Start Workout' submit button uses `btn-primary-gradient`",
+        "'Accept' button on burn buddy requests uses `btn-primary-gradient`",
+        "'Join Workout' inline button uses `btn-primary-gradient`",
+        "'Add Burn Buddy' and 'Add Burn Squad' icon Link elements use `btn-primary-gradient`",
+        "All `bg-primary` + `hover:bg-orange-600` pairs in `apps/web/src/app/(main)/page.tsx` are replaced",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Apply gradient to friends page buttons",
+      "description": "As a user, I want the Add Friend and Send Burn Buddy Request buttons on the friends page to match the new gradient style.",
+      "acceptanceCriteria": [
+        "'+ Add Friend' button in `apps/web/src/app/(main)/friends/page.tsx` uses `btn-primary-gradient` instead of `bg-primary` + `hover:bg-orange-600`",
+        "'Send Request' (burn buddy) button uses `btn-primary-gradient`",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Apply gradient to burn buddy detail and creation pages",
+      "description": "As a user, I want the Save and Send buttons on burn buddy pages to use the gradient.",
+      "acceptanceCriteria": [
+        "'Save Schedule' button in `apps/web/src/app/(main)/burn-buddies/[id]/page.tsx` uses `btn-primary-gradient` instead of `bg-primary` + `hover:bg-orange-600`",
+        "'Send Request' button in `apps/web/src/app/(main)/burn-buddies/new/page.tsx` uses `btn-primary-gradient`",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Apply gradient to profile page buttons",
+      "description": "As a user, I want the Accept and Request Burn Buddy buttons on profile pages to use the gradient.",
+      "acceptanceCriteria": [
+        "'Accept' button in `apps/web/src/app/(main)/profile/[uid]/page.tsx` uses `btn-primary-gradient` instead of `bg-primary` + `hover:bg-orange-600`",
+        "'Request Burn Buddy' button on the same page uses `btn-primary-gradient`",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Apply gradient to account page buttons",
+      "description": "As a user, I want the Save and toggle buttons on the account page to use the gradient.",
+      "acceptanceCriteria": [
+        "'Save' (username) button in `apps/web/src/app/(main)/account/page.tsx` uses `btn-primary-gradient` instead of `bg-primary` + `hover:bg-orange-600`",
+        "'Hide/Re-enable Getting Started' button uses `btn-primary-gradient` in its orange state (keep `bg-success hover:bg-green-600` for the green state)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Apply gradient to Firebase Auth widget buttons",
+      "description": "As a user, I want the Sign In and Continue buttons on the login page to match the gradient style.",
+      "acceptanceCriteria": [
+        "In `apps/web/src/app/globals.css`, update `.firebaseui-form-actions .mdl-button--raised.mdl-button--colored` to use `background: linear-gradient(135deg, #FF6B35 0%, #FF9500 100%) !important` instead of flat `background-color`",
+        "Hover state uses `background: linear-gradient(135deg, #E55A2B 0%, #E08600 100%) !important`",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
