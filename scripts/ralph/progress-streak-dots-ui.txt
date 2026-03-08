@@ -1,3 +1,22 @@
 # Ralph Progress Log — Streak Dots UI
 Started: 2026-03-08
+
+## Codebase Patterns
+- StreakRing uses props: streakCount, last7Days, color, label, description, basePath — StreakDots simplifies to: streakCount, last7Days, color, label
+- Tailwind v4 theme colors defined in globals.css: primary (#FF9500/orange), violet-500 for supernova streak
+- Web typecheck: run `cd packages/shared && yarn build` first, then `cd apps/web && yarn typecheck`
+- Existing gray scale: text-gray-400, text-gray-500, fill-gray-500 (no shadcn muted-foreground)
+- StreakDayInfo type: { date, hasWorkout, groupWorkoutId, dayLabel } from @burnbuddy/shared
+---
+
+## 2026-03-08T18:48Z - US-001
+- Created `apps/web/src/components/StreakDots.tsx` — horizontal 7-dot streak indicator
+- 🔥 for workout days, ○ (gray-500) for rest days, red danger state when indices 1-6 all have no workout
+- Streak count + label displayed inline to the left of the dots
+- Day-of-week labels below each dot, aria-label on container
+- Files changed: apps/web/src/components/StreakDots.tsx (new)
+- **Learnings for future iterations:**
+  - StreakDots has fewer props than StreakRing (no description, no basePath) — simpler API
+  - Danger state checks indices 1-6 (most recent 6 days), not all 7
+  - Use COLOR_CLASSES map for Tailwind color class lookup by 'orange'|'violet'
 ---
