@@ -16,6 +16,15 @@ body {
   color: #fff;
 }
 
+/* Primary action button gradient */
+.btn-primary-gradient {
+  background: linear-gradient(135deg, #FF6B35 0%, #FF9500 100%);
+}
+
+.btn-primary-gradient:hover {
+  background: linear-gradient(135deg, #E55A2B 0%, #E08600 100%);
+}
+
 /* Firebase Auth Widget dark theme overrides */
 .firebaseui-container {
   background: transparent !important;
