@@ -70,7 +70,7 @@ export async function apiUploadFile<T>(
   form.append(fieldName, file);
 
   const controller = new AbortController();
-  const timeoutMs = 20_000;
+  const timeoutMs = 45_000;
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   // If the caller provides an external signal, forward its abort

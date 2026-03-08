@@ -195,6 +195,30 @@ describe('POST /users/me/profile-picture', () => {
     expect(mockStorageSave).not.toHaveBeenCalled();
   });
 
+  it('accepts HEIC uploads (iPhone format)', async () => {
+    const imageBuffer = Buffer.alloc(100, 0xff);
+
+    const res = await request(buildApp())
+      .post('/users/me/profile-picture')
+      .set('Authorization', VALID_TOKEN)
+      .attach('picture', imageBuffer, { filename: 'photo.heic', contentType: 'image/heic' });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ profilePictureUrl: SIGNED_URL });
+  });
+
+  it('accepts HEIF uploads', async () => {
+    const imageBuffer = Buffer.alloc(100, 0xff);
+
+    const res = await request(buildApp())
+      .post('/users/me/profile-picture')
+      .set('Authorization', VALID_TOKEN)
+      .attach('picture', imageBuffer, { filename: 'photo.heif', contentType: 'image/heif' });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ profilePictureUrl: SIGNED_URL });
+  });
+
   it('returns 400 when content type is not an image', async () => {
     const textBuffer = Buffer.from('not an image');
 
