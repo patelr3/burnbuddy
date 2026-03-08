@@ -33,8 +33,8 @@ app.use(express.json());
 const corsOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
   : [
-      'https://buddyburn-beta.arayosun.com',
-      'https://buddyburn.arayosun.com',
+      'https://burnbuddy-beta.arayosun.com',
+      'https://burnbuddy.arayosun.com',
       'http://localhost:3000',
     ];
 app.use(cors({ origin: corsOrigins, credentials: true }));

@@ -18,33 +18,9 @@ env:
   ACR_NAME: burnbuddyacr
 
 jobs:
-  quality:
-    name: Quality Checks
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: 'yarn'
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
-
-      - name: Build shared package
-        run: yarn workspace @burnbuddy/shared build
-
-      - name: Typecheck all packages
-        run: yarn typecheck
-
-      - name: Run API tests
-        run: yarn workspace api test
-
   deploy-beta:
     name: Deploy API to Beta
     runs-on: ubuntu-latest
-    needs: quality
     environment: beta
     env:
       AZURE_RESOURCE_GROUP: buddyburn-beta

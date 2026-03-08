@@ -192,7 +192,7 @@ This app will not support commenting on workout logs. There is no communication 
 - Use Expo (React Native) + Next.js.
 - Use Firebase Storage​
 - Use Firebase Authentication (useful secrets in .env)
-- Use the custom domain `buddyburn.arayosun.com`
+- Use the custom domain `burnbuddy.arayosun.com`
 - Must support both web and mobile app (iOS and Android). Reduce code redundancy as much as possible
 - Must support a generic API using the Firebase Auth tokens
 - Make sure to use microservices for frontend + any other services necessary. Use docker.

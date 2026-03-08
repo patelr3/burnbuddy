@@ -1003,7 +1003,7 @@ describe('TLA+ Gap G-1: AtMostOneBuddyPerPair — no duplicate-pair guard on acc
     expect(res.status).toBe(200);
 
     // Verify the doc ID used is NOT the sorted composite key pattern
-    const docIdUsed = mockBBDocRef.mock.calls[0]?.[0] as string;
+    const docIdUsed = (mockBBDocRef.mock.calls as unknown as string[][])[0]?.[0];
     const sortedCompositeKey = [TEST_UID, OTHER_UID].sort().join('_');
     expect(docIdUsed).not.toBe(sortedCompositeKey);
   });
