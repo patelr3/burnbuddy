@@ -12,10 +12,9 @@ export default function GettingStartedCard({ onDismiss }: Props) {
       </TouchableOpacity>
       <Text style={styles.title}>Getting Started</Text>
       <Text style={styles.body}>
-        Welcome to buddyburn! 🔥{'\n\n'}
-        Start by adding a friend — search for them by email on the Friends screen.
-        Once you&apos;re connected, you can create a Burn Buddy or Burn Squad to
-        track your workouts together.
+        Welcome to BurnBuddy! Here's how to get going:{'\n\n'}
+        1. Add a friend — search by email on the Friends screen and send them a request{'\n\n'}
+        2. Request a Burn Buddy — once they accept, go to Burn Buddies and send a Burn Buddy request to start tracking workouts together
       </Text>
     </View>
   );
