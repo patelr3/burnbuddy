@@ -476,7 +476,7 @@ export default function Home() {
                             : 'bg-secondary/20 text-secondary'
                         }`}
                       >
-                        {item.type === 'buddy' ? 'Buddy' : 'Squad'}
+                        {item.type === 'buddy' ? '🔥 Burn Buddy' : '🔥 Burn Squad'}
                       </span>
                     </div>
                     <div className="text-[13px] text-gray-400">
