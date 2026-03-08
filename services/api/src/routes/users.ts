@@ -266,6 +266,134 @@ router.delete('/me/profile-picture', requireAuth, async (req: Request, res: Resp
 });
 
 /**
+ * DELETE /users/me
+ * Permanently deletes the authenticated user's account and all associated data.
+ * Returns 409 if user is admin of any BurnSquads. Auth record is deleted last.
+ */
+router.delete('/me', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const uid = req.user!.uid;
+  const db = getDb();
+  const BATCH_LIMIT = 500;
+
+  // Check if user is admin of any BurnSquads
+  const adminSquadsSnap = await db.collection('burnSquads').where('adminUid', '==', uid).get();
+  if (!adminSquadsSnap.empty) {
+    const squads = adminSquadsSnap.docs.map((d) => (d.data() as BurnSquad).name);
+    res.status(409).json({ error: 'Must transfer or delete squads first', squads });
+    return;
+  }
+
+  // Load profile to get usernameLower for reservation cleanup
+  const userDoc = await db.collection('users').doc(uid).get();
+  const usernameLower = userDoc.exists ? (userDoc.data() as UserProfile).usernameLower : undefined;
+
+  // Helper: query and batch-delete all matching documents
+  async function batchDeleteQuery(
+    collectionName: string,
+    field: string,
+    value: string,
+    label: string,
+  ): Promise<void> {
+    try {
+      const snap = await db.collection(collectionName).where(field, '==', value).get();
+      for (let i = 0; i < snap.docs.length; i += BATCH_LIMIT) {
+        const batch = db.batch();
+        const chunk = snap.docs.slice(i, i + BATCH_LIMIT);
+        for (const doc of chunk) {
+          batch.delete(doc.ref);
+        }
+        await batch.commit();
+      }
+    } catch (err) {
+      logger.error({ err, collectionName, field, label }, 'Cleanup failed for collection');
+    }
+  }
+
+  // Delete user profile and username reservation
+  try {
+    await db.collection('users').doc(uid).delete();
+  } catch (err) {
+    logger.error({ err }, 'Failed to delete user profile');
+  }
+
+  if (usernameLower) {
+    try {
+      await db.collection('usernames').doc(usernameLower).delete();
+    } catch (err) {
+      logger.error({ err }, 'Failed to delete username reservation');
+    }
+  }
+
+  // Delete workouts
+  await batchDeleteQuery('workouts', 'uid', uid, 'workouts');
+
+  // Delete friends (uid can be in uid1 or uid2)
+  await batchDeleteQuery('friends', 'uid1', uid, 'friends-uid1');
+  await batchDeleteQuery('friends', 'uid2', uid, 'friends-uid2');
+
+  // Delete friend requests
+  await batchDeleteQuery('friendRequests', 'fromUid', uid, 'friendRequests-from');
+  await batchDeleteQuery('friendRequests', 'toUid', uid, 'friendRequests-to');
+
+  // Delete burn buddies
+  await batchDeleteQuery('burnBuddies', 'uid1', uid, 'burnBuddies-uid1');
+  await batchDeleteQuery('burnBuddies', 'uid2', uid, 'burnBuddies-uid2');
+
+  // Delete burn buddy requests
+  await batchDeleteQuery('burnBuddyRequests', 'fromUid', uid, 'burnBuddyRequests-from');
+  await batchDeleteQuery('burnBuddyRequests', 'toUid', uid, 'burnBuddyRequests-to');
+
+  // Delete burn squad join requests
+  await batchDeleteQuery('burnSquadJoinRequests', 'uid', uid, 'burnSquadJoinRequests');
+
+  // Remove from non-admin squads (update memberUids)
+  try {
+    const memberSquadsSnap = await db.collection('burnSquads').where('memberUids', 'array-contains', uid).get();
+    for (const doc of memberSquadsSnap.docs) {
+      await doc.ref.update({ memberUids: admin.firestore.FieldValue.arrayRemove(uid) });
+    }
+  } catch (err) {
+    logger.error({ err }, 'Failed to remove user from squads');
+  }
+
+  // Handle group workouts — remove user or delete if fewer than 2 members remain
+  try {
+    const groupWorkoutsSnap = await db.collection('groupWorkouts').where('memberUids', 'array-contains', uid).get();
+    for (const doc of groupWorkoutsSnap.docs) {
+      const gw = doc.data() as GroupWorkout;
+      const remaining = gw.memberUids.filter((m) => m !== uid);
+      if (remaining.length < 2) {
+        await doc.ref.delete();
+      } else {
+        await doc.ref.update({ memberUids: admin.firestore.FieldValue.arrayRemove(uid) });
+      }
+    }
+  } catch (err) {
+    logger.error({ err }, 'Failed to clean up group workouts');
+  }
+
+  // Delete profile picture from Storage
+  try {
+    const bucket = getStorageBucket();
+    await bucket.file(`profile-pictures/${uid}/avatar.webp`).delete();
+  } catch (err: unknown) {
+    const code = (err as { code?: number }).code;
+    if (code !== 404) {
+      logger.error({ err }, 'Failed to delete profile picture');
+    }
+  }
+
+  // Delete Firebase Auth user record — FINAL step
+  try {
+    await admin.auth().deleteUser(uid);
+  } catch (err) {
+    logger.error({ err }, 'Failed to delete Firebase Auth user');
+  }
+
+  res.json({ deleted: true });
+});
+
+/**
  * PUT /users/me
  * Upserts the authenticated user's profile.
  * Updates provided fields if the profile exists; creates it if it does not.
