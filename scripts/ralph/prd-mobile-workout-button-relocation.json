@@ -1,0 +1,109 @@
+{
+  "project": "burnbuddy",
+  "branchName": "ralph/mobile-workout-button-relocation",
+  "description": "Mobile Workout Button Relocation & Badge Cleanup - Pin Start Workout button and active workout banner to bottom of screen, remove redundant burn buddy/squad badges from list cards",
+  "dependsOn": [],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Move Start Workout button to fixed bottom position (Web)",
+      "description": "As a mobile web user, I want the Start Workout button pinned above the bottom nav bar so I can always start a workout without scrolling.",
+      "acceptanceCriteria": [
+        "Start Workout button renders in a fixed-position container above the bottom navigation bar on mobile viewports (below md breakpoint) in apps/web/src/app/(main)/page.tsx",
+        "Button is hidden on desktop layout (above md breakpoint) — desktop keeps current inline placement or omits the fixed element entirely",
+        "Button remains full-width and uses existing orange/primary styling (bg-primary, text-white, rounded-lg)",
+        "The fixed bottom container spans full width with dark theme styling matching the nav bar (bg-black/90, border-t border-gray-800)",
+        "Scroll content has enough bottom padding so no content is hidden behind the fixed button — increase the existing pb-20 in apps/web/src/app/(main)/layout.tsx to accommodate both nav bar and workout area",
+        "Tapping the button still opens the workout type selector modal via setShowWorkoutSelector(true)",
+        "The original inline Start Workout button markup (around line 311-321 in page.tsx) is removed from the scroll content on mobile viewports",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Move active workout banner to fixed bottom position (Web)",
+      "description": "As a mobile web user with an active workout, I want the active workout controls pinned at the bottom so I can always access Strike/End actions.",
+      "acceptanceCriteria": [
+        "When an active workout exists, the active workout banner replaces the Start Workout button in the fixed bottom area on mobile viewports",
+        "Banner shows the workout type label, elapsed time display, and Strike/End Workout action buttons",
+        "Banner is fixed above the bottom nav bar on mobile viewports (below md breakpoint)",
+        "On desktop (above md breakpoint), active workout banner stays in its current inline position at the top of page content",
+        "The original inline active workout banner markup (around lines 292-309 in page.tsx) is hidden on mobile viewports since it now appears in the fixed bottom area",
+        "Strike and End Workout button handlers still function correctly from the new position",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Move Start Workout button to fixed bottom position (Mobile App)",
+      "description": "As a React Native mobile user, I want the Start Workout button pinned at the bottom of the screen so I can always start a workout without scrolling.",
+      "acceptanceCriteria": [
+        "Start Workout button renders outside the ScrollView in apps/mobile/src/screens/HomeScreen.tsx, positioned at the bottom of the screen container",
+        "Button sits above the safe area bottom inset (use SafeAreaView or appropriate bottom padding)",
+        "The original inline Start Workout button markup (around lines 358-367) is removed from inside the ScrollView",
+        "ScrollView content is not obscured by the button — add appropriate bottom padding to the ScrollView contentContainerStyle",
+        "Tapping the button still opens the workout type selector modal via setShowWorkoutSelector(true)",
+        "Button keeps its current styling (styles.startWorkoutButton, styles.startWorkoutButtonText)",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Move active workout banner to fixed bottom position (Mobile App)",
+      "description": "As a React Native mobile user with an active workout, I want the active workout controls pinned at the bottom for consistent access.",
+      "acceptanceCriteria": [
+        "When an active workout exists, the active workout banner replaces the Start Workout button at the bottom of HomeScreen.tsx",
+        "Banner shows workout type, elapsed time, and Strike/End Workout buttons",
+        "Banner is positioned outside the ScrollView at the bottom of the screen container",
+        "The original inline active workout banner (around lines 345-356) is removed from inside the ScrollView",
+        "ScrollView content is not obscured by the banner",
+        "Strike and End Workout button handlers still function correctly from the new position",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Remove burn buddy/squad badge from list cards (Web)",
+      "description": "As a web user, I want a cleaner buddy/squad card design without the redundant badge label.",
+      "acceptanceCriteria": [
+        "The <span> badge showing '🔥 Burn Buddy' or '🔥 Burn Squad' is removed from the combined buddy/squad list cards in apps/web/src/app/(main)/page.tsx (currently around line 482)",
+        "The rest of the card layout (name, avatar, streak count, last workout info) remains unchanged",
+        "No other fire emoji instances are affected (nav bar branding, streak counts)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Remove burn buddy/squad badge from list cards (Mobile App)",
+      "description": "As a mobile user, I want a cleaner buddy/squad card design without the redundant badge labels.",
+      "acceptanceCriteria": [
+        "The '🔥 Burn Buddy' type label text is removed from buddy list cards in apps/mobile/src/screens/HomeScreen.tsx (currently around line 460)",
+        "The '🔥 Burn Squad' type label text is removed from squad list cards in HomeScreen.tsx (currently around line 486)",
+        "The rest of the card layout (name, avatar, streak count) remains unchanged",
+        "No other fire emoji instances are affected (header branding, streak counts)",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
