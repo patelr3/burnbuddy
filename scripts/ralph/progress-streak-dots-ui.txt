@@ -21,6 +21,17 @@ Started: 2026-03-08
   - Use COLOR_CLASSES map for Tailwind color class lookup by 'orange'|'violet'
 ---
 
+## 2026-03-08T18:58Z - US-004
+- Replaced StreakRing with StreakDots on friend profile page (`apps/web/src/app/(main)/profile/[uid]/page.tsx`)
+- Changed import from StreakRing to StreakDots, replaced streak rings section with two stacked StreakDots rows (burn + supernova)
+- Removed `description` and `basePath` props not needed by StreakDots
+- Files changed: apps/web/src/app/(main)/profile/[uid]/page.tsx
+- **Learnings for future iterations:**
+  - Same drop-in replacement pattern as US-002 and US-003: `flex flex-col gap-2` container with two StreakDots
+  - Profile page uses `highestActiveStreakLast7Days` from ProfileStats, same data shape as burn buddy page
+  - Profile page requires auth — browser verification redirects to login without credentials
+---
+
 ## 2026-03-08T18:58Z - US-003
 - Replaced StreakRing with StreakDots on burn squad detail page (`apps/web/src/app/(main)/burn-squads/[id]/page.tsx`)
 - Changed import from StreakRing to StreakDots, replaced streak rings section with two stacked StreakDots rows (burn + supernova)
