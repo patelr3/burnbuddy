@@ -1,0 +1,97 @@
+{
+  "project": "burnbuddy",
+  "branchName": "ralph/group-workout-detail",
+  "description": "Group Workout Detail Page - Show participant workout details (type, start time, duration) when selecting a group workout from the log",
+  "dependsOn": [],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create API endpoint for group workout detail",
+      "description": "As a developer, I need a new GET /group-workouts/:id endpoint that returns a group workout along with each participant's individual workout details so the frontend can display them.",
+      "acceptanceCriteria": [
+        "New GET /group-workouts/:id endpoint exists in services/api/src/routes/group-workouts.ts and requires authentication via requireAuth middleware",
+        "Response includes the GroupWorkout fields plus a 'participants' array of enriched workout details",
+        "Each participant entry includes: uid, displayName, workoutType, startedAt, endedAt, and status",
+        "Endpoint fetches individual Workout documents by IDs from GroupWorkout.workoutIds and UserProfile documents by UIDs from GroupWorkout.memberUids using getDb() from lib/firestore.ts",
+        "Returns 404 JSON response if the group workout document does not exist in Firestore",
+        "Returns 403 JSON response if the authenticated user's uid is not in the group workout's memberUids array",
+        "Unit tests cover success, 404, and 403 cases following the existing vi.mock + vi.hoisted + buildApp() + supertest pattern",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Make Group Workout Log rows clickable on Burn Buddy page",
+      "description": "As a user viewing my Burn Buddy detail page, I want to click a group workout entry so I can navigate to the full details of that session.",
+      "acceptanceCriteria": [
+        "Each row in the Group Workout Log section on /burn-buddies/[id] page is wrapped in a Next.js Link component",
+        "Clicking a row navigates to /burn-buddies/[id]/group-workouts/[gwId] where gwId is the group workout's id",
+        "Row has a hover state indicating it's interactive (e.g., background highlight to bg-gray-800 and/or a right chevron icon)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Make Group Workout Log rows clickable on Burn Squad page",
+      "description": "As a user viewing my Burn Squad detail page, I want to click a group workout entry so I can navigate to the full details of that session.",
+      "acceptanceCriteria": [
+        "Each row in the Group Workout Log section on /burn-squads/[id] page is wrapped in a Next.js Link component",
+        "Clicking a row navigates to /burn-squads/[id]/group-workouts/[gwId] where gwId is the group workout's id",
+        "Row has a hover state matching the Burn Buddy page treatment from US-002 (same styling pattern)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Build group workout detail page for Burn Buddies",
+      "description": "As a user, I want to see a detail page for a group workout that shows what each buddy did during the session.",
+      "acceptanceCriteria": [
+        "New Next.js page exists at apps/web/src/app/(main)/burn-buddies/[id]/group-workouts/[gwId]/page.tsx",
+        "Page header shows the formatted date of the group workout and a back link that navigates to /burn-buddies/[id]",
+        "Page fetches data from GET /group-workouts/:gwId API endpoint using the existing API helper in apps/web/src/lib/api.ts",
+        "Displays a card for each participant showing: display name (linked to /burn-buddies/[id]), workout type (e.g. Running, HIIT), start time formatted as human-readable time (e.g. 7:32 AM), and duration (e.g. 45 min) computed from endedAt - startedAt",
+        "Workouts with status 'active' and no endedAt show an 'In Progress' badge with green accent instead of duration",
+        "Shows a loading skeleton or spinner while fetching data",
+        "Shows an error message if the group workout is not found (404) or user is not authorized (403)",
+        "Matches the existing dark theme (dark backgrounds, white/gray text) used on Burn Buddy detail pages",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Build group workout detail page for Burn Squads",
+      "description": "As a user, I want to see a detail page for a squad group workout that shows what each squad member did during the session.",
+      "acceptanceCriteria": [
+        "New Next.js page exists at apps/web/src/app/(main)/burn-squads/[id]/group-workouts/[gwId]/page.tsx",
+        "Page header shows the formatted date of the group workout and a back link that navigates to /burn-squads/[id]",
+        "Page fetches data from GET /group-workouts/:gwId API endpoint using the existing API helper in apps/web/src/lib/api.ts",
+        "Displays a card for each participant showing: display name (linked to /burn-squads/[id]), workout type, start time, and duration — same fields as the buddy detail page",
+        "Workouts with status 'active' and no endedAt show an 'In Progress' badge with green accent instead of duration",
+        "Handles squads with 3+ members gracefully with cards stacking vertically and no horizontal overflow",
+        "Shows loading and error states matching the buddy page pattern from US-004",
+        "Matches the existing dark theme used on Burn Squad detail pages",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The BurnBuddy web app currently uses green (#30D158) as its primary accent color and relies on text labels for action buttons. This PRD covers three visual updates: changing the primary color to orange globally, replacing the "+ Burn Buddy" and "+ Burn Squad" text buttons with icon buttons, and fixing the "Add to Calendar" button to match the dark theme.
+The BurnBuddy web app currently uses green (#30D158) as its primary accent color and relies on text labels for action buttons. This PRD covers visual updates across web and mobile: changing the primary color to orange globally, replacing the "+ Burn Buddy" and "+ Burn Squad" text buttons with icon buttons, fixing the "Add to Calendar" button to match the dark theme, and improving the mobile friends page layout.
 
 ## Goals
 
@@ -76,6 +76,17 @@ The BurnBuddy web app currently uses green (#30D158) as its primary accent color
 - [ ] Typecheck passes
 - [ ] Verify in browser using dev-browser skill
 
+### US-007: Fix mobile friends page row spacing and remove email
+**Description:** As a mobile user, I want the friends list rows on the friends page to have comfortable spacing (similar to the home page cards) and not display email addresses, since usernames are now supported.
+
+**Acceptance Criteria:**
+- [ ] Increase `paddingVertical` on `friendRow` style in `apps/mobile/src/screens/FriendsScreen.tsx` to match or approach the home page card spacing (e.g. `paddingVertical: 12`, `paddingHorizontal: 14`)
+- [ ] Remove the `<Text style={styles.friendEmail}>{friend.email}</Text>` element from friend rows
+- [ ] Remove the `friendEmail` style definition (cleanup)
+- [ ] Friend rows no longer look smushed/squashed — visually closer to home page list cards
+- [ ] Typecheck passes
+- [ ] Verify on mobile or emulator
+
 ## Functional Requirements
 
 - FR-1: Update the home page section header from "Burn Buddies & Squads" to "Burn Buddies"
@@ -88,18 +99,19 @@ The BurnBuddy web app currently uses green (#30D158) as its primary accent color
 - FR-8: Both icon buttons must include `aria-label` attributes for screen reader accessibility
 - FR-9: Update `AddToCalendarButton.tsx` styling to use `bg-surface-elevated` background, `text-white` text, and dark-appropriate border/hover states
 - FR-10: Ensure the calendar button loading spinner SVG uses white or light-colored stroke for visibility on dark background
+- FR-11: Increase padding and spacing on mobile friends page friend rows in `FriendsScreen.tsx` to reduce smushed appearance
+- FR-12: Remove email display from mobile friends page friend rows (username is sufficient)
 
 ## Non-Goals
 
 - No redesign of the overall layout or navigation
-- No changes to the mobile app (Expo) — web only
 - No new button component library or design system abstraction
 - No changes to success/error/danger color semantics (green for success, red for danger remain)
 - No changes to the blue secondary color
 
 ## Dependencies
 
-- `prd-tla-verification-fixes` — must be completed before starting this PRD
+None
 
 ## Design Considerations
 

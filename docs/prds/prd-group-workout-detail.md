@@ -110,7 +110,7 @@ This feature adds a dedicated detail page for each group workout entry. Clicking
 
 ## Dependencies
 
-- [prd-tla-verification-fixes](prd-tla-verification-fixes.md) — must be completed before this PRD begins
+None
 
 ## Design Considerations
 

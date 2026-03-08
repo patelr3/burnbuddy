@@ -1,29 +1,21 @@
-# PRD: TLA+ Verification Gap Fixes & CI Unblock
+# PRD: TLA+ Verification Gap Fixes
 
 ## Introduction
 
-The TLA+ formal specification suite verified 45 invariants across the BurnBuddy API. A verification report (`specs/tla/VERIFICATION_REPORT.md`) identified 4 implementation gaps where the code does not fully enforce the spec's invariants. Additionally, tests written to *document* these gaps introduced a TypeScript error that is blocking the Deploy API workflow's Quality Checks step. This PRD fixes all 4 gaps and unblocks CI.
+The TLA+ formal specification suite verified 45 invariants across the BurnBuddy API. A verification report (`specs/tla/VERIFICATION_REPORT.md`) identified 4 implementation gaps where the code does not fully enforce the spec's invariants. Tests were previously written to *document* these gaps (asserting the broken behavior). This PRD fixes all 4 gaps and updates those tests to assert the correct behavior.
+
+**Note:** The Deploy API workflow has already been unblocked — quality checks were extracted into a standalone `quality.yml` workflow (PR #30), and the TypeScript error in `burn-buddies.test.ts:1006` was fixed via a cast through `unknown`. Both Deploy API and Quality Checks are currently green.
 
 ## Goals
 
-- Unblock the Deploy API GitHub Actions workflow by resolving the TypeScript error in `burn-buddies.test.ts:1006`
 - Fix all 4 TLA+ verification gaps (G-1, G-2, G-3, G-4) so the API implementation matches the formal specification
 - Bring the verification report from 84% (38/45 invariants correct) to 100% (45/45)
+- Update gap-documenting tests to assert correct behavior instead of broken behavior
 - Maintain full backward compatibility — no breaking changes to API contracts
 
 ## User Stories
 
-### US-001: Fix CI Typecheck Error in Burn Buddy Tests
-
-**Description:** As a developer, I need the Deploy API workflow to pass Quality Checks so that code changes can be deployed to beta and production.
-
-**Acceptance Criteria:**
-- [ ] Fix the TypeScript error at `services/api/src/routes/burn-buddies.test.ts:1006` — the `as string` cast on an empty tuple `mockBBDocRef.mock.calls[0]?.[0]` fails typecheck
-- [ ] Update the gap-documenting test assertions to expect the *correct* behavior (sorted composite key) instead of asserting the broken behavior
-- [ ] `yarn typecheck` passes locally (at minimum `cd services/api && npx tsc --noEmit`)
-- [ ] `cd services/api && yarn test` passes with all tests green
-
-### US-002: Fix G-1 — Use Sorted Composite Key for Burn Buddy Docs
+### US-001: Fix G-1 — Use Sorted Composite Key for Burn Buddy Docs
 
 **Description:** As a user, I want only one Burn Buddy relationship per friend pair so that accepting cross-requests (A→B and B→A) doesn't create duplicate records.
 
@@ -31,11 +23,11 @@ The TLA+ formal specification suite verified 45 invariants across the BurnBuddy 
 - [ ] In `services/api/src/routes/burn-buddies.ts`, the accept handler creates the `BurnBuddy` doc with ID `${uid1}_${uid2}` (sorted composite key) instead of `randomUUID()`
 - [ ] The `BurnBuddy.id` field also uses the sorted composite key (matching the doc ID)
 - [ ] If a `BurnBuddy` doc already exists for the pair (second accept of a cross-request), return 409 Conflict instead of creating a duplicate
-- [ ] Update existing tests in `burn-buddies.test.ts` that assert random UUID behavior to assert composite key behavior
+- [ ] Update the gap-documenting tests in `burn-buddies.test.ts` (G-1 section) to assert the *correct* behavior — doc ID IS the sorted composite key, and duplicate accept returns 409
 - [ ] Add a test: accepting a cross-request when a BurnBuddy already exists returns 409
 - [ ] `cd services/api && yarn test` passes
 
-### US-003: Fix G-4 — Add requireProfile Middleware for Social Actions
+### US-002: Fix G-4 — Add requireProfile Middleware for Social Actions
 
 **Description:** As a system, I need to enforce that users have a Firestore profile before performing social actions (friend requests, buddy requests, squad creation, starting workouts) so that orphaned social data isn't created.
 
@@ -52,7 +44,7 @@ The TLA+ formal specification suite verified 45 invariants across the BurnBuddy 
 - [ ] Add tests in each affected route's test file verifying that requests without a profile return 403
 - [ ] `cd services/api && yarn test` passes
 
-### US-004: Fix G-3 — Username Uniqueness Race Condition
+### US-003: Fix G-3 — Username Uniqueness Race Condition
 
 **Description:** As a user, I want my username to be truly unique so that concurrent profile creations can't claim the same username.
 
@@ -63,7 +55,7 @@ The TLA+ formal specification suite verified 45 invariants across the BurnBuddy 
 - [ ] Existing username-related tests still pass
 - [ ] `cd services/api && yarn test` passes
 
-### US-005: Fix G-2 — Explicit Self-Invite Check in Squad Member Add
+### US-004: Fix G-2 — Explicit Self-Invite Check in Squad Member Add
 
 **Description:** As a system, I need an explicit guard against self-invites in squad member additions so that the invariant doesn't rely on a cross-domain assumption.
 
@@ -72,7 +64,7 @@ The TLA+ formal specification suite verified 45 invariants across the BurnBuddy 
 - [ ] Add a test in `burn-squads.test.ts`: attempting to add yourself as a member returns 400
 - [ ] `cd services/api && yarn test` passes
 
-### US-006: Update Verification Report
+### US-005: Update Verification Report
 
 **Description:** As a developer, I want the verification report to reflect the current implementation so that it stays accurate and trustworthy.
 
@@ -116,7 +108,7 @@ None
 
 ## Success Metrics
 
-- Deploy API workflow passes Quality Checks on the PR and on merge to main
+- Quality Checks workflow passes on the PR and on merge to main
 - TLA+ verification report shows 45/45 (100%) invariants correctly implemented
 - All API unit tests pass (`cd services/api && yarn test`)
 - TypeScript typecheck passes (`yarn typecheck` for API workspace)
