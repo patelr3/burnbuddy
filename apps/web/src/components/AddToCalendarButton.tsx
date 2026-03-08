@@ -24,7 +24,7 @@ export function AddToCalendarButton({ endpoint }: { endpoint: string }) {
       <button
         onClick={handleClick}
         disabled={downloading}
-        className="cursor-pointer rounded-md border border-gray-300 bg-white px-3.5 py-1.5 text-[13px] hover:bg-gray-50 disabled:opacity-50"
+        className="cursor-pointer rounded-md border border-[#3A3A3C] bg-surface-elevated px-3.5 py-1.5 text-[13px] text-white hover:bg-[#3A3A3C] disabled:opacity-50"
       >
         {downloading ? (
           <span className="flex items-center gap-1.5">
