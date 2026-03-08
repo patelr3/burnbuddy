@@ -73,6 +73,9 @@ function BurnSquadSkeleton() {
         <div className="h-8 w-28 rounded-md bg-gray-800" />
       </div>
 
+      {/* Schedule skeleton */}
+      <div className="mb-5 h-10 rounded-md border-2 border-dashed border-gray-800 bg-gray-800/20" />
+
       {/* Stats grid skeleton */}
       <div className="mb-7 grid grid-cols-2 gap-3">
         {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
@@ -134,7 +137,15 @@ export default function BurnSquadDetailPage() {
   const [saving, setSaving] = useState(false);
   const [timeError, setTimeError] = useState(false);
 
+  // Inline schedule editing state (separate from settings panel)
+  const [isEditingSchedule, setIsEditingSchedule] = useState(false);
+  const [inlineScheduleDays, setInlineScheduleDays] = useState<Day[]>([]);
+  const [inlineScheduleTime, setInlineScheduleTime] = useState('');
+  const [inlineSaving, setInlineSaving] = useState(false);
+  const [inlineTimeError, setInlineTimeError] = useState(false);
+
   const canSaveSettings = editName.trim() !== '' && (selectedDays.length === 0 || scheduleTime.trim() !== '');
+  const canSaveInlineSchedule = inlineScheduleDays.length > 0 && inlineScheduleTime.trim() !== '';
 
   // Delete confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -181,6 +192,35 @@ export default function BurnSquadDetailPage() {
     }
   };
 
+  const handleSaveInlineSchedule = async () => {
+    if (!inlineScheduleTime.trim()) {
+      setInlineTimeError(true);
+      return;
+    }
+    setInlineTimeError(false);
+    setInlineSaving(true);
+    try {
+      const workoutSchedule: WorkoutSchedule | undefined =
+        inlineScheduleDays.length > 0 ? { days: inlineScheduleDays, time: inlineScheduleTime } : undefined;
+      const updated = await apiPut<BurnSquad>(`/burn-squads/${id}`, {
+        name: squad!.name,
+        settings: {
+          onlyAdminsCanAddMembers: squad!.settings.onlyAdminsCanAddMembers,
+          ...(workoutSchedule !== undefined && { workoutSchedule }),
+        },
+      });
+      queryClient.setQueryData<BurnSquadData>(queryKeys.burnSquad(id), (old) =>
+        old ? { ...old, squad: { ...updated, members: old.squad.members } } : old,
+      );
+      queryClient.invalidateQueries({ queryKey: queryKeys.burnSquad(id) });
+      setIsEditingSchedule(false);
+    } catch {
+      // keep editing open
+    } finally {
+      setInlineSaving(false);
+    }
+  };
+
   const handleDelete = async () => {
     setDeleting(true);
     try {
@@ -194,6 +234,12 @@ export default function BurnSquadDetailPage() {
 
   const toggleDay = (day: Day) => {
     setSelectedDays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day],
+    );
+  };
+
+  const toggleInlineDay = (day: Day) => {
+    setInlineScheduleDays((prev) =>
       prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day],
     );
   };
@@ -352,14 +398,117 @@ export default function BurnSquadDetailPage() {
           </div>
         )}
 
-        {/* Schedule display */}
-        {!editing && squad.settings.workoutSchedule && squad.settings.workoutSchedule.days.length > 0 && (
-          <div className="mb-5 flex items-center gap-3">
-            <div className="flex-1 rounded-md border border-violet-500/30 bg-violet-500/10 px-3.5 py-2.5 text-[13px] text-violet-400">
-              Schedule: {squad.settings.workoutSchedule.days.join(', ')}
-              {squad.settings.workoutSchedule.time && ` at ${squad.settings.workoutSchedule.time}`}
+        {/* Workout schedule — inline editing via schedule box (admin only) */}
+        {(isAdmin || (squad.settings.workoutSchedule && squad.settings.workoutSchedule.days.length > 0)) && (
+          <div className="mb-5">
+            <div className="flex items-center gap-3">
+              {squad.settings.workoutSchedule && squad.settings.workoutSchedule.days.length > 0 ? (
+                isAdmin ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!isEditingSchedule) {
+                        setInlineScheduleDays((squad.settings.workoutSchedule!.days as Day[]) ?? []);
+                        setInlineScheduleTime(squad.settings.workoutSchedule!.time ?? '');
+                        setInlineTimeError(false);
+                      }
+                      setIsEditingSchedule((e) => !e);
+                    }}
+                    className="flex-1 cursor-pointer rounded-md border border-violet-500/30 bg-violet-500/10 px-3.5 py-2.5 text-left text-[13px] text-violet-400 transition-colors hover:bg-violet-500/20"
+                  >
+                    <span className="flex items-center justify-between">
+                      <span>
+                        Schedule: {squad.settings.workoutSchedule.days.join(', ')}
+                        {squad.settings.workoutSchedule.time && ` at ${squad.settings.workoutSchedule.time}`}
+                      </span>
+                      <span className="ml-2 text-[11px] text-violet-400/60">{isEditingSchedule ? '▴' : '▾'}</span>
+                    </span>
+                  </button>
+                ) : (
+                  <div className="flex-1 rounded-md border border-violet-500/30 bg-violet-500/10 px-3.5 py-2.5 text-[13px] text-violet-400">
+                    Schedule: {squad.settings.workoutSchedule.days.join(', ')}
+                    {squad.settings.workoutSchedule.time && ` at ${squad.settings.workoutSchedule.time}`}
+                  </div>
+                )
+              ) : isAdmin ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isEditingSchedule) {
+                      setInlineScheduleDays([]);
+                      setInlineScheduleTime('');
+                      setInlineTimeError(false);
+                    }
+                    setIsEditingSchedule((e) => !e);
+                  }}
+                  className="flex-1 cursor-pointer rounded-md border-2 border-dashed border-gray-600 bg-transparent px-3.5 py-2.5 text-left text-[13px] text-gray-400 transition-colors hover:border-gray-500 hover:text-gray-300"
+                >
+                  <span className="flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <span className="text-base leading-none">+</span>
+                      <span>Add a schedule</span>
+                    </span>
+                    <span className="ml-2 text-[11px] text-gray-500">{isEditingSchedule ? '▴' : '▾'}</span>
+                  </span>
+                </button>
+              ) : null}
+
+              {/* Add to Calendar button — always visible when schedule exists */}
+              {squad.settings.workoutSchedule && squad.settings.workoutSchedule.days.length > 0 && (
+                <AddToCalendarButton endpoint={`/burn-squads/${id}/calendar`} />
+              )}
             </div>
-            <AddToCalendarButton endpoint={`/burn-squads/${id}/calendar`} />
+
+            {/* Inline schedule editor (admin only) */}
+            {isEditingSchedule && isAdmin && (
+              <div className="mt-3 rounded-lg border border-gray-700 bg-surface p-4">
+                <h3 className="mb-3 text-[15px] font-semibold text-white">Workout Schedule</h3>
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                  {DAYS.map((day) => (
+                    <button
+                      key={day}
+                      onClick={() => toggleInlineDay(day)}
+                      className={`cursor-pointer rounded-md border px-3 py-1.5 text-[13px] transition-colors ${
+                        inlineScheduleDays.includes(day)
+                          ? 'border-violet-500 bg-violet-500/20 text-violet-400'
+                          : 'border-gray-600 bg-surface-elevated text-gray-300 hover:bg-gray-500/20'
+                      }`}
+                    >
+                      {day}
+                    </button>
+                  ))}
+                </div>
+                <div className="mb-3">
+                  <div className="flex items-center gap-2">
+                    <label className="text-[13px] text-gray-400">Time:</label>
+                    <input
+                      type="time"
+                      value={inlineScheduleTime}
+                      onChange={(e) => { setInlineScheduleTime(e.target.value); setInlineTimeError(false); }}
+                      className="rounded-md border border-gray-600 bg-surface-elevated px-2 py-1 text-[13px] text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    />
+                  </div>
+                  {inlineTimeError && (
+                    <p className="mt-1 text-xs text-red-400">Please select a workout time</p>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSaveInlineSchedule}
+                    disabled={inlineSaving || !canSaveInlineSchedule}
+                    className="cursor-pointer rounded-md border-none bg-violet-500 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-600 disabled:opacity-50"
+                  >
+                    {inlineSaving ? 'Saving…' : 'Save'}
+                  </button>
+                  <button
+                    onClick={() => setIsEditingSchedule(false)}
+                    className="cursor-pointer rounded-md border border-gray-600 bg-surface px-4 py-2 text-sm text-gray-300 hover:bg-surface-elevated"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
