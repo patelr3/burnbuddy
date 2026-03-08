@@ -351,8 +351,8 @@ export default function AccountPage() {
                     aria-label="Change profile picture"
                   >
                     {uploadPictureMutation.isPending ? (
-                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-purple-400 to-pink-400">
-                        <span className="animate-bounce text-lg">✨</span>
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-700">
+                        <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-400 border-t-primary" />
                       </div>
                     ) : (
                       <Avatar
@@ -378,7 +378,7 @@ export default function AccountPage() {
                   </div>
                   <div className="text-sm text-gray-400">{user?.email ?? profile?.email ?? '—'}</div>
                   {uploadPictureMutation.isPending && (
-                    <p className="mt-1 text-xs font-medium text-purple-400">✨ Anime-fying your photo…</p>
+                    <p className="mt-1 text-xs font-medium text-gray-400">Uploading photo…</p>
                   )}
                   {uploadError && (
                     <p className="mt-1 text-xs text-danger">{uploadError}</p>
