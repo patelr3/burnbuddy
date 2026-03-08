@@ -45,8 +45,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": "The page is ~452 lines. Admin check at line 143 (isAdmin). Schedule display at lines 356-364 uses violet colors. The settings panel edit form is at lines 256-329 and must NOT be changed. Add a new isEditingSchedule boolean state separate from the existing editing state. Follow the same pattern established in US-001 for the buddy page."
+      "passes": true,
     }
   ]
 }
