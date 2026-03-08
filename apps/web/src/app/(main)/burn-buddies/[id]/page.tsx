@@ -64,15 +64,17 @@ function BurnBuddySkeleton() {
   return (
     <div className="animate-pulse">
       {/* Header skeleton */}
-      <div className="flex items-center justify-between border-b border-gray-700 py-4 mb-6">
+      <div className="flex items-center border-b border-gray-700 py-4 mb-6">
         <div className="flex items-center gap-3">
           <div className="h-4 w-12 rounded bg-gray-800" />
           <div className="h-8 w-8 rounded-full bg-gray-800" />
           <div className="h-6 w-32 rounded bg-gray-800" />
           <div className="h-5 w-14 rounded-full bg-gray-800" />
         </div>
-        <div className="h-8 w-28 rounded-md bg-gray-800" />
       </div>
+
+      {/* Schedule skeleton */}
+      <div className="mb-5 h-10 rounded-md border-2 border-dashed border-gray-800 bg-gray-800/20" />
 
       {/* Stats grid skeleton */}
       <div className="mb-7 grid grid-cols-2 gap-3">
@@ -208,77 +210,113 @@ export default function BurnBuddyDetailPage() {
               Buddy
             </span>
           </div>
-          <button
-            onClick={() => {
-              setEditing((e) => !e);
-              setTimeError(false);
-              if (!editing && burnBuddy.workoutSchedule) {
-                setSelectedDays((burnBuddy.workoutSchedule.days as Day[]) ?? []);
-                setScheduleTime(burnBuddy.workoutSchedule.time ?? '');
-              } else if (!editing) {
-                setSelectedDays([]);
-                setScheduleTime('');
-              }
-            }}
-            className="cursor-pointer rounded-md border border-gray-600 bg-surface px-3.5 py-1.5 text-[13px] text-white hover:bg-surface-elevated"
-          >
-            {editing ? 'Cancel' : 'Edit Schedule'}
-          </button>
         </div>
 
-        {/* Edit schedule panel */}
-        {editing && (
-          <div className="mb-6 rounded-lg border border-gray-700 bg-surface p-4">
-            <h3 className="mb-3 text-[15px] font-semibold text-white">Workout Schedule</h3>
-            <div className="mb-3 flex flex-wrap gap-1.5">
-              {DAYS.map((day) => (
-                <button
-                  key={day}
-                  onClick={() => toggleDay(day)}
-                  className={`cursor-pointer rounded-md border px-3 py-1.5 text-[13px] transition-colors ${
-                    selectedDays.includes(day)
-                      ? 'border-primary bg-primary/20 text-primary'
-                      : 'border-gray-600 bg-surface-elevated text-gray-300 hover:bg-gray-500/20'
-                  }`}
-                >
-                  {day}
-                </button>
-              ))}
-            </div>
-            <div className="mb-3">
-              <div className="flex items-center gap-2">
-                <label className="text-[13px] text-gray-400">Time:</label>
-                <input
-                  type="time"
-                  value={scheduleTime}
-                  onChange={(e) => { setScheduleTime(e.target.value); setTimeError(false); }}
-                  className="rounded-md border border-gray-600 bg-surface-elevated px-2 py-1 text-[13px] text-white focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
-              {timeError && (
-                <p className="mt-1 text-xs text-red-400">Please select a workout time</p>
-              )}
-            </div>
-            <button
-              onClick={handleSaveSchedule}
-              disabled={saving || !canSaveSchedule}
-              className="cursor-pointer rounded-md border-none bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50"
-            >
-              {saving ? 'Saving…' : 'Save Schedule'}
-            </button>
-          </div>
-        )}
+        {/* Workout schedule — inline editing via schedule box */}
+        <div className="mb-5">
+          <div className="flex items-center gap-3">
+            {/* Schedule box or placeholder */}
+            {burnBuddy.workoutSchedule && burnBuddy.workoutSchedule.days.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!editing) {
+                    setSelectedDays((burnBuddy.workoutSchedule!.days as Day[]) ?? []);
+                    setScheduleTime(burnBuddy.workoutSchedule!.time ?? '');
+                    setTimeError(false);
+                  }
+                  setEditing((e) => !e);
+                }}
+                className="flex-1 cursor-pointer rounded-md border border-primary/30 bg-primary/10 px-3.5 py-2.5 text-left text-[13px] text-primary transition-colors hover:bg-primary/20"
+              >
+                <span className="flex items-center justify-between">
+                  <span>
+                    Schedule: {burnBuddy.workoutSchedule.days.join(', ')}
+                    {burnBuddy.workoutSchedule.time && ` at ${burnBuddy.workoutSchedule.time}`}
+                  </span>
+                  <span className="ml-2 text-[11px] text-primary/60">{editing ? '▴' : '▾'}</span>
+                </span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!editing) {
+                    setSelectedDays([]);
+                    setScheduleTime('');
+                    setTimeError(false);
+                  }
+                  setEditing((e) => !e);
+                }}
+                className="flex-1 cursor-pointer rounded-md border-2 border-dashed border-gray-600 bg-transparent px-3.5 py-2.5 text-left text-[13px] text-gray-400 transition-colors hover:border-gray-500 hover:text-gray-300"
+              >
+                <span className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <span className="text-base leading-none">+</span>
+                    <span>Add a schedule</span>
+                  </span>
+                  <span className="ml-2 text-[11px] text-gray-500">{editing ? '▴' : '▾'}</span>
+                </span>
+              </button>
+            )}
 
-        {/* Workout schedule display */}
-        {!editing && burnBuddy.workoutSchedule && burnBuddy.workoutSchedule.days.length > 0 && (
-          <div className="mb-5 flex items-center gap-3">
-            <div className="flex-1 rounded-md border border-primary/30 bg-primary/10 px-3.5 py-2.5 text-[13px] text-primary">
-              Schedule: {burnBuddy.workoutSchedule.days.join(', ')}
-              {burnBuddy.workoutSchedule.time && ` at ${burnBuddy.workoutSchedule.time}`}
-            </div>
-            <AddToCalendarButton endpoint={`/burn-buddies/${id}/calendar`} />
+            {/* Add to Calendar button — always visible when schedule exists */}
+            {burnBuddy.workoutSchedule && burnBuddy.workoutSchedule.days.length > 0 && (
+              <AddToCalendarButton endpoint={`/burn-buddies/${id}/calendar`} />
+            )}
           </div>
-        )}
+
+          {/* Inline schedule editor */}
+          {editing && (
+            <div className="mt-3 rounded-lg border border-gray-700 bg-surface p-4">
+              <h3 className="mb-3 text-[15px] font-semibold text-white">Workout Schedule</h3>
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {DAYS.map((day) => (
+                  <button
+                    key={day}
+                    onClick={() => toggleDay(day)}
+                    className={`cursor-pointer rounded-md border px-3 py-1.5 text-[13px] transition-colors ${
+                      selectedDays.includes(day)
+                        ? 'border-primary bg-primary/20 text-primary'
+                        : 'border-gray-600 bg-surface-elevated text-gray-300 hover:bg-gray-500/20'
+                    }`}
+                  >
+                    {day}
+                  </button>
+                ))}
+              </div>
+              <div className="mb-3">
+                <div className="flex items-center gap-2">
+                  <label className="text-[13px] text-gray-400">Time:</label>
+                  <input
+                    type="time"
+                    value={scheduleTime}
+                    onChange={(e) => { setScheduleTime(e.target.value); setTimeError(false); }}
+                    className="rounded-md border border-gray-600 bg-surface-elevated px-2 py-1 text-[13px] text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                {timeError && (
+                  <p className="mt-1 text-xs text-red-400">Please select a workout time</p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSaveSchedule}
+                  disabled={saving || !canSaveSchedule}
+                  className="cursor-pointer rounded-md border-none bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50"
+                >
+                  {saving ? 'Saving…' : 'Save Schedule'}
+                </button>
+                <button
+                  onClick={() => setEditing(false)}
+                  className="cursor-pointer rounded-md border border-gray-600 bg-surface px-4 py-2 text-sm text-gray-300 hover:bg-surface-elevated"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Streak dots */}
         <div className="mb-5 flex flex-col gap-2">
