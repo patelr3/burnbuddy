@@ -399,16 +399,22 @@ export default function BurnSquadDetailPage() {
         ) : (
           <div>
             {groupWorkouts.map((gw) => (
-              <div
+              <Link
                 key={gw.id}
-                className="flex items-center justify-between border-b border-gray-700 py-3"
+                href={`/burn-squads/${id}/group-workouts/${gw.id}`}
+                className="flex items-center justify-between border-b border-gray-700 py-3 -mx-2 px-2 rounded transition-colors hover:bg-gray-800"
               >
                 <div>
                   <div className="text-sm font-medium text-white">{formatDate(gw.startedAt)}</div>
                   <div className="text-xs text-gray-400">{gw.workoutIds.length} workout(s)</div>
                 </div>
-                <div className="text-[13px] text-gray-400">{timeAgo(gw.startedAt)}</div>
-              </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[13px] text-gray-400">{timeAgo(gw.startedAt)}</span>
+                  <svg className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </Link>
             ))}
           </div>
         )}
