@@ -128,6 +128,23 @@ NoOrphanedReservations ==
             LET uid == usernameOwner[uname]
             IN ProfileExists(uid) /\ profileUsername[uid] = uname
 
+(* INV-6: No orphaned auth users after deletion.
+   For every UID that does NOT have a profile, no username in usernameOwner
+   should map to that UID. This ensures account deletion fully cleans up
+   username reservations. *)
+NoOrphanedAuthUsers ==
+    \A uid \in Uid :
+        ~ProfileExists(uid) =>
+            \A uname \in Username : usernameOwner[uname] /= uid
+
+(* INV-7: Deletion is complete — stated from the username perspective.
+   If a username reservation points to some UID, that UID must have a
+   profile. Equivalently: no username is owned by a deleted user. *)
+DeletionIsComplete ==
+    \A uname \in Username :
+        usernameOwner[uname] /= "free" =>
+            usernameOwner[uname] \in createdProfiles
+
 (* Combined safety invariant *)
 SafetyInvariant ==
     /\ TypeOK
@@ -135,6 +152,8 @@ SafetyInvariant ==
     /\ UsernameChangeAtomic
     /\ NoProfileWithoutReservation
     /\ NoOrphanedReservations
+    /\ NoOrphanedAuthUsers
+    /\ DeletionIsComplete
 
 ------------------------------------------------------------------------
 (* --- INITIAL STATE --- *)
@@ -261,6 +280,28 @@ UpdateProfile(uid) ==
    is always consistent (either TRUE or FALSE). *)
 
 ------------------------------------------------------------------------
+(* --- ACCOUNT DELETION --- *)
+
+(* Delete a user's profile and all associated state. Models DELETE /users/me.
+   Preconditions:
+     - Profile must exist
+   The deletion atomically:
+     - Removes the uid from createdProfiles
+     - Frees the username reservation in usernameOwner
+     - Resets hasPicture to FALSE
+   Note: profileUsername[uid] retains a stale value after deletion, but
+   the spec only reads it when uid \in createdProfiles, so this is safe.
+   See users.ts: DELETE /users/me endpoint. *)
+DeleteProfile(uid) ==
+    /\ ProfileExists(uid)
+    /\ LET oldName == profileUsername[uid]
+       IN
+       /\ createdProfiles' = createdProfiles \ {uid}
+       /\ usernameOwner' = [usernameOwner EXCEPT ![oldName] = "free"]
+       /\ hasPicture' = [hasPicture EXCEPT ![uid] = FALSE]
+    /\ UNCHANGED <<profileUsername, retryCount>>
+
+------------------------------------------------------------------------
 (* --- NEXT STATE RELATION --- *)
 
 Next ==
@@ -274,6 +315,8 @@ Next ==
     \/ \E uid \in Uid : DeleteProfilePicture(uid)
     \* Non-username profile updates
     \/ \E uid \in Uid : UpdateProfile(uid)
+    \* Account deletion
+    \/ \E uid \in Uid : DeleteProfile(uid)
 
 Spec == Init /\ [][Next]_vars
 

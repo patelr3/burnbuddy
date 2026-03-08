@@ -3,6 +3,16 @@ import { auth } from './firebase-client';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    public body?: unknown,
+  ) {
+    super(`API error: ${status}`);
+    this.name = 'ApiError';
+  }
+}
+
 async function getAuthHeaders(): Promise<HeadersInit> {
   const user = auth.currentUser;
   if (!user) return {};
@@ -56,7 +66,10 @@ export async function apiDelete(path: string): Promise<void> {
     method: 'DELETE',
     headers,
   });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => undefined);
+    throw new ApiError(res.status, body);
+  }
 }
 
 export async function apiUploadFile<T>(
