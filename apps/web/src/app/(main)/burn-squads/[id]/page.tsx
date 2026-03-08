@@ -131,6 +131,9 @@ export default function BurnSquadDetailPage() {
   const [selectedDays, setSelectedDays] = useState<Day[]>([]);
   const [scheduleTime, setScheduleTime] = useState('');
   const [saving, setSaving] = useState(false);
+  const [timeError, setTimeError] = useState(false);
+
+  const canSaveSettings = editName.trim() !== '' && (selectedDays.length === 0 || scheduleTime.trim() !== '');
 
   // Delete confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -149,6 +152,11 @@ export default function BurnSquadDetailPage() {
   );
 
   const handleSaveSettings = async () => {
+    if (selectedDays.length > 0 && !scheduleTime.trim()) {
+      setTimeError(true);
+      return;
+    }
+    setTimeError(false);
     setSaving(true);
     try {
       const workoutSchedule: WorkoutSchedule | undefined =
@@ -234,6 +242,7 @@ export default function BurnSquadDetailPage() {
                   setOnlyAdminsCanAdd(squad.settings.onlyAdminsCanAddMembers);
                   setSelectedDays((squad.settings.workoutSchedule?.days as Day[]) ?? []);
                   setScheduleTime(squad.settings.workoutSchedule?.time ?? '');
+                  setTimeError(false);
                 }
               }}
               className="cursor-pointer rounded-md border border-gray-600 bg-surface px-3.5 py-1.5 text-[13px] text-white hover:bg-surface-elevated"
@@ -284,21 +293,26 @@ export default function BurnSquadDetailPage() {
               ))}
             </div>
             {selectedDays.length > 0 && (
-              <div className="mb-3 flex items-center gap-2">
-                <label className="text-[13px] text-gray-400">Time (optional):</label>
-                <input
-                  type="time"
-                  value={scheduleTime}
-                  onChange={(e) => setScheduleTime(e.target.value)}
-                  className="rounded-md border border-gray-600 bg-surface-elevated px-2 py-1 text-[13px] text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
-                />
+              <div className="mb-3">
+                <div className="flex items-center gap-2">
+                  <label className="text-[13px] text-gray-400">Time:</label>
+                  <input
+                    type="time"
+                    value={scheduleTime}
+                    onChange={(e) => { setScheduleTime(e.target.value); setTimeError(false); }}
+                    className="rounded-md border border-gray-600 bg-surface-elevated px-2 py-1 text-[13px] text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+                {timeError && (
+                  <p className="mt-1 text-xs text-red-400">Please select a workout time</p>
+                )}
               </div>
             )}
 
             <div className="mt-1 flex gap-2">
               <button
                 onClick={handleSaveSettings}
-                disabled={saving || !editName.trim()}
+                disabled={saving || !canSaveSettings}
                 className="cursor-pointer rounded-md border-none bg-violet-500 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-600 disabled:opacity-50"
               >
                 {saving ? 'Saving…' : 'Save Settings'}
