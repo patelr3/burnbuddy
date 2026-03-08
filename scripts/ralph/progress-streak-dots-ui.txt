@@ -40,3 +40,14 @@ Started: 2026-03-08
   - Same pattern as burn buddy page: `flex flex-col gap-2` container with two StreakDots, no description/basePath props needed
   - StreakDots is a drop-in replacement — just remove description and basePath props
 ---
+
+## 2026-03-08T19:01Z - US-005
+- Deleted `apps/web/src/components/StreakRing.tsx` (146 lines removed)
+- Verified no remaining imports of StreakRing anywhere in the web app
+- Typecheck passes (`cd apps/web && yarn typecheck`)
+- Full build passes (`yarn build`)
+- Files changed: apps/web/src/components/StreakRing.tsx (deleted)
+- **Learnings for future iterations:**
+  - StreakRing had zero remaining imports after US-002/003/004, so deletion was clean
+  - Always grep for the component name across the whole app before deleting to confirm zero references
+---
