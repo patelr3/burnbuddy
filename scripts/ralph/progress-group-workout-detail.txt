@@ -33,3 +33,29 @@ Started: 2026-03-08
   - When converting div to Link, add `no-underline` or appropriate text classes to avoid default link styling
   - Browser verification requires Firebase Auth config locally — beta requires login; code review + typecheck is sufficient for confirming structural changes
 ---
+
+## 2026-03-08T02:43 - US-003
+- Made Group Workout Log rows clickable on Burn Squad detail page (/burn-squads/[id])
+- Changed `<div>` to `<Link>` wrapping each group workout row, navigating to `/burn-squads/[id]/group-workouts/[gwId]`
+- Added hover state (hover:bg-gray-800, transition-colors, rounded, -mx-2 px-2) and right chevron SVG icon — matching US-002 pattern exactly
+- Files changed: apps/web/src/app/(main)/burn-squads/[id]/page.tsx
+- **Learnings for future iterations:**
+  - The burn-squads page already imports `Link` from next/link — same as buddy page
+  - The group workout log rendering on burn-squads and burn-buddies pages is structurally identical — same formatDate/timeAgo helpers, same layout
+  - Local browser verification requires Firebase Auth config; beta requires login. Code review + typecheck is sufficient for structural changes
+---
+
+## 2026-03-08T02:50 - US-004
+- Built group workout detail page for Burn Buddies at apps/web/src/app/(main)/burn-buddies/[id]/group-workouts/[gwId]/page.tsx
+- Added `useGroupWorkoutDetail` query hook and `GroupWorkoutDetail`/`GroupWorkoutDetailParticipant` types to apps/web/src/lib/queries.ts
+- Page shows formatted date header, back link to burn buddy page, participant cards with display name (linked), workout type, start time, duration
+- Active workouts display green "In Progress" badge instead of duration
+- Loading skeleton and error states (404, 403, generic) handled
+- Dark theme matching existing pages (bg-surface, border-gray-700, text-white/gray)
+- Files changed: apps/web/src/app/(main)/burn-buddies/[id]/group-workouts/[gwId]/page.tsx, apps/web/src/lib/queries.ts
+- **Learnings for future iterations:**
+  - The apiGet helper throws `Error("API error: ${status}")` — check `error.message.includes('404')` for status-specific error handling
+  - Query hooks go in queries.ts with a corresponding query key entry — follow the existing `useGroupWorkoutDetail` pattern
+  - Participant cards reuse the same dark theme tokens: bg-surface for card background, border-gray-700 for borders, text-gray-400/500 for labels
+  - Local dev server crashes without Firebase config — typecheck + test suite validation is the reliable quality gate
+---

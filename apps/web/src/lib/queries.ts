@@ -96,12 +96,26 @@ export interface BurnSquadData {
 
 // ── Query keys ───────────────────────────────────────────────────────────────
 
+export interface GroupWorkoutDetailParticipant {
+  uid: string;
+  displayName: string;
+  workoutType: string;
+  startedAt: string;
+  endedAt: string | null;
+  status: 'active' | 'completed';
+}
+
+export interface GroupWorkoutDetail extends GroupWorkout {
+  participants: GroupWorkoutDetailParticipant[];
+}
+
 export const queryKeys = {
   dashboard: ['dashboard'] as const,
   profile: (uid: string) => ['profile', uid] as const,
   friends: ['friends'] as const,
   burnBuddy: (id: string) => ['burn-buddy', id] as const,
   burnSquad: (id: string) => ['burn-squad', id] as const,
+  groupWorkoutDetail: (gwId: string) => ['group-workout-detail', gwId] as const,
   account: ['account'] as const,
 };
 
@@ -205,5 +219,13 @@ export function useAccount() {
     queryKey: queryKeys.account,
     queryFn: () => apiGet<UserProfile>('/users/me'),
     staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+export function useGroupWorkoutDetail(gwId: string) {
+  return useQuery({
+    queryKey: queryKeys.groupWorkoutDetail(gwId),
+    queryFn: () => apiGet<GroupWorkoutDetail>(`/group-workouts/${gwId}`),
+    enabled: !!gwId,
   });
 }
