@@ -1,0 +1,84 @@
+{
+  "project": "burnbuddy",
+  "branchName": "ralph/fix-iphone-photo-upload",
+  "description": "Fix iPhone photo upload timeouts and add HEIC/HEIF support — early downscale in anime filter, accept iOS image formats, increase client timeout, remove disruptive avatar overlay icon",
+  "dependsOn": [],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Early downscale in anime filter pipeline",
+      "description": "As an iPhone user, I want my photo to process quickly so that the upload doesn't time out. The anime filter in services/api/src/lib/anime-filter.ts currently processes at the original image resolution (up to 48MP for iPhone photos) before resizing to 256×256 at the very end. This must be changed to downscale first.",
+      "acceptanceCriteria": [
+        "In anime-filter.ts, after reading metadata and before the posterize/edge-detection pipeline, resize the input to a max of 1024px on the longest side (maintain aspect ratio) so all subsequent steps operate on the smaller image",
+        "The three parallel sharp operations (posterize, edgesX, edgesY) use the downscaled dimensions instead of the original width/height",
+        "Output is still 256×256 WebP (unchanged)",
+        "EXIF auto-rotation is still applied via sharp().rotate()",
+        "All existing anime filter tests in anime-filter.test.ts still pass",
+        "Add a test that creates a large 4032×3024 JPEG input and verifies the anime filter completes in under 10 seconds",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "The key change is in anime-filter.ts lines 36-38 where width/height are read from metadata and used as-is. Instead, cap both to 1024px max while preserving aspect ratio. The final resize to OUTPUT_SIZE (256) at the end remains unchanged."
+    },
+    {
+      "id": "US-002",
+      "title": "Accept HEIC/HEIF on the server",
+      "description": "As an iOS user, I want to upload photos in HEIC format so I don't get 'Invalid file type' errors. The ALLOWED_IMAGE_TYPES array in services/api/src/routes/users.ts must include HEIC/HEIF MIME types.",
+      "acceptanceCriteria": [
+        "Add 'image/heic' and 'image/heif' to the ALLOWED_IMAGE_TYPES array in services/api/src/routes/users.ts",
+        "The error message for invalid file types does NOT need to list HEIC (keep it generic or add HEIC to the list)",
+        "Add a unit test in users-profile-picture.test.ts that uploads a file with mimetype 'image/heic' and verifies it is accepted (not rejected with 400)",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Sharp 0.34.5 bundles libvips with HEIF decode support in its prebuilt binaries — no extra system packages needed. The test can use a small JPEG buffer with the mimetype header set to image/heic since multer checks mimetype not actual bytes."
+    },
+    {
+      "id": "US-003",
+      "title": "Accept HEIC/HEIF in web file picker",
+      "description": "As an iPhone user using Safari, I want the file picker to allow me to select HEIC photos directly instead of relying on Safari's inconsistent auto-conversion.",
+      "acceptanceCriteria": [
+        "In apps/web/src/app/(main)/account/page.tsx, update the ACCEPTED_IMAGE_TYPES constant (currently 'image/jpeg,image/png,image/webp') to also include 'image/heic,image/heif'",
+        "The hidden file input's accept attribute automatically picks up the new value since it uses the constant",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "The constant is defined near the top of the file (line 15). Just append ',image/heic,image/heif' to the string."
+    },
+    {
+      "id": "US-004",
+      "title": "Increase client upload timeout to 45 seconds",
+      "description": "As a mobile user on a slower connection, I want a more generous upload timeout so legitimate uploads don't get cut off by the 20-second client-side abort.",
+      "acceptanceCriteria": [
+        "In apps/web/src/lib/api.ts, change the timeoutMs constant in apiUploadFile from 20_000 to 45_000",
+        "The timeout error message remains unchanged: 'Upload timed out. Please try again with a smaller image.'",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "The timeout is on line 73 of api.ts: const timeoutMs = 20_000. Change to 45_000. The server-side anime filter timeout is 15s, so 45s gives ample room for network transfer on slow mobile connections."
+    },
+    {
+      "id": "US-005",
+      "title": "Remove disruptive camera icon overlay on avatar",
+      "description": "As a user, I don't want a white square obscuring my profile picture. Remove the camera SVG icon overlay from the avatar button on the account page.",
+      "acceptanceCriteria": [
+        "Remove the <span> element containing the camera SVG icon and its hover overlay from the avatar button in apps/web/src/app/(main)/account/page.tsx (the span with classes 'absolute inset-0 flex items-center...' and the inline camera SVG)",
+        "The avatar button remains clickable and still opens the file picker on click",
+        "The focus ring styling for accessibility is preserved (focus:ring-2 focus:ring-primary focus:ring-offset-2)",
+        "Add a subtle hover effect on the button: group-hover:opacity-80 transition-opacity for a gentle visual cue",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "The overlay span is inside the avatar button, after the Avatar component render. Remove the entire {!uploadPictureMutation.isPending && (<span>...</span>)} block. Add opacity transition classes to the button itself."
+    }
+  ]
+}

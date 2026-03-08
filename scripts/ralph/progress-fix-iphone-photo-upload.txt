@@ -1,0 +1,3 @@
+# Ralph Progress Log — Fix iPhone Photo Upload & Animify Timeout
+Started: 2026-03-08
+---
