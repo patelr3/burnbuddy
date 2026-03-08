@@ -75,7 +75,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-001 (lucide-react installed) and US-002 (orange primary color)."
     },
     {
@@ -93,7 +93,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Component is at apps/web/src/components/AddToCalendarButton.tsx. Currently uses bg-white with border-gray-300 — a light theme button in a dark app."
     },
     {
@@ -108,7 +108,7 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Home page cards use paddingVertical: 12, paddingHorizontal: 14. Friends page currently uses paddingVertical: 10 with no horizontal padding."
     }
   ]
