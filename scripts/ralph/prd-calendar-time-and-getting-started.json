@@ -15,7 +15,7 @@
         "Typecheck passes (`cd services/api && npx tsc --noEmit` and `cd apps/web && npx tsc --noEmit`)"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -32,7 +32,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -47,7 +47,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -62,7 +62,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -70,13 +70,13 @@
       "title": "Require time in mobile Burn Buddy and Burn Squad schedule forms",
       "description": "As a mobile user, I must provide a workout time when setting a schedule for a Burn Buddy or Burn Squad.",
       "acceptanceCriteria": [
-        "Time input is required in mobile Burn Buddy schedule editor — save is disabled without a time",
-        "Time input is required in mobile Burn Squad creation/settings forms — save is disabled without a time",
+        "Time input is required in mobile Burn Buddy schedule editor \u2014 save is disabled without a time",
+        "Time input is required in mobile Burn Squad creation/settings forms \u2014 save is disabled without a time",
         "Visible inline error message appears when user tries to save without a time",
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -86,12 +86,12 @@
       "acceptanceCriteria": [
         "Card text in apps/web/src/components/GettingStartedCard.tsx is rewritten with two numbered steps: 1) Add a friend (search by email on the Friends page), 2) Request to be a Burn Buddy with that friend",
         "No mention of Burn Squads anywhere in the card",
-        "Dismiss button (×) and re-enable toggle on Account page still work unchanged",
+        "Dismiss button (\u00d7) and re-enable toggle on Account page still work unchanged",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -105,7 +105,7 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]

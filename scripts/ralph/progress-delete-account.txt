@@ -1,3 +1,72 @@
 # Ralph Progress Log — Delete Account
 Started: 2026-03-08
 ---
+
+## Codebase Patterns
+- TLC jar is at /usr/local/lib/tla2tools.jar — run with: `cd specs/tla/users && java -XX:+UseParallelGC -cp /usr/local/lib/tla2tools.jar tlc2.TLC UserProfileManagement.tla -config UserProfileManagement.cfg -workers auto`
+- Root `yarn typecheck` fails due to pre-existing mobile errors. Use `cd services/api && yarn typecheck` and `cd apps/web && yarn typecheck` separately.
+- Build shared package first: `cd packages/shared && yarn build`
+- TLA+ state variables for non-created UIDs keep stale values (profileUsername, hasPicture) — spec only reads them when uid ∈ createdProfiles
+- In API route handlers, use `logger` (imported from `../lib/logger`) not `req.log` — Express Request type doesn't augment with pino's log
+- ApiError class in apps/web/src/lib/api.ts preserves HTTP status and response body — use `err instanceof ApiError && err.status === 409` for structured error handling
+- Firebase re-auth provider detection: check `currentUser.providerData[0]?.providerId` — 'password' for email/password, 'google.com' for Google
+- auth-context.tsx onAuthStateChanged listener automatically clears auth_session cookie on signOut — no manual cookie cleanup needed
+---
+
+## 2026-03-08T07:38Z - US-001
+- Implemented DeleteProfile(uid) action in UserProfileManagement.tla
+- Added NoOrphanedAuthUsers and DeletionIsComplete invariants
+- Added both invariants to SafetyInvariant conjunction
+- Updated .cfg file with new invariants
+- TLC model checker: 184,321 states generated, 12,736 distinct, zero violations
+- Files changed: specs/tla/users/UserProfileManagement.tla, specs/tla/users/UserProfileManagement.cfg
+- **Learnings for future iterations:**
+  - DeleteProfile uses LET oldName == profileUsername[uid] to identify which username reservation to free
+  - The spec tolerates stale values for non-created UIDs — no need to reset profileUsername after deletion
+  - DeletionIsComplete and NoOrphanedAuthUsers are logically equivalent but stated from different perspectives (username vs uid)
+---
+
+## 2026-03-08T07:44Z - US-002
+- Implemented DELETE /users/me endpoint in services/api/src/routes/users.ts
+- Endpoint checks for admin squads (409), then deletes all user data across 10+ collections
+- Batch deletes workouts in chunks of 500, handles group workouts (delete vs remove member)
+- Deletes Storage profile picture (ignores 404), Firebase Auth user last
+- Each cleanup wrapped in try/catch with logger.error for resilience
+- Files changed: services/api/src/routes/users.ts
+- **Learnings for future iterations:**
+  - Use `logger` import (from `../lib/logger`) not `req.log` — Express Request type doesn't include pino's `log` property
+  - The DELETE /users/me/profile-picture endpoint at line ~245 is a good pattern reference for Storage deletion with 404 handling
+  - admin.firestore.FieldValue.arrayRemove() works for removing UIDs from squad memberUids arrays
+  - Friend document IDs use sorted composite keys (uid1_uid2) but querying by uid1/uid2 fields is simpler for bulk deletion
+---
+
+## 2026-03-08T07:47Z - US-003
+- Created services/api/src/routes/delete-account.test.ts with 13 comprehensive tests
+- Tests cover: 401 unauth, 409 squad admin, 200 success, Firestore doc deletion, batch deletes across all collections, Storage profile picture deletion, 404 handling, call ordering (auth delete last), squad memberUids removal, group workout delete vs update, error resilience
+- All 364 API tests pass, typecheck passes
+- Files changed: services/api/src/routes/delete-account.test.ts
+- **Learnings for future iterations:**
+  - Mock calls array typing: use `args[0] as string` instead of tuple destructuring `([col]: [string])` to avoid TS overload errors
+  - The `mockCollectionGet` pattern with `(collection, field)` args lets you differentiate between different `.where()` calls on the same collection (e.g., burnSquads queried by adminUid vs memberUids)
+  - Need to mock anime-filter, username, and streak-calculator modules because users.ts imports them even though delete endpoint doesn't use them
+---
+
+## 2026-03-08T08:06Z - US-004
+- Added Delete Account section with red/destructive styling at bottom of account page (after Sign Out)
+- Implemented two-step confirmation modal: warning dialog → re-authentication → API call
+- Email/password users prompted for password (reauthenticateWithCredential), Google users get popup (reauthenticateWithPopup)
+- Provider detection via auth.currentUser.providerData[0].providerId
+- Added ApiError class to api.ts that preserves HTTP status and response body for structured error handling
+- Updated apiDelete to throw ApiError instead of generic Error
+- Handles 409 (squad admin) by displaying squad names in error message without signing out
+- On success: calls signOut(auth) which triggers auth-context cookie cleanup, then redirects to /login
+- Loading spinner (SVG animate-spin) shown during deletion with disabled buttons
+- Added skeleton section for delete account in loading state
+- Files changed: apps/web/src/app/(main)/account/page.tsx, apps/web/src/lib/api.ts
+- **Learnings for future iterations:**
+  - The auth-context.tsx onAuthStateChanged listener automatically clears the auth_session cookie on signOut — no manual cookie cleanup needed
+  - apiDelete returns void, so to handle specific HTTP status codes (like 409), the ApiError class with status+body is needed
+  - Firebase re-auth provider detection: check currentUser.providerData[0]?.providerId — 'password' for email/password, 'google.com' for Google
+  - Browser verification via dev-browser skill was unreliable due to shared environment resource contention between worktrees — multiple worktrees compete for ports 9222/9223
+  - Tailwind v4 custom colors: use text-danger for red text (#ef4444), bg-surface-elevated for modal backgrounds
+---
