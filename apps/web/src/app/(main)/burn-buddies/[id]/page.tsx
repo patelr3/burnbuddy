@@ -262,7 +262,7 @@ export default function BurnBuddyDetailPage() {
             <button
               onClick={handleSaveSchedule}
               disabled={saving || !canSaveSchedule}
-              className="cursor-pointer rounded-md border-none bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50"
+              className="cursor-pointer rounded-md border-none btn-primary-gradient px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
               {saving ? 'Saving…' : 'Save Schedule'}
             </button>
