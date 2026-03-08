@@ -135,8 +135,8 @@ describe('POST /users', () => {
       usernameLower: 'test',
     });
     expect(res.body.createdAt).toBeDefined();
-    expect(mockBatchSet).toHaveBeenCalledTimes(2);
-    expect(mockBatchCommit).toHaveBeenCalledOnce();
+    // Profile is written via docRef.set() (username already reserved in generateUniqueUsername)
+    expect(mockSet).toHaveBeenCalledOnce();
   });
 
   it('includes fcmToken in the created profile when provided', async () => {
@@ -152,7 +152,7 @@ describe('POST /users', () => {
     expect(res.body.fcmToken).toBe('tkn123');
   });
 
-  it('creates a username reservation document in the usernames collection', async () => {
+  it('delegates username reservation to generateUniqueUsername (atomic create)', async () => {
     mockGet.mockResolvedValueOnce({ exists: false });
     mockGenerateUniqueUsername.mockResolvedValueOnce({ username: 'alice', usernameLower: 'alice' });
 
@@ -162,15 +162,13 @@ describe('POST /users', () => {
       .send({ email: 'alice@example.com', displayName: 'Alice' });
 
     expect(res.status).toBe(201);
-    // First batch.set is the user profile, second is the username reservation
-    expect(mockBatchSet).toHaveBeenCalledTimes(2);
-    // Verify username reservation: batch.set(usernameDocRef, { uid })
-    const secondCallArgs = mockBatchSet.mock.calls[1];
-    expect(secondCallArgs[1]).toEqual({ uid: TEST_UID });
-    expect(mockBatchCommit).toHaveBeenCalledOnce();
+    // Username reservation is now handled atomically inside generateUniqueUsername
+    // using doc.create(), so the route only does a single docRef.set for the profile
+    expect(mockSet).toHaveBeenCalledOnce();
+    expect(mockGenerateUniqueUsername).toHaveBeenCalledWith('alice@example.com', expect.anything(), TEST_UID);
   });
 
-  it('calls generateUniqueUsername with the email', async () => {
+  it('calls generateUniqueUsername with the email and uid', async () => {
     mockGet.mockResolvedValueOnce({ exists: false });
 
     await request(buildApp())
@@ -178,7 +176,7 @@ describe('POST /users', () => {
       .set('Authorization', VALID_TOKEN)
       .send({ email: 'bob@test.com', displayName: 'Bob' });
 
-    expect(mockGenerateUniqueUsername).toHaveBeenCalledWith('bob@test.com', expect.anything());
+    expect(mockGenerateUniqueUsername).toHaveBeenCalledWith('bob@test.com', expect.anything(), TEST_UID);
   });
 });
 
@@ -258,12 +256,12 @@ describe('PUT /users/me', () => {
       username: 'newuser',
       usernameLower: 'newuser',
     });
-    expect(mockBatchSet).toHaveBeenCalledTimes(2);
-    expect(mockBatchCommit).toHaveBeenCalledOnce();
-    expect(mockGenerateUniqueUsername).toHaveBeenCalledWith('newuser@example.com', expect.anything());
+    // Profile is written via docRef.set() — username reserved atomically in generateUniqueUsername
+    expect(mockSet).toHaveBeenCalledOnce();
+    expect(mockGenerateUniqueUsername).toHaveBeenCalledWith('newuser@example.com', expect.anything(), TEST_UID);
   });
 
-  it('creates username reservation atomically on create path', async () => {
+  it('delegates username reservation to generateUniqueUsername on create path', async () => {
     mockGet.mockResolvedValueOnce({ exists: false });
     mockGenerateUniqueUsername.mockResolvedValueOnce({ username: 'alice', usernameLower: 'alice' });
 
@@ -273,10 +271,9 @@ describe('PUT /users/me', () => {
       .send({ email: 'alice@example.com', displayName: 'Alice' });
 
     expect(res.status).toBe(201);
-    // Second batch.set is the username reservation
-    const secondCallArgs = mockBatchSet.mock.calls[1];
-    expect(secondCallArgs[1]).toEqual({ uid: TEST_UID });
-    expect(mockBatchCommit).toHaveBeenCalledOnce();
+    // Username reservation is now handled atomically inside generateUniqueUsername
+    expect(mockSet).toHaveBeenCalledOnce();
+    expect(mockGenerateUniqueUsername).toHaveBeenCalledWith('alice@example.com', expect.anything(), TEST_UID);
   });
 
   it('returns 400 when profile does not exist and required fields are missing', async () => {
@@ -327,10 +324,9 @@ describe('PUT /users/me', () => {
     expect(res.status).toBe(200);
     expect(res.body.username).toBe('test');
     expect(res.body.usernameLower).toBe('test');
-    expect(mockGenerateUniqueUsername).toHaveBeenCalledWith('test@example.com', expect.anything());
-    // Should use batch write for atomic username reservation
-    expect(mockBatchSet).toHaveBeenCalledTimes(2);
-    expect(mockBatchCommit).toHaveBeenCalledOnce();
+    expect(mockGenerateUniqueUsername).toHaveBeenCalledWith('test@example.com', expect.anything(), TEST_UID);
+    // Username reserved atomically in generateUniqueUsername, profile updated via set with merge
+    expect(mockSet).toHaveBeenCalledOnce();
   });
 
   it('lazy migration uses provided email over existing email', async () => {
@@ -347,10 +343,10 @@ describe('PUT /users/me', () => {
       .send({ email: 'new@example.com' });
 
     expect(res.status).toBe(200);
-    expect(mockGenerateUniqueUsername).toHaveBeenCalledWith('new@example.com', expect.anything());
+    expect(mockGenerateUniqueUsername).toHaveBeenCalledWith('new@example.com', expect.anything(), TEST_UID);
   });
 
-  it('lazy migration creates username reservation atomically', async () => {
+  it('lazy migration delegates username reservation to generateUniqueUsername', async () => {
     const existingProfile = { ...TEST_PROFILE };
     const migratedProfile = { ...TEST_PROFILE, username: 'test', usernameLower: 'test' };
     mockGet
@@ -363,12 +359,10 @@ describe('PUT /users/me', () => {
       .set('Authorization', VALID_TOKEN)
       .send({ displayName: 'Updated' });
 
-    // Verify batch write: first set is profile update (merge), second is username reservation
-    expect(mockBatchSet).toHaveBeenCalledTimes(2);
-    const reservationArgs = mockBatchSet.mock.calls[1];
-    expect(reservationArgs[1]).toEqual({ uid: TEST_UID });
-    expect(mockBatchCommit).toHaveBeenCalledOnce();
-    // Should NOT use docRef.update — uses batch.set with merge instead
+    // Username reserved atomically in generateUniqueUsername, profile updated via set with merge
+    expect(mockSet).toHaveBeenCalledOnce();
+    expect(mockGenerateUniqueUsername).toHaveBeenCalledWith('test@example.com', expect.anything(), TEST_UID);
+    // Should NOT use docRef.update — uses set with merge instead
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
@@ -669,18 +663,13 @@ describe('GET /users/search', () => {
 /**
  * Gap G-3 — UsernameUniqueness (UserProfileManagement.tla)
  *
- * generateUniqueUsername() reads the 'usernames' collection to find an available
- * username, then the profile creation writes the reservation via batch.commit().
- * The read-check-write is NOT wrapped in a Firestore transaction, so two concurrent
- * profile creations for users with the same email prefix can both read the same
- * username as available, then both write — one silently overwriting the other's
- * reservation.
- *
- * Fix: wrap the read-check-write in a Firestore transaction, or use
- * doc.create() (which fails if doc already exists) for the username reservation.
+ * RESOLVED: generateUniqueUsername() now uses doc.create() (which fails with
+ * ALREADY_EXISTS if the doc exists) to atomically reserve usernames. Concurrent
+ * profile creations for the same email prefix will no longer silently overwrite
+ * each other's reservation — the loser retries with the next suffix.
  */
-describe('TLA+ Gap G-3: UsernameUniqueness — non-atomic read-check-write', () => {
-  it('calls generateUniqueUsername outside of a Firestore transaction', async () => {
+describe('TLA+ Gap G-3: UsernameUniqueness — atomic reservation via doc.create()', () => {
+  it('uses generateUniqueUsername with uid for atomic reservation', async () => {
     // Profile does not exist yet
     mockGet.mockResolvedValueOnce({ exists: false });
     mockGenerateUniqueUsername.mockResolvedValueOnce({ username: 'alice', usernameLower: 'alice' });
@@ -692,18 +681,12 @@ describe('TLA+ Gap G-3: UsernameUniqueness — non-atomic read-check-write', () 
 
     expect(res.status).toBe(201);
 
-    // generateUniqueUsername is called to check username availability (reads usernames collection)
-    expect(mockGenerateUniqueUsername).toHaveBeenCalledWith('alice@example.com', expect.anything());
+    // generateUniqueUsername is called with uid so it can atomically reserve via doc.create()
+    expect(mockGenerateUniqueUsername).toHaveBeenCalledWith('alice@example.com', expect.anything(), TEST_UID);
 
-    // The username reservation is written via batch (write-only), not a transaction (read+write).
-    // batch.set is called twice: once for the user profile, once for the username reservation.
-    expect(mockBatchSet).toHaveBeenCalledTimes(2);
-    expect(mockBatchCommit).toHaveBeenCalledOnce();
-
-    // No Firestore transaction was used — the read (in generateUniqueUsername) and
-    // the write (batch.commit) are separate operations, creating a TOCTOU race condition.
-    // If two requests concurrently generate the same username, both will succeed,
-    // and the second batch.commit silently overwrites the first username reservation.
+    // Profile is written via a single docRef.set() — no batch needed since
+    // username reservation is already done atomically in generateUniqueUsername
+    expect(mockSet).toHaveBeenCalledOnce();
   });
 });
 
