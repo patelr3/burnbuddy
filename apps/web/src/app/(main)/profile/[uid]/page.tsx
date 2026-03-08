@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { apiPost } from '@/lib/api';
-import { useParams } from 'next/navigation';
+import { apiPost, apiDelete } from '@/lib/api';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { StatCard } from '@/components/StatCard';
@@ -45,6 +45,7 @@ export default function FriendProfilePage() {
   const uid = params['uid'] as string;
   const queryClient = useQueryClient();
 
+  const router = useRouter();
   const { data: profile, isLoading: dataLoading, error } = useProfile(uid);
 
   const [mutationError, setMutationError] = useState<string | null>(null);
@@ -70,6 +71,45 @@ export default function FriendProfilePage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.profile(uid) });
     },
   });
+
+  const removeFriendMutation = useMutation({
+    mutationFn: () => apiDelete(`/friends/${uid}`),
+    onMutate: () => setMutationError(null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.friends });
+      router.push('/friends');
+    },
+    onError: () => setMutationError('Failed to remove friend.'),
+  });
+
+  const removeBuddyMutation = useMutation({
+    mutationFn: () => apiDelete(`/burn-buddies/${profile!.burnBuddyId}`),
+    onMutate: () => setMutationError(null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile(uid) });
+    },
+    onError: () => setMutationError('Failed to remove burn buddy.'),
+  });
+
+  const isActionPending = removeFriendMutation.isPending || removeBuddyMutation.isPending;
+
+  function handleRemoveFriend() {
+    if (!profile) return;
+    const isBuddy = profile.buddyRelationshipStatus === 'buddies';
+    const message = isBuddy
+      ? `Removing ${profile.displayName} as a friend will also end your burn buddy relationship. Are you sure?`
+      : `Remove ${profile.displayName} as a friend?`;
+    if (window.confirm(message)) {
+      removeFriendMutation.mutate();
+    }
+  }
+
+  function handleRemoveBuddy() {
+    if (!profile) return;
+    if (window.confirm(`End burn buddy relationship with ${profile.displayName}? You will remain friends.`)) {
+      removeBuddyMutation.mutate();
+    }
+  }
 
   const errorMessage = error
     ? (error.message?.includes('404')
@@ -173,6 +213,26 @@ export default function FriendProfilePage() {
                 unit="workouts"
                 colorClass="text-secondary"
               />
+            </div>
+
+            {/* Action buttons */}
+            <div className="mt-6 flex flex-col gap-3 border-t border-gray-700 pt-6">
+              {profile.buddyRelationshipStatus === 'buddies' && (
+                <button
+                  onClick={handleRemoveBuddy}
+                  disabled={isActionPending}
+                  className="w-full cursor-pointer rounded-lg border border-gray-600 bg-transparent px-4 py-2.5 text-sm font-semibold text-gray-300 hover:border-gray-500 hover:text-white disabled:opacity-50"
+                >
+                  {removeBuddyMutation.isPending ? 'Removing…' : 'Remove Burn Buddy'}
+                </button>
+              )}
+              <button
+                onClick={handleRemoveFriend}
+                disabled={isActionPending}
+                className="w-full cursor-pointer rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-400 hover:bg-red-500/20 disabled:opacity-50"
+              >
+                {removeFriendMutation.isPending ? 'Removing…' : 'Remove Friend'}
+              </button>
             </div>
           </>
         )}
