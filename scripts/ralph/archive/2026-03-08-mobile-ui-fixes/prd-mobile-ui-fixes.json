@@ -1,0 +1,54 @@
+{
+  "project": "burnbuddy",
+  "branchName": "ralph/mobile-ui-fixes",
+  "description": "Mobile UI Bug Fixes — Fix avatar size on friend cards, fix username/badge overlap on mobile, change active nav icon color from green to accent-pink",
+  "dependsOn": [],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Fix profile avatar size and alignment on friend cards",
+      "description": "As a mobile user, I want the profile avatar on friend cards to be properly sized and vertically centered so it looks polished.",
+      "acceptanceCriteria": [
+        "Avatar on friend list cards uses `size=\"md\"` (40px) instead of `size=\"sm\"` (32px) in `apps/web/src/app/(main)/friends/page.tsx`",
+        "Avatar is vertically centered relative to the friend name and email text",
+        "Also update avatars in the pending requests cards to `size=\"md\"` for consistency",
+        "Typecheck passes (`cd apps/web && yarn typecheck`)",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Fix username/badge overlap on mobile friend cards",
+      "description": "As a mobile user, I want the friend card layout to stack vertically on narrow screens so the username doesn't overlap with the Burn Buddy badge and Remove button.",
+      "acceptanceCriteria": [
+        "Friend card layout in `apps/web/src/app/(main)/friends/page.tsx` stacks vertically on mobile — name/username/email on top row, badge and action buttons on bottom row",
+        "On desktop (md+ breakpoint), keep the current side-by-side layout",
+        "Username text is truncated with ellipsis if it's still too long on very narrow screens",
+        "Badge ('🔥 Burn Buddy') and 'Remove' button are left-aligned below the name on mobile",
+        "No visual regression on desktop-width screens",
+        "Typecheck passes (`cd apps/web && yarn typecheck`)",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Change active nav icon color from green to accent-pink",
+      "description": "As a user, I want the active tab icon in the bottom nav bar to use the brand accent-pink color (#FF2D55) instead of green so it matches the app's design language.",
+      "acceptanceCriteria": [
+        "Active icon color in `HomeIcon`, `FriendsIcon`, and `AccountIcon` components in `apps/web/src/components/NavBar.tsx` changed from `#30D158` to `#FF2D55`",
+        "Active label text color remains `text-primary` (orange) — only the SVG icon stroke changes",
+        "Typecheck passes (`cd apps/web && yarn typecheck`)",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "The accent-pink color #FF2D55 is already defined in globals.css as --color-accent-pink and in tailwind.config.ts"
+    }
+  ]
+}
