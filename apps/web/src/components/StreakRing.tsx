@@ -116,10 +116,11 @@ export function StreakRing({ streakCount, last7Days, color, label, description, 
 
 function StreakLabel({ label, description }: { label: string; description: string }) {
   return (
-    <div className="relative mt-1.5 group">
+    <div className="relative mt-1.5 group/tooltip">
       <button
         type="button"
         className="flex items-center gap-1 text-xs text-gray-400 cursor-help"
+        aria-describedby="streak-tooltip"
       >
         {label}
         <svg
@@ -135,7 +136,7 @@ function StreakLabel({ label, description }: { label: string; description: strin
       </button>
       <div
         role="tooltip"
-        className="invisible group-hover:visible group-focus-within:visible absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-56 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-xs leading-relaxed text-gray-200 shadow-lg z-50 pointer-events-none"
+        className="invisible group-hover/tooltip:visible group-focus-within/tooltip:visible absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-56 rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-xs leading-relaxed text-gray-200 shadow-lg z-50"
       >
         {description}
         <div className="absolute left-1/2 -translate-x-1/2 top-full w-2 h-2 rotate-45 bg-gray-900 border-b border-r border-gray-700" />
