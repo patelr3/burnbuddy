@@ -1,4 +1,40 @@
-import type { GroupWorkout, GroupStats } from '@burnbuddy/shared';
+import type { GroupWorkout, GroupStats, StreakDayInfo } from '@burnbuddy/shared';
+
+const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'] as const;
+const MS_PER_DAY = 86_400_000;
+
+/**
+ * Builds a last7Days array: index 0 = 6 days ago, index 6 = today.
+ * Each entry has: date (YYYY-MM-DD), hasWorkout, groupWorkoutId, dayLabel.
+ */
+function buildLast7Days(groupWorkouts: GroupWorkout[]): StreakDayInfo[] {
+  // Map each UTC date to the first GroupWorkout ID on that day
+  const dateToWorkoutId = new Map<string, string>();
+  for (const gw of groupWorkouts) {
+    const dateStr = gw.startedAt.substring(0, 10);
+    if (!dateToWorkoutId.has(dateStr)) {
+      dateToWorkoutId.set(dateStr, gw.id);
+    }
+  }
+
+  const todayMs = Date.now();
+  const result: StreakDayInfo[] = [];
+
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(todayMs - i * MS_PER_DAY);
+    const dateStr = d.toISOString().substring(0, 10);
+    const dayOfWeek = d.getUTCDay(); // 0=Sun..6=Sat
+    const workoutId = dateToWorkoutId.get(dateStr) ?? null;
+    result.push({
+      date: dateStr,
+      hasWorkout: workoutId !== null,
+      groupWorkoutId: workoutId,
+      dayLabel: DAY_LABELS[dayOfWeek]!,
+    });
+  }
+
+  return result;
+}
 
 /**
  * Calculates streak for a buddy/squad using GroupWorkout documents as the
@@ -17,9 +53,11 @@ import type { GroupWorkout, GroupStats } from '@burnbuddy/shared';
  */
 export function calculateStreaks(
   groupWorkouts: GroupWorkout[],
-): { burnStreak: number; supernovaStreak: number } {
+): { burnStreak: number; supernovaStreak: number; last7Days: StreakDayInfo[] } {
+  const last7Days = buildLast7Days(groupWorkouts);
+
   if (groupWorkouts.length === 0) {
-    return { burnStreak: 0, supernovaStreak: 0 };
+    return { burnStreak: 0, supernovaStreak: 0, last7Days };
   }
 
   // Collect unique UTC dates that have a GroupWorkout
@@ -31,7 +69,6 @@ export function calculateStreaks(
   let streak = 0;
   let gapDays = 0;
   const todayMs = Date.now();
-  const MS_PER_DAY = 86_400_000;
 
   // Walk backwards from today up to 10 years to bound the loop.
   // Gaps of up to 6 days are tolerated; 7+ consecutive gap days reset.
@@ -49,7 +86,7 @@ export function calculateStreaks(
     }
   }
 
-  return { burnStreak: streak, supernovaStreak: streak };
+  return { burnStreak: streak, supernovaStreak: streak, last7Days };
 }
 
 /**
@@ -125,5 +162,6 @@ export function calculateGroupStats(groupWorkouts: GroupWorkout[]): GroupStats {
     firstGroupWorkoutDate,
     groupWorkoutsAllTime: groupWorkouts.length,
     groupWorkoutsThisMonth,
+    last7Days: buildLast7Days(groupWorkouts),
   };
 }

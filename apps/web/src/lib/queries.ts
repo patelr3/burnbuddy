@@ -14,6 +14,7 @@ import type {
   Workout,
   ActivePartnerWorkout,
   ProfileStats,
+  StreakDayInfo,
 } from '@burnbuddy/shared';
 
 // ── Dashboard types (mirrors API DashboardResponse) ──────────────────────────
@@ -63,6 +64,7 @@ export interface FriendWithProfile {
 interface Streaks {
   burnStreak: number;
   supernovaStreak: number;
+  last7Days: StreakDayInfo[];
 }
 
 interface PartnerProfile {
@@ -173,6 +175,7 @@ export function useBurnBuddy(id: string) {
         apiGet<Streaks>(`/burn-buddies/${id}/streaks`).catch(() => ({
           burnStreak: 0,
           supernovaStreak: 0,
+          last7Days: [],
         })),
         apiGet<GroupWorkout[]>(`/burn-buddies/${id}/group-workouts`),
         apiGet<GroupStats>(`/burn-buddies/${id}/stats`).catch(() => ({
@@ -180,6 +183,7 @@ export function useBurnBuddy(id: string) {
           firstGroupWorkoutDate: null,
           groupWorkoutsAllTime: 0,
           groupWorkoutsThisMonth: 0,
+          last7Days: [],
         })),
       ]);
 
@@ -198,6 +202,7 @@ export function useBurnSquad(id: string) {
         apiGet<Streaks>(`/burn-squads/${id}/streaks`).catch(() => ({
           burnStreak: 0,
           supernovaStreak: 0,
+          last7Days: [],
         })),
         apiGet<GroupWorkout[]>(`/burn-squads/${id}/group-workouts`),
         apiGet<GroupStats>(`/burn-squads/${id}/stats`).catch(() => ({
@@ -205,6 +210,7 @@ export function useBurnSquad(id: string) {
           firstGroupWorkoutDate: null,
           groupWorkoutsAllTime: 0,
           groupWorkoutsThisMonth: 0,
+          last7Days: [],
         })),
       ]);
 

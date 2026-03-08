@@ -7,6 +7,7 @@ import { useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { StatCard } from '@/components/StatCard';
+import { StreakRing } from '@/components/StreakRing';
 import { Avatar } from '@/components/Avatar';
 import { AddToCalendarButton } from '@/components/AddToCalendarButton';
 import { useBurnBuddy, queryKeys } from '@/lib/queries';
@@ -108,7 +109,7 @@ export default function BurnBuddyDetailPage() {
 
   const burnBuddy = data?.burnBuddy ?? null;
   const partner = data?.partner ?? null;
-  const streaks = data?.streaks ?? { burnStreak: 0, supernovaStreak: 0 };
+  const streaks = data?.streaks ?? { burnStreak: 0, supernovaStreak: 0, last7Days: [] };
   const groupWorkouts = data?.groupWorkouts ?? [];
   const stats = data?.stats ?? null;
 
@@ -265,10 +266,28 @@ export default function BurnBuddyDetailPage() {
           </div>
         )}
 
+        {/* Streak rings */}
+        <div className="mb-5 flex justify-center gap-6">
+          <StreakRing
+            streakCount={streaks.burnStreak}
+            last7Days={streaks.last7Days}
+            color="orange"
+            label="Burn Streak"
+            description="Log at least one group workout per week to keep your burn streak alive. Miss a full week (7 days) and the streak resets to zero."
+            basePath={`/burn-buddies/${id}`}
+          />
+          <StreakRing
+            streakCount={streaks.supernovaStreak}
+            last7Days={streaks.last7Days}
+            color="violet"
+            label="Supernova Streak"
+            description="Log a group workout every single day to build your supernova streak. Miss a day and the supernova streak resets to zero."
+            basePath={`/burn-buddies/${id}`}
+          />
+        </div>
+
         {/* Stats grid */}
         <div className="mb-7 grid grid-cols-2 gap-3">
-          <StatCard label="Burn Streak" value={`${streaks.burnStreak}`} unit="days" colorClass="text-primary" />
-          <StatCard label="Supernova Streak" value={`${streaks.supernovaStreak}`} unit="days" colorClass="text-violet-500" />
           <StatCard
             label="Highest Streak"
             value={stats?.highestStreakEver.value ? `${stats.highestStreakEver.value}` : '—'}

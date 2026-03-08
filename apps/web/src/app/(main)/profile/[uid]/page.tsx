@@ -7,9 +7,10 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { StatCard } from '@/components/StatCard';
+import { StreakRing } from '@/components/StreakRing';
 import { Avatar } from '@/components/Avatar';
 import { useProfile, queryKeys } from '@/lib/queries';
-import type { ProfileStats } from '@burnbuddy/shared';
+import type { ProfileStats, StreakDayInfo } from '@burnbuddy/shared';
 
 function ProfileSkeleton() {
   return (
@@ -38,6 +39,17 @@ function ProfileSkeleton() {
     </div>
   );
 }
+
+const EMPTY_LAST_7_DAYS: StreakDayInfo[] = Array.from({ length: 7 }, (_, i) => {
+  const d = new Date(Date.now() - (6 - i) * 86_400_000);
+  const labels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'] as const;
+  return {
+    date: d.toISOString().substring(0, 10),
+    hasWorkout: false,
+    groupWorkoutId: null,
+    dayLabel: labels[d.getUTCDay()]!,
+  };
+});
 
 export default function FriendProfilePage() {
   const { loading } = useAuth();
@@ -138,14 +150,28 @@ export default function FriendProfilePage() {
               </div>
             </div>
 
+            {/* Streak rings */}
+            <div className="mb-5 flex justify-center gap-6">
+              <StreakRing
+                streakCount={profile.highestActiveStreak?.value ?? 0}
+                last7Days={profile.highestActiveStreakLast7Days ?? EMPTY_LAST_7_DAYS}
+                color="orange"
+                label="Burn Streak"
+                description="Log at least one group workout per week to keep your burn streak alive. Miss a full week (7 days) and the streak resets to zero."
+                basePath=""
+              />
+              <StreakRing
+                streakCount={profile.highestActiveStreak?.value ?? 0}
+                last7Days={profile.highestActiveStreakLast7Days ?? EMPTY_LAST_7_DAYS}
+                color="violet"
+                label="Supernova Streak"
+                description="Log a group workout every single day to build your supernova streak. Miss a day and the supernova streak resets to zero."
+                basePath=""
+              />
+            </div>
+
             {/* Stats grid */}
             <div className="grid grid-cols-2 gap-3">
-              <StatCard
-                label="Highest Active Streak"
-                value={profile.highestActiveStreak ? `${profile.highestActiveStreak.value}` : '—'}
-                unit={profile.highestActiveStreak?.name ?? 'days'}
-                colorClass="text-primary"
-              />
               <StatCard
                 label="Highest Streak Ever"
                 value={profile.highestStreakEver ? `${profile.highestStreakEver.value}` : '—'}

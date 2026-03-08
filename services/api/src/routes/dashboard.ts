@@ -9,6 +9,7 @@ import type {
   Workout,
   ActivePartnerWorkout,
 } from '@burnbuddy/shared';
+import type { StreakDayInfo } from '@burnbuddy/shared';
 import { GROUP_WORKOUT_WINDOW_MS } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
 import { cacheControl } from '../middleware/cache-control';
@@ -34,11 +35,11 @@ interface EnrichedBurnBuddy extends BurnBuddy {
   partnerUid: string;
   partnerDisplayName: string;
   partnerProfilePictureUrl?: string;
-  streaks: { burnStreak: number; supernovaStreak: number };
+  streaks: { burnStreak: number; supernovaStreak: number; last7Days: StreakDayInfo[] };
 }
 
 interface EnrichedBurnSquad extends BurnSquad {
-  streaks: { burnStreak: number; supernovaStreak: number };
+  streaks: { burnStreak: number; supernovaStreak: number; last7Days: StreakDayInfo[] };
 }
 
 interface DashboardResponse {
