@@ -1,0 +1,43 @@
+# Ralph Progress Log — Primary Button Gradient
+Started: 2026-03-08
+
+## Codebase Patterns
+- Web typecheck has 1224 pre-existing TS errors (missing next/server, tailwindcss types, etc.) — CSS-only changes won't affect these
+- Tailwind v4 uses `@theme` in globals.css for color definitions; custom CSS classes go after the body block
+- Use `cd packages/shared && yarn build` before web typecheck (shared compiles to dist/)
+
+---
+
+## 2026-03-08T22:17 - US-001
+- Added `.btn-primary-gradient` and `.btn-primary-gradient:hover` classes in `apps/web/src/app/globals.css`
+- Normal state: `linear-gradient(135deg, #FF6B35 0%, #FF9500 100%)`
+- Hover state: `linear-gradient(135deg, #E55A2B 0%, #E08600 100%)`
+- Files changed: `apps/web/src/app/globals.css`
+- **Learnings for future iterations:**
+  - CSS-only changes don't need typecheck verification since TS doesn't process CSS
+  - Pre-existing web typecheck errors are extensive (1224) — don't try to fix them
+---
+
+## 2026-03-08T22:20 - US-002
+- Replaced all `bg-primary` + `hover:bg-orange-600` pairs with `btn-primary-gradient` in dashboard
+- 7 buttons updated: desktop Start Workout, mobile Start Workout, modal Start Workout, Accept buddy request, Join Workout, Add Burn Buddy link, Add Burn Squad link
+- Kept `bg-primary/20` usage (workout type selection pill) as-is — not a button gradient target
+- Files changed: `apps/web/src/app/(main)/page.tsx`
+- **Learnings for future iterations:**
+  - `bg-primary/20` is used for selection states (not buttons) — don't replace those
+  - Dashboard is auth-gated — can't verify in headless browser without credentials
+---
+
+## 2026-03-08T22:22 - US-003, US-004, US-005, US-006, US-007
+- US-003: Updated Add Friend and Send Request buttons in friends page
+- US-004: Updated Send Request and Save Schedule buttons in burn-buddies pages
+- US-005: Updated Accept and Request Burn Buddy buttons in profile page
+- US-006: Updated Save username button and Hide Getting Started orange state in account page (kept green state as-is)
+- US-007: Updated Firebase Auth widget `.mdl-button--raised.mdl-button--colored` from flat `background-color` to gradient `background` in globals.css
+- Files changed: `friends/page.tsx`, `burn-buddies/new/page.tsx`, `burn-buddies/[id]/page.tsx`, `profile/[uid]/page.tsx`, `account/page.tsx`, `globals.css`
+- Browser verified: Firebase Auth "Next" button shows gradient on login page
+- **Learnings for future iterations:**
+  - Account page toggle button has two states (orange/green) — only replace the orange state class
+  - `bg-primary/20`, `bg-primary/10`, `border-primary/30` are used for selection/info states, not buttons
+  - Firebase Auth widget requires `!important` overrides since firebaseui.css has high specificity
+---

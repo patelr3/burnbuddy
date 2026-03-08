@@ -219,7 +219,7 @@ export default function FriendProfilePage() {
                     <button
                       onClick={() => acceptBuddyMutation.mutate()}
                       disabled={isBuddyRequestActionPending}
-                      className="cursor-pointer rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-white hover:bg-orange-600 disabled:opacity-50"
+                      className="btn-primary-gradient cursor-pointer rounded-lg px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
                     >
                       {acceptBuddyMutation.isPending ? 'Accepting…' : '🔥 Accept'}
                     </button>
@@ -236,7 +236,7 @@ export default function FriendProfilePage() {
                   <button
                     onClick={() => requestBuddyMutation.mutate()}
                     disabled={requestBuddyMutation.isPending}
-                    className="cursor-pointer rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50"
+                    className="btn-primary-gradient cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
                   >
                     {requestBuddyMutation.isPending ? 'Sending…' : '🔥 Request Burn Buddy'}
                   </button>
@@ -244,8 +244,8 @@ export default function FriendProfilePage() {
               </div>
             </div>
 
-            {/* Streak dots */}
-            <div className="mb-5 flex flex-col gap-2">
+            {/* Stats grid */}
+            <div className="grid grid-cols-2 gap-3">
               <StreakDots
                 streakCount={profile.highestActiveStreak?.value ?? 0}
                 last7Days={profile.highestActiveStreakLast7Days ?? EMPTY_LAST_7_DAYS}
@@ -258,10 +258,6 @@ export default function FriendProfilePage() {
                 color="violet"
                 label="Supernova Streak"
               />
-            </div>
-
-            {/* Stats grid */}
-            <div className="grid grid-cols-2 gap-3">
               <StatCard
                 label="Highest Streak Ever"
                 value={profile.highestStreakEver ? `${profile.highestStreakEver.value}` : '—'}

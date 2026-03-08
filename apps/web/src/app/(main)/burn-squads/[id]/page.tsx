@@ -512,8 +512,8 @@ export default function BurnSquadDetailPage() {
           </div>
         )}
 
-        {/* Streak dots */}
-        <div className="mb-5 flex flex-col gap-2">
+        {/* Stats grid */}
+        <div className="mb-7 grid grid-cols-2 gap-3">
           <StreakDots
             streakCount={streaks.burnStreak}
             last7Days={streaks.last7Days}
@@ -526,10 +526,6 @@ export default function BurnSquadDetailPage() {
             color="violet"
             label="Supernova Streak"
           />
-        </div>
-
-        {/* Stats grid */}
-        <div className="mb-7 grid grid-cols-2 gap-3">
           <StatCard
             label="Highest Streak"
             value={stats?.highestStreakEver.value ? `${stats.highestStreakEver.value}` : '—'}

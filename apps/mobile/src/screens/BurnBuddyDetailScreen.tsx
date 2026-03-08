@@ -272,26 +272,20 @@ export default function BurnBuddyDetailScreen({ buddyId, onBack }: Props) {
           </View>
         )}
 
-        {/* Streak Dots */}
-        {streaks.last7Days.length > 0 && (
-          <View style={styles.streakDotsSection}>
-            <StreakDots
-              streakCount={streaks.burnStreak}
-              last7Days={streaks.last7Days}
-              color="orange"
-              label="Burn Streak"
-            />
-            <StreakDots
-              streakCount={streaks.supernovaStreak}
-              last7Days={streaks.last7Days}
-              color="violet"
-              label="Supernova"
-            />
-          </View>
-        )}
-
         {/* Stats Grid */}
         <View style={styles.statsGrid}>
+          <StreakDots
+            streakCount={streaks.burnStreak}
+            last7Days={streaks.last7Days}
+            color="orange"
+            label="Burn Streak"
+          />
+          <StreakDots
+            streakCount={streaks.supernovaStreak}
+            last7Days={streaks.last7Days}
+            color="violet"
+            label="Supernova"
+          />
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{workoutsThisWeek}</Text>
             <Text style={styles.statLabel}>This Week</Text>
@@ -367,10 +361,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   badgeText: { fontSize: 12, color: '#E05A00', fontWeight: '600' },
-  streakDotsSection: {
-    gap: 8,
-    marginBottom: 16,
-  },
   scheduleRow: {
     backgroundColor: '#fff3e0',
     borderWidth: 1,

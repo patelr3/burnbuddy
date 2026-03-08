@@ -1,0 +1,73 @@
+{
+  "project": "burnbuddy",
+  "branchName": "ralph/streak-dots-tile-layout",
+  "description": "Streak Dots Tile Layout — Wrap each streak (Burn Streak, Supernova Streak) in a card tile matching StatCard styling and integrate into the 2-column stat grid on web and mobile",
+  "dependsOn": [],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Restyle web StreakDots as a card tile component",
+      "description": "As a user, I want the streak dots displayed inside a styled card tile so they visually match the surrounding stat tiles.",
+      "acceptanceCriteria": [
+        "StreakDots component (`apps/web/src/components/StreakDots.tsx`) renders inside a container with the same styling as StatCard: `rounded-lg border border-gray-700 bg-surface px-4 py-3.5`",
+        "Layout is stacked vertically: streak label + count (`🔥 {count} {label}`) on top row, 7 dots on second row",
+        "Remove day-of-week labels (S, M, T, W, T, F, S) below each dot — just show the 7 dots in a row",
+        "Both `orange` (Burn Streak) and `violet` (Supernova Streak) color variants render correctly",
+        "Danger state (red) still displays correctly within the tile",
+        "When `last7Days` is empty, show tile with 0 count and all ○ dots",
+        "Typecheck passes (`cd packages/shared && yarn build && cd ../../apps/web && yarn typecheck`)"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Integrate web streak tiles into stat grid on all 3 pages",
+      "description": "As a user, I want the streak tiles to be part of the same 2-column grid as the other stat tiles so the layout looks cohesive.",
+      "acceptanceCriteria": [
+        "On burn buddy detail page (`apps/web/src/app/(main)/burn-buddies/[id]/page.tsx`): remove the separate `mb-5 flex flex-col gap-2` StreakDots wrapper. Place both StreakDots as the first two children inside the existing `grid grid-cols-2 gap-3` grid, before the StatCard elements",
+        "On burn squad detail page (`apps/web/src/app/(main)/burn-squads/[id]/page.tsx`): same change — streak tiles as first two cells in the stat grid",
+        "On friend profile page (`apps/web/src/app/(main)/profile/[uid]/page.tsx`): same change — streak tiles as first two cells in the stat grid",
+        "Streak tiles occupy one grid cell each (single column, not spanning 2 columns)",
+        "Remove any conditional `streaks.last7Days.length > 0` wrapping around StreakDots — always show tiles (empty state handled by component)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Restyle mobile StreakDots as a card tile",
+      "description": "As a mobile user, I want the streak dots displayed inside a styled card tile matching the mobile stat cards.",
+      "acceptanceCriteria": [
+        "StreakDots component (`apps/mobile/src/components/StreakDots.tsx`) renders inside a container matching mobile statCard style: `backgroundColor: '#fafafa'`, `borderRadius: 10`, `padding: 14`, `borderWidth: 1`, `borderColor: '#f1f5f9'`, `width: '47%'`",
+        "Layout is stacked vertically: label + count on top row, 7 dots on bottom row",
+        "Remove day-of-week labels below each dot — just show the 7 dots",
+        "Both orange and violet variants render correctly",
+        "Danger state (red) still works within the tile",
+        "When `last7Days` is empty, show tile with 0 count and all ○ dots",
+        "Mobile typecheck passes (`cd apps/mobile && npx tsc --noEmit`)"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Integrate mobile streak tiles into stat grid on both screens",
+      "description": "As a mobile user, I want the streak tiles to be part of the same grid as the other stat tiles.",
+      "acceptanceCriteria": [
+        "On BurnBuddyDetailScreen (`apps/mobile/src/screens/BurnBuddyDetailScreen.tsx`): remove the separate `streakDotsSection` wrapper. Place both StreakDots as the first two children inside the existing `statsGrid` View, before the other statCard Views",
+        "On BurnSquadDetailScreen (`apps/mobile/src/screens/BurnSquadDetailScreen.tsx`): same change — streak tiles as first two items in the statsGrid",
+        "Remove any conditional `streaks.last7Days.length > 0` wrapping around StreakDots — always show tiles",
+        "Mobile typecheck passes (`cd apps/mobile && npx tsc --noEmit`)"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}
