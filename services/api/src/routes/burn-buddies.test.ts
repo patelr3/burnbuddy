@@ -368,6 +368,8 @@ describe('POST /burn-buddies/requests/:id/accept', () => {
       exists: true,
       data: () => ({ id: REQUEST_ID, fromUid: OTHER_UID, toUid: TEST_UID, status: 'pending', createdAt: '' }),
     });
+    // Existing BurnBuddy check — none exists
+    mockBBDocGet.mockResolvedValueOnce({ exists: false });
     mockBBRequestDocUpdate.mockResolvedValueOnce(undefined);
     mockBBDocSet.mockResolvedValueOnce(undefined);
 
@@ -987,12 +989,14 @@ describe('GET /burn-buddies/:id/calendar', () => {
  * Fix: use a sorted composite key as doc ID (matching the friendship pattern)
  * or query for an existing BurnBuddy before creating.
  */
-describe('TLA+ Gap G-1: AtMostOneBuddyPerPair — no duplicate-pair guard on accept', () => {
-  it('creates BurnBuddy doc with random UUID, not sorted composite key', async () => {
+describe('TLA+ Gap G-1: AtMostOneBuddyPerPair — sorted composite key on accept', () => {
+  it('creates BurnBuddy doc with sorted composite key as doc ID', async () => {
     mockBBRequestDocGet.mockResolvedValueOnce({
       exists: true,
       data: () => ({ id: REQUEST_ID, fromUid: OTHER_UID, toUid: TEST_UID, status: 'pending', createdAt: '' }),
     });
+    // Existing BurnBuddy check — none exists
+    mockBBDocGet.mockResolvedValueOnce({ exists: false });
     mockBBRequestDocUpdate.mockResolvedValueOnce(undefined);
     mockBBDocSet.mockResolvedValueOnce(undefined);
 
@@ -1002,30 +1006,33 @@ describe('TLA+ Gap G-1: AtMostOneBuddyPerPair — no duplicate-pair guard on acc
 
     expect(res.status).toBe(200);
 
-    // Verify the doc ID used is NOT the sorted composite key pattern
-    const docIdUsed = (mockBBDocRef.mock.calls as unknown as string[][])[0]?.[0];
+    // Verify the doc ID used IS the sorted composite key
     const sortedCompositeKey = [TEST_UID, OTHER_UID].sort().join('_');
-    expect(docIdUsed).not.toBe(sortedCompositeKey);
+    // First call to mockBBDocRef is the existence check, second is the set
+    const docIdUsed = (mockBBDocRef.mock.calls as unknown as string[][])[0]?.[0];
+    expect(docIdUsed).toBe(sortedCompositeKey);
+
+    // Verify the BurnBuddy.id field also uses the sorted composite key
+    const setArg = mockBBDocSet.mock.calls[0]?.[0] as { id: string };
+    expect(setArg.id).toBe(sortedCompositeKey);
   });
 
-  it('does not check for existing BurnBuddy before creating a new one', async () => {
+  it('returns 409 when a BurnBuddy already exists for the pair (cross-request)', async () => {
     mockBBRequestDocGet.mockResolvedValueOnce({
       exists: true,
       data: () => ({ id: REQUEST_ID, fromUid: OTHER_UID, toUid: TEST_UID, status: 'pending', createdAt: '' }),
     });
-    mockBBRequestDocUpdate.mockResolvedValueOnce(undefined);
-    mockBBDocSet.mockResolvedValueOnce(undefined);
+    // Existing BurnBuddy check — already exists
+    mockBBDocGet.mockResolvedValueOnce({ exists: true });
 
     const res = await request(buildApp())
       .post(`/burn-buddies/requests/${REQUEST_ID}/accept`)
       .set('Authorization', VALID_TOKEN);
 
-    expect(res.status).toBe(200);
-
-    // No query was made to check if a BurnBuddy already exists for this pair.
-    // This means two cross-requests (A→B and B→A) can both be accepted,
-    // creating duplicate BurnBuddy docs for the same user pair.
-    expect(mockBBQueryGet).not.toHaveBeenCalled();
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({ error: expect.stringContaining('already exists') });
+    // Should NOT have created a new BurnBuddy doc
+    expect(mockBBDocSet).not.toHaveBeenCalled();
   });
 });
 
