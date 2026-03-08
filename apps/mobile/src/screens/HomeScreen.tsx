@@ -355,17 +355,6 @@ function HomeListView({
           </View>
         )}
 
-        {/* Start Workout Button */}
-        {!activeWorkout && (
-          <TouchableOpacity
-            style={styles.startWorkoutButton}
-            onPress={() => setShowWorkoutSelector(true)}
-            testID="home-start-workout-button"
-          >
-            <Text style={styles.startWorkoutButtonText}>🏃 Start Workout</Text>
-          </TouchableOpacity>
-        )}
-
         {/* Action Buttons */}
         <View style={styles.actionRow}>
           <TouchableOpacity style={styles.actionButton} onPress={onNavigateToNewBuddy}>
@@ -501,6 +490,19 @@ function HomeListView({
           </>
         )}
       </ScrollView>
+
+      {/* Fixed Bottom Start Workout Button */}
+      {!activeWorkout && (
+        <View style={styles.bottomWorkoutArea}>
+          <TouchableOpacity
+            style={styles.startWorkoutButton}
+            onPress={() => setShowWorkoutSelector(true)}
+            testID="home-start-workout-button"
+          >
+            <Text style={styles.startWorkoutButtonText}>🏃 Start Workout</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Workout Type Selector Modal */}
       <Modal visible={showWorkoutSelector} transparent animationType="slide">
@@ -639,7 +641,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#E05A00' },
   signOutText: { color: '#E05A00', fontSize: 14 },
   content: { flex: 1 },
-  contentContainer: { padding: 16 },
+  contentContainer: { padding: 16, paddingBottom: 24 },
   errorText: { color: '#ef4444', marginBottom: 12 },
   loader: { marginTop: 40 },
   actionRow: {
@@ -741,12 +743,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   endWorkoutButtonText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  bottomWorkoutArea: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    backgroundColor: '#fff',
+  },
   startWorkoutButton: {
     backgroundColor: '#E05A00',
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',
-    marginBottom: 14,
   },
   startWorkoutButtonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   // Modal styles
