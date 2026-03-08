@@ -214,6 +214,8 @@ describe('POST /burn-buddies/requests', () => {
   });
 
   it('returns 400 when toUid is missing', async () => {
+    mockUsersDocGet.mockResolvedValueOnce({ exists: true, data: () => ({ uid: TEST_UID }) });
+
     const res = await request(buildApp())
       .post('/burn-buddies/requests')
       .set('Authorization', VALID_TOKEN)
@@ -223,6 +225,8 @@ describe('POST /burn-buddies/requests', () => {
   });
 
   it('returns 400 when toUid equals own uid', async () => {
+    mockUsersDocGet.mockResolvedValueOnce({ exists: true, data: () => ({ uid: TEST_UID }) });
+
     const res = await request(buildApp())
       .post('/burn-buddies/requests')
       .set('Authorization', VALID_TOKEN)
@@ -232,6 +236,7 @@ describe('POST /burn-buddies/requests', () => {
   });
 
   it('returns 400 when users are not friends', async () => {
+    mockUsersDocGet.mockResolvedValueOnce({ exists: true, data: () => ({ uid: TEST_UID }) });
     mockFriendsDocGet.mockResolvedValueOnce({ exists: false });
 
     const res = await request(buildApp())
@@ -244,6 +249,7 @@ describe('POST /burn-buddies/requests', () => {
   });
 
   it('returns 409 when a pending request already exists', async () => {
+    mockUsersDocGet.mockResolvedValueOnce({ exists: true, data: () => ({ uid: TEST_UID }) });
     mockFriendsDocGet.mockResolvedValueOnce({ exists: true });
     mockBBRequestQueryGet.mockResolvedValueOnce({ empty: false });
 
@@ -257,6 +263,7 @@ describe('POST /burn-buddies/requests', () => {
   });
 
   it('creates and returns a new Burn Buddy request with 201', async () => {
+    mockUsersDocGet.mockResolvedValueOnce({ exists: true, data: () => ({ uid: TEST_UID }) });
     mockFriendsDocGet.mockResolvedValueOnce({ exists: true });
     mockBBRequestQueryGet.mockResolvedValueOnce({ empty: true });
     mockBBRequestDocSet.mockResolvedValueOnce(undefined);
@@ -1039,11 +1046,34 @@ describe('TLA+ Gap G-1: AtMostOneBuddyPerPair — sorted composite key on accept
 /**
  * Gap G-4 — ProfileRequiredForSocialActions / CDI-1 (CrossDomainInvariants.tla)
  *
- * POST /burn-buddies/requests does not verify the sender has a Firestore profile.
- * A user with a valid Firebase Auth token but no profile can send buddy requests.
+ * POST /burn-buddies/requests now verifies the sender has a Firestore profile
+ * via the requireProfile middleware. Users without profiles get 403.
  */
 describe('TLA+ Gap G-4: ProfileRequiredForSocialActions — burn buddy requests', () => {
-  it('allows buddy request creation without checking sender profile existence', async () => {
+  it('returns 403 when sender has no Firestore profile', async () => {
+    // Profile does NOT exist
+    mockUsersDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .post('/burn-buddies/requests')
+      .set('Authorization', VALID_TOKEN)
+      .send({ toUid: OTHER_UID });
+
+    // requireProfile middleware rejects with 403
+    expect(res.status).toBe(403);
+    expect(res.body).toMatchObject({ error: 'Profile required' });
+
+    // Verify the profile doc was fetched for the sender
+    expect(mockUsersDocRef).toHaveBeenCalledWith(TEST_UID);
+
+    // Verify no friendship check or request creation occurred
+    expect(mockFriendsDocGet).not.toHaveBeenCalled();
+    expect(mockBBRequestDocSet).not.toHaveBeenCalled();
+  });
+
+  it('allows buddy request creation when sender has a profile', async () => {
+    // Profile exists
+    mockUsersDocGet.mockResolvedValueOnce({ exists: true, data: () => ({ uid: TEST_UID, displayName: 'Test User' }) });
     // Friendship exists
     mockFriendsDocGet.mockResolvedValueOnce({ exists: true });
     // No pending request
@@ -1056,11 +1086,8 @@ describe('TLA+ Gap G-4: ProfileRequiredForSocialActions — burn buddy requests'
       .set('Authorization', VALID_TOKEN)
       .send({ toUid: OTHER_UID });
 
-    // Request succeeds — no profile check was performed.
-    // The route only verifies Firebase Auth token, not Firestore profile existence.
     expect(res.status).toBe(201);
-
-    // Verify no user profile doc was fetched for the sender (TEST_UID)
-    expect(mockUsersDocGet).not.toHaveBeenCalled();
+    // Verify the profile doc was fetched for the sender
+    expect(mockUsersDocRef).toHaveBeenCalledWith(TEST_UID);
   });
 });

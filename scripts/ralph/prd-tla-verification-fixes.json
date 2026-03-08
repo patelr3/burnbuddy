@@ -18,7 +18,7 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "The friendship pattern in friends.ts uses sorted composite key ${uid1}_${uid2} as the Firestore doc ID — replicate this pattern for burn buddies. The accept handler is around line 92-134 in burn-buddies.ts. The gap-documenting tests are in the 'TLA+ Gap G-1' describe block around line 985."
     },
     {

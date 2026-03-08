@@ -1,3 +1,21 @@
 # Ralph Progress Log — TLA+ Verification Gap Fixes
 Started: 2026-03-08
 ---
+
+## Codebase Patterns
+- Firestore doc IDs for pair relationships use sorted composite keys: `${[uid1, uid2].sort().join('_')}` — see friends.ts and now burn-buddies.ts
+- Tests use `vi.hoisted` + `vi.mock` for Firestore stubs; mock each collection's doc/query separately
+- When adding a new Firestore read to a route, update ALL existing test cases that hit that route to mock the new read
+- Build `packages/shared` before running `yarn typecheck` in `services/api`
+
+## 2026-03-08T02:25 - US-001
+- Implemented sorted composite key for BurnBuddy doc ID in accept handler
+- Added duplicate BurnBuddy existence check (returns 409 on cross-request)
+- Updated G-1 gap tests to assert correct behavior
+- Updated existing accept test to mock the new existence check
+- Files changed: `services/api/src/routes/burn-buddies.ts`, `services/api/src/routes/burn-buddies.test.ts`
+- **Learnings for future iterations:**
+  - The accept handler previously used `randomUUID()` — the sorted composite key pattern was already used for uid1/uid2 sorting but not for the doc ID
+  - When you add a new Firestore `.get()` call in a handler, you must add a corresponding `mockResolvedValueOnce` in EVERY test that reaches that code path
+  - The friends collection already used sorted composite keys — this is the canonical pattern for pair-based relationships
+---

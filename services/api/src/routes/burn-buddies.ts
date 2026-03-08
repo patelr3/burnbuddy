@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { Router, type Request, type Response } from 'express';
 import type { BurnBuddy, BurnBuddyRequest, GroupWorkout, UserProfile, WorkoutSchedule } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
+import { requireProfile } from '../middleware/requireProfile';
 import { cacheControl } from '../middleware/cache-control';
 import { getDb } from '../lib/firestore';
 import { calculateStreaks, calculateGroupStats } from '../services/streak-calculator';
@@ -13,7 +14,7 @@ const router = Router();
  * POST /burn-buddies/requests
  * Sends a Burn Buddy request to a friend (must already be friends).
  */
-router.post('/requests', requireAuth, async (req: Request, res: Response): Promise<void> => {
+router.post('/requests', requireAuth, requireProfile, async (req: Request, res: Response): Promise<void> => {
   const fromUid = req.user!.uid;
   const { toUid } = req.body as { toUid?: string };
 
