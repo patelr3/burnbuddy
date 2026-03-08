@@ -299,7 +299,6 @@ export default function FriendsScreen() {
                     />
                     <View style={styles.friendInfo}>
                       <Text style={styles.friendName}>{friend.displayName}</Text>
-                      <Text style={styles.friendEmail}>{friend.email}</Text>
                     </View>
                     <TouchableOpacity
                       onPress={() => handleRemoveFriend(friend)}
@@ -467,13 +466,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
   },
   friendInfo: { flex: 1, marginLeft: 10 },
   friendName: { fontSize: 15, fontWeight: '500', color: '#333' },
-  friendEmail: { fontSize: 13, color: '#6b7280', marginTop: 1 },
   removeButton: {
     borderWidth: 1,
     borderColor: '#fca5a5',
