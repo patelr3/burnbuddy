@@ -100,6 +100,11 @@ OnlyRecipientCanAccept ==
 NoSelfRequests ==
     \A r \in buddyRequests : r.fromUid /= r.toUid
 
+(* INV-7: No burn buddy relationship can exist without an active friendship.
+   Burn buddies are cascade-deleted when friendship is removed. *)
+NoBuddyWithoutFriendship ==
+    \A bb \in burnBuddies : bb \in friends
+
 (* Combined safety invariant *)
 SafetyInvariant ==
     /\ TypeOK
@@ -108,6 +113,7 @@ SafetyInvariant ==
     /\ BuddyUidsSorted
     /\ AtMostOnePendingPerDirection
     /\ NoSelfRequests
+    /\ NoBuddyWithoutFriendship
 
 ------------------------------------------------------------------------
 (* --- INITIAL STATE --- *)
@@ -134,9 +140,8 @@ CreateFriendship(u1, u2) ==
 
 (* Delete an existing friendship. Either party can initiate.
    Pending buddy requests are removed to maintain the invariant that
-   pending requests require active friendship. Accepted/declined requests
-   and existing BurnBuddy relationships persist — the API does NOT
-   cascade-delete burn buddies when friendship is removed. *)
+   pending requests require active friendship. Burn buddy relationships
+   are cascade-deleted to maintain NoBuddyWithoutFriendship. *)
 DeleteFriendship(u1, u2) ==
     /\ {u1, u2} \in friends
     /\ friends' = friends \ {{u1, u2}}
@@ -144,7 +149,8 @@ DeleteFriendship(u1, u2) ==
     /\ buddyRequests' = { r \in buddyRequests :
          ~(r.status = "pending" /\
            ({r.fromUid, r.toUid} = {u1, u2})) }
-    /\ UNCHANGED burnBuddies
+    \* Cascade-delete burn buddy relationship for this pair.
+    /\ burnBuddies' = burnBuddies \ {{u1, u2}}
 
 ------------------------------------------------------------------------
 (* --- BURN BUDDY ACTIONS --- *)
@@ -189,6 +195,16 @@ DeclineBuddyRequest(from, to) ==
     /\ req \in buddyRequests                                   \* Request must exist and be pending
     /\ buddyRequests' = (buddyRequests \ {req}) \cup
          {[fromUid |-> from, toUid |-> to, status |-> "declined"]}
+    /\ UNCHANGED <<friends, burnBuddies>>
+
+(* Cancel a pending burn buddy request. Only the sender (fromUid) can cancel.
+   Precondition: request exists with status=pending and fromUid=from.
+   Postcondition: request removed from buddyRequests set. *)
+CancelBuddyRequest(from, to) ==
+    LET req == [fromUid |-> from, toUid |-> to, status |-> "pending"]
+    IN
+    /\ req \in buddyRequests                                   \* Request must exist and be pending
+    /\ buddyRequests' = buddyRequests \ {req}
     /\ UNCHANGED <<friends, burnBuddies>>
 
 (* Update workout schedule for an existing burn buddy relationship.
@@ -239,6 +255,7 @@ Next ==
     \/ \E from, to \in Uid : SendBuddyRequest(from, to)
     \/ \E from, to \in Uid : AcceptBuddyRequest(from, to)
     \/ \E from, to \in Uid : DeclineBuddyRequest(from, to)
+    \/ \E from, to \in Uid : CancelBuddyRequest(from, to)
     \/ \E u1, u2 \in Uid : UpdateSchedule(u1, u2)
     \/ \E u1, u2 \in Uid : DeleteBuddy(u1, u2)
 
