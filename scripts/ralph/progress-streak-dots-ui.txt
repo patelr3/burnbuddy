@@ -65,3 +65,15 @@ Started: 2026-03-08
   - React Native `gap` property works in flexbox containers (no spacer views needed)
   - Mobile typecheck: `cd apps/mobile && npx tsc --noEmit`
 ---
+
+## 2026-03-08T19:03Z - US-007
+- Integrated StreakDots into BurnBuddyDetailScreen and BurnSquadDetailScreen
+- Replaced static "🔥 N" / "⭐ N" stat cards with StreakDots rows (burn streak orange + supernova violet)
+- Updated Streaks interface to include `last7Days: StreakDayInfo[]` (already returned by API)
+- Remaining stats grid: This Week, This Month, Together/Squad Age, Since
+- Files changed: apps/mobile/src/screens/BurnBuddyDetailScreen.tsx, apps/mobile/src/screens/BurnSquadDetailScreen.tsx
+- **Learnings for future iterations:**
+  - API `/streaks` endpoints already return `last7Days` — mobile was just ignoring the field
+  - BurnSquadDetailScreen has a `.catch()` fallback on streaks fetch — must include all fields
+  - `streakDotsSection` style with `gap: 8` + `marginBottom: 16` for consistent spacing above stats grid
+---
