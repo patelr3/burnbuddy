@@ -2,7 +2,7 @@
 @import "firebaseui/dist/firebaseui.css";
 
 @theme {
-  --color-primary: #30D158;
+  --color-primary: #FF9500;
   --color-secondary: #0A84FF;
   --color-surface: #1C1C1E;
   --color-surface-elevated: #2C2C2E;
@@ -75,16 +75,16 @@ body {
 
 .mdl-textfield--floating-label.is-focused .mdl-textfield__label,
 .mdl-textfield--floating-label.is-dirty .mdl-textfield__label {
-  color: #30D158 !important;
+  color: #FF9500 !important;
 }
 
 .firebaseui-textfield.mdl-textfield .mdl-textfield__label::after {
-  background-color: #30D158 !important;
+  background-color: #FF9500 !important;
 }
 
 /* Primary action buttons (Sign In, Continue) */
 .firebaseui-form-actions .mdl-button--raised.mdl-button--colored {
-  background-color: #30D158 !important;
+  background-color: #FF9500 !important;
   color: #fff !important;
   border-radius: 0.5rem !important;
   text-transform: none !important;
@@ -92,12 +92,12 @@ body {
 }
 
 .firebaseui-form-actions .mdl-button--raised.mdl-button--colored:hover {
-  background-color: #16a34a !important;
+  background-color: #E08600 !important;
 }
 
 /* Secondary buttons (Cancel, Back) */
 .firebaseui-form-actions .mdl-button--primary {
-  color: #30D158 !important;
+  color: #FF9500 !important;
 }
 
 /* Provider buttons (Google, Email, etc.) */

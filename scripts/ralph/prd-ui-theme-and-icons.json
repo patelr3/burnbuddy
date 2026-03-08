@@ -14,7 +14,7 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -29,7 +29,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "The primary color is defined in tailwind.config.ts under theme.extend.colors.primary. Some components use bg-green-500 directly instead of bg-primary — these must be found and updated."
     },
     {
@@ -42,7 +42,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -56,7 +56,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "This matches the convention already used on the friends page."
     },
     {
@@ -75,7 +75,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-001 (lucide-react installed) and US-002 (orange primary color)."
     },
     {
@@ -93,7 +93,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Component is at apps/web/src/components/AddToCalendarButton.tsx. Currently uses bg-white with border-gray-300 — a light theme button in a dark app."
     },
     {
@@ -108,7 +108,7 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Home page cards use paddingVertical: 12, paddingHorizontal: 14. Friends page currently uses paddingVertical: 10 with no horizontal padding."
     }
   ]

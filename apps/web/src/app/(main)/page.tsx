@@ -8,6 +8,7 @@ import { apiPost, apiPut, apiPatch } from '@/lib/api';
 import { GettingStartedCard } from '@/components/GettingStartedCard';
 import { Avatar } from '@/components/Avatar';
 import Link from 'next/link';
+import { UserPlus, UsersRound } from 'lucide-react';
 import type { Workout, WorkoutType, WorkoutSchedule } from '@burnbuddy/shared';
 
 const WORKOUT_TYPES: WorkoutType[] = [
@@ -312,7 +313,7 @@ export default function Home() {
         <div className="mb-6">
           <button
             onClick={() => setShowWorkoutSelector(true)}
-            className="w-full cursor-pointer rounded-lg bg-primary p-4 text-base font-semibold text-white hover:bg-green-600"
+            className="w-full cursor-pointer rounded-lg bg-primary p-4 text-base font-semibold text-white hover:bg-orange-600"
           >
             🔥 Start Workout
           </button>
@@ -362,7 +363,7 @@ export default function Home() {
               <button
                 onClick={handleStartWorkout}
                 disabled={!selectedType || (selectedType === 'Custom' && !customType.trim())}
-                className="cursor-pointer rounded-md bg-primary px-5 py-2.5 text-sm font-bold text-white hover:bg-green-600 disabled:opacity-50"
+                className="cursor-pointer rounded-md bg-primary px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-600 disabled:opacity-50"
               >
                 Start Workout
               </button>
@@ -390,7 +391,7 @@ export default function Home() {
               </div>
               <button
                 onClick={() => handleAcceptBuddyRequest(req.id)}
-                className="cursor-pointer rounded bg-primary px-3.5 py-1.5 text-[13px] text-white hover:bg-green-600"
+                className="cursor-pointer rounded bg-primary px-3.5 py-1.5 text-[13px] text-white hover:bg-orange-600"
               >
                 Accept
               </button>
@@ -429,19 +430,21 @@ export default function Home() {
 
       {/* Header with create buttons */}
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="m-0 text-lg font-semibold text-white">Burn Buddies &amp; Squads</h2>
+        <h2 className="m-0 text-lg font-semibold text-white">Burn Buddies</h2>
         <div className="flex gap-2">
           <Link
             href="/burn-buddies/new"
-            className="rounded bg-green-500 px-3.5 py-2 text-[13px] text-white no-underline hover:bg-green-600"
+            aria-label="Add Burn Buddy"
+            className="rounded-lg bg-primary p-2 text-white no-underline hover:bg-orange-600"
           >
-            + Burn Buddy
+            <UserPlus className="h-5 w-5" />
           </Link>
           <Link
             href="/burn-squads/new"
-            className="rounded bg-blue-500 px-3.5 py-2 text-[13px] text-white no-underline hover:bg-blue-600"
+            aria-label="Add Burn Squad"
+            className="rounded-lg bg-primary p-2 text-white no-underline hover:bg-orange-600"
           >
-            + Burn Squad
+            <UsersRound className="h-5 w-5" />
           </Link>
         </div>
       </div>
@@ -476,7 +479,7 @@ export default function Home() {
                             : 'bg-secondary/20 text-secondary'
                         }`}
                       >
-                        {item.type === 'buddy' ? 'Buddy' : 'Squad'}
+                        {item.type === 'buddy' ? '🔥 Burn Buddy' : '🔥 Burn Squad'}
                       </span>
                     </div>
                     <div className="text-[13px] text-gray-400">
@@ -498,7 +501,7 @@ export default function Home() {
                             e.preventDefault();
                             setShowWorkoutSelector(true);
                           }}
-                          className="cursor-pointer rounded bg-primary px-3 py-1.5 text-[13px] font-bold text-white hover:bg-green-600"
+                          className="cursor-pointer rounded bg-primary px-3 py-1.5 text-[13px] font-bold text-white hover:bg-orange-600"
                         >
                           Join Workout
                         </button>
