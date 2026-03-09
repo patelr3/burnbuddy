@@ -11,6 +11,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@azure/identity": "^4.13.0",
+    "@azure/storage-blob": "^12.31.0",
     "@burnbuddy/shared": "*",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/sdk-node": "^0.212.0",
