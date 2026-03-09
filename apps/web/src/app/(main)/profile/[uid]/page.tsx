@@ -7,7 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { StatCard } from '@/components/StatCard';
-import { StreakDots } from '@/components/StreakDots';
+import { StreakDots, BURN_STREAK_TOOLTIP, SUPERNOVA_STREAK_TOOLTIP } from '@/components/StreakDots';
 import { Avatar } from '@/components/Avatar';
 import { useProfile, queryKeys } from '@/lib/queries';
 import type { ProfileStats, StreakDayInfo } from '@burnbuddy/shared';
@@ -251,12 +251,14 @@ export default function FriendProfilePage() {
                 last7Days={profile.highestActiveStreakLast7Days ?? EMPTY_LAST_7_DAYS}
                 color="orange"
                 label="Burn Streak"
+                tooltip={BURN_STREAK_TOOLTIP}
               />
               <StreakDots
                 streakCount={profile.highestActiveStreak?.value ?? 0}
                 last7Days={profile.highestActiveStreakLast7Days ?? EMPTY_LAST_7_DAYS}
                 color="violet"
                 label="Supernova Streak"
+                tooltip={SUPERNOVA_STREAK_TOOLTIP}
               />
               <StatCard
                 label="Highest Streak Ever"

@@ -7,7 +7,7 @@ import { useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { StatCard } from '@/components/StatCard';
-import { StreakDots } from '@/components/StreakDots';
+import { StreakDots, BURN_STREAK_TOOLTIP, SUPERNOVA_STREAK_TOOLTIP } from '@/components/StreakDots';
 import { Avatar } from '@/components/Avatar';
 import { AddToCalendarButton } from '@/components/AddToCalendarButton';
 import { useBurnBuddy, queryKeys } from '@/lib/queries';
@@ -325,12 +325,14 @@ export default function BurnBuddyDetailPage() {
             last7Days={streaks.last7Days}
             color="orange"
             label="Burn Streak"
+            tooltip={BURN_STREAK_TOOLTIP}
           />
           <StreakDots
             streakCount={streaks.supernovaStreak}
             last7Days={streaks.last7Days}
             color="violet"
             label="Supernova Streak"
+            tooltip={SUPERNOVA_STREAK_TOOLTIP}
           />
           <StatCard
             label="Highest Streak"

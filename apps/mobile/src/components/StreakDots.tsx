@@ -1,11 +1,18 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet, Pressable, Modal } from 'react-native';
 import type { StreakDayInfo } from '@burnbuddy/shared';
+
+export const BURN_STREAK_TOOLTIP =
+  'Your burn streak counts workout days. It stays alive as long as you work out at least once a week (gap of 6 days max).';
+export const SUPERNOVA_STREAK_TOOLTIP =
+  'Your supernova streak rewards near-daily effort. It stays alive as long as you don\'t miss more than 1 day in a row.';
 
 interface StreakDotsProps {
   streakCount: number;
   last7Days: StreakDayInfo[];
   color: 'orange' | 'violet';
   label: string;
+  tooltip?: string;
 }
 
 const COLORS = {
@@ -28,17 +35,17 @@ function isDangerState(last7Days: StreakDayInfo[]): boolean {
   return last7Days.slice(1, 7).every((day) => !day.hasWorkout);
 }
 
-export function StreakDots({ streakCount, last7Days, color, label }: StreakDotsProps) {
+export function StreakDots({ streakCount, last7Days, color, label, tooltip }: StreakDotsProps) {
+  const [showTooltip, setShowTooltip] = useState(false);
   const days = last7Days.length > 0 ? last7Days : EMPTY_DAYS;
   const count = last7Days.length > 0 ? streakCount : 0;
   const danger = isDangerState(last7Days);
   const accentColor = danger ? COLORS.red : COLORS[color];
 
-  return (
+  const card = (
     <View style={styles.tile}>
       {/* Streak label + count */}
       <View style={styles.labelRow}>
-        <Text style={styles.fireEmoji}>🔥</Text>
         <Text style={[styles.countText, { color: accentColor }]}>{count}</Text>
         <Text style={styles.labelText}>{label}</Text>
       </View>
@@ -71,6 +78,36 @@ export function StreakDots({ streakCount, last7Days, color, label }: StreakDotsP
       </View>
     </View>
   );
+
+  if (!tooltip) return card;
+
+  return (
+    <>
+      <Pressable
+        onPress={() => setShowTooltip(true)}
+        style={({ pressed }) => pressed ? { opacity: 0.7 } : undefined}
+      >
+        {card}
+      </Pressable>
+
+      <Modal
+        visible={showTooltip}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowTooltip(false)}
+      >
+        <Pressable
+          style={styles.tooltipOverlay}
+          onPress={() => setShowTooltip(false)}
+        >
+          <View style={styles.tooltipBubble}>
+            <View style={styles.tooltipCaret} />
+            <Text style={styles.tooltipText}>{tooltip}</Text>
+          </View>
+        </Pressable>
+      </Modal>
+    </>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -88,9 +125,6 @@ const styles = StyleSheet.create({
     gap: 4,
     marginBottom: 8,
   },
-  fireEmoji: {
-    fontSize: 14,
-  },
   countText: {
     fontSize: 14,
     fontWeight: '600',
@@ -107,5 +141,37 @@ const styles = StyleSheet.create({
   dotText: {
     fontSize: 16,
     lineHeight: 18,
+  },
+  tooltipOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tooltipBubble: {
+    backgroundColor: '#1f2937',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    maxWidth: 280,
+    alignItems: 'center',
+  },
+  tooltipCaret: {
+    position: 'absolute',
+    top: -8,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 8,
+    borderRightWidth: 8,
+    borderBottomWidth: 8,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#1f2937',
+  },
+  tooltipText: {
+    color: '#f3f4f6',
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
   },
 });
