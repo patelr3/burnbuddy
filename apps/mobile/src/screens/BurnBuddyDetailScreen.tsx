@@ -13,7 +13,7 @@ import { useAuth } from '../lib/auth-context';
 import { apiGet, apiPut } from '../lib/api';
 import { Avatar } from '../components/Avatar';
 import type { BurnBuddy, GroupWorkout, WorkoutSchedule, StreakDayInfo } from '@burnbuddy/shared';
-import { StreakDots } from '../components/StreakDots';
+import { StreakDots, BURN_STREAK_TOOLTIP, SUPERNOVA_STREAK_TOOLTIP } from '../components/StreakDots';
 
 interface Props {
   buddyId: string;
@@ -279,12 +279,14 @@ export default function BurnBuddyDetailScreen({ buddyId, onBack }: Props) {
             last7Days={streaks.last7Days}
             color="orange"
             label="Burn Streak"
+            tooltip={BURN_STREAK_TOOLTIP}
           />
           <StreakDots
             streakCount={streaks.supernovaStreak}
             last7Days={streaks.last7Days}
             color="violet"
             label="Supernova"
+            tooltip={SUPERNOVA_STREAK_TOOLTIP}
           />
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{workoutsThisWeek}</Text>
