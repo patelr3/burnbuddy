@@ -45,9 +45,9 @@ describe('calculateStreaks', () => {
     expect(calculateStreaks(groupWorkouts)).toMatchObject({ burnStreak: 1, supernovaStreak: 1 });
   });
 
-  it('preserves streak when the most recent group workout was 2 days ago (gap < 7 days)', () => {
+  it('preserves burnStreak but resets supernovaStreak when last workout was 2 days ago', () => {
     const groupWorkouts = [makeGroupWorkout(daysAgoStr(2))];
-    expect(calculateStreaks(groupWorkouts)).toMatchObject({ burnStreak: 1, supernovaStreak: 1 });
+    expect(calculateStreaks(groupWorkouts)).toMatchObject({ burnStreak: 1, supernovaStreak: 0 });
   });
 
   it('accumulates streak across consecutive days', () => {
@@ -60,12 +60,12 @@ describe('calculateStreaks', () => {
   });
 
   it('counts across short gaps (gap of 2 days between workout days)', () => {
-    // Today and 3 days ago, but 1 and 2 days ago missing (2-day gap < 7)
+    // Today and 3 days ago, but 1 and 2 days ago missing (2-day gap < 7 for burn, >= 2 for supernova)
     const groupWorkouts = [
       makeGroupWorkout(daysAgoStr(0)),
       makeGroupWorkout(daysAgoStr(3)),
     ];
-    expect(calculateStreaks(groupWorkouts)).toMatchObject({ burnStreak: 2, supernovaStreak: 2 });
+    expect(calculateStreaks(groupWorkouts)).toMatchObject({ burnStreak: 2, supernovaStreak: 1 });
   });
 
   it('handles multiple group workouts on the same day', () => {
@@ -115,7 +115,7 @@ describe('calculateStreaks', () => {
     expect(calculateStreaks(groupWorkouts)).toMatchObject({ burnStreak: 2, supernovaStreak: 2 });
   });
 
-  it('burnStreak and supernovaStreak are always equal (group workouts imply all members)', () => {
+  it('burnStreak and supernovaStreak are equal for consecutive daily workouts', () => {
     const groupWorkouts = [
       makeGroupWorkout(daysAgoStr(0)),
       makeGroupWorkout(daysAgoStr(1)),
@@ -124,19 +124,19 @@ describe('calculateStreaks', () => {
       makeGroupWorkout(daysAgoStr(4)),
     ];
     const result = calculateStreaks(groupWorkouts);
-    expect(result.burnStreak).toBe(result.supernovaStreak);
     expect(result.burnStreak).toBe(5);
+    expect(result.supernovaStreak).toBe(5);
   });
 
   // --- US-002: 7-day inactivity window tests ---
 
-  it('streak survives a 6-day gap', () => {
+  it('burnStreak survives a 6-day gap but supernovaStreak does not', () => {
     // Workouts on day 0 and day 7 (6-day gap between them: days 1-6 missing)
     const groupWorkouts = [
       makeGroupWorkout(daysAgoStr(0)),
       makeGroupWorkout(daysAgoStr(7)),
     ];
-    expect(calculateStreaks(groupWorkouts)).toMatchObject({ burnStreak: 2, supernovaStreak: 2 });
+    expect(calculateStreaks(groupWorkouts)).toMatchObject({ burnStreak: 2, supernovaStreak: 1 });
   });
 
   it('streak resets on a 7-day gap', () => {
@@ -148,15 +148,15 @@ describe('calculateStreaks', () => {
     expect(calculateStreaks(groupWorkouts)).toMatchObject({ burnStreak: 1, supernovaStreak: 1 });
   });
 
-  it('streak survives multiple short gaps', () => {
-    // Workouts spread out with gaps of 3-5 days each — all < 7
+  it('burnStreak survives multiple short gaps but supernovaStreak stops early', () => {
+    // Workouts spread out with gaps of 3-5 days each — all < 7 for burn
     const groupWorkouts = [
       makeGroupWorkout(daysAgoStr(0)),   // today
       makeGroupWorkout(daysAgoStr(4)),   // 4-day gap (days 1-3 missing)
       makeGroupWorkout(daysAgoStr(10)),  // 6-day gap (days 5-9 missing, largest allowed)
       makeGroupWorkout(daysAgoStr(13)),  // 3-day gap (days 11-12 missing)
     ];
-    expect(calculateStreaks(groupWorkouts)).toMatchObject({ burnStreak: 4, supernovaStreak: 4 });
+    expect(calculateStreaks(groupWorkouts)).toMatchObject({ burnStreak: 4, supernovaStreak: 1 });
   });
 
   it('streak resets to 0 when no workout in the last 7 days', () => {
