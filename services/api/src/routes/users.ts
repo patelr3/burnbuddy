@@ -7,11 +7,13 @@ import type {
   GroupWorkout,
   Workout,
   ProfileStats,
+  WorkoutGoal,
 } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
 import { admin } from '../lib/firebase';
 import { cacheControl } from '../middleware/cache-control';
 import { getDb } from '../lib/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
 import { getStorageBucket } from '../lib/storage';
 import { generateUniqueUsername, validateUsername } from '../lib/username';
 import sharp from 'sharp';
@@ -29,6 +31,75 @@ const EXTENSION_TO_MIME: Record<string, string> = {
   '.heic': 'image/heic',
   '.heif': 'image/heif',
 };
+
+const VALID_WORKOUT_GOALS: WorkoutGoal[] = ['lose_weight', 'build_muscle', 'stay_active', 'improve_endurance', 'reduce_stress'];
+
+/** Private health fields that must not appear in public-facing responses. */
+const HEALTH_FIELDS = ['heightCm', 'weightKg', 'dateOfBirth', 'workoutGoal', 'unitPreference', 'healthProfilePromptDismissed'] as const;
+
+type HealthField = (typeof HEALTH_FIELDS)[number];
+
+/** Strip private health fields from user data for public-facing responses. */
+function stripHealthFields(data: UserProfile): Omit<UserProfile, HealthField> {
+  const { heightCm, weightKg, dateOfBirth, workoutGoal, unitPreference, healthProfilePromptDismissed, ...rest } = data;
+  return rest;
+}
+
+/** Validate health fields from request body. Returns an error string or null if valid. */
+function validateHealthFields(body: Record<string, unknown>): { error: string } | { updates: Record<string, unknown> } {
+  const updates: Record<string, unknown> = {};
+
+  if ('heightCm' in body) {
+    const v = body.heightCm;
+    if (v === null) { updates.heightCm = FieldValue.delete(); }
+    else if (typeof v !== 'number' || v < 50 || v > 300) return { error: 'heightCm must be between 50 and 300' };
+    else updates.heightCm = v;
+  }
+
+  if ('weightKg' in body) {
+    const v = body.weightKg;
+    if (v === null) { updates.weightKg = FieldValue.delete(); }
+    else if (typeof v !== 'number' || v < 10 || v > 500) return { error: 'weightKg must be between 10 and 500' };
+    else updates.weightKg = v;
+  }
+
+  if ('dateOfBirth' in body) {
+    const v = body.dateOfBirth;
+    if (v === null) { updates.dateOfBirth = FieldValue.delete(); }
+    else {
+      if (typeof v !== 'string') return { error: 'dateOfBirth must be a valid ISO 8601 date string' };
+      const d = new Date(v);
+      if (isNaN(d.getTime())) return { error: 'dateOfBirth must be a valid ISO 8601 date string' };
+      if (d >= new Date()) return { error: 'dateOfBirth must be in the past' };
+      const age = (Date.now() - d.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+      if (age < 13) return { error: 'User must be at least 13 years old' };
+      updates.dateOfBirth = v;
+    }
+  }
+
+  if ('workoutGoal' in body) {
+    const v = body.workoutGoal;
+    if (v === null) { updates.workoutGoal = FieldValue.delete(); }
+    else if (!VALID_WORKOUT_GOALS.includes(v as WorkoutGoal)) return { error: `workoutGoal must be one of: ${VALID_WORKOUT_GOALS.join(', ')}` };
+    else updates.workoutGoal = v;
+  }
+
+  if ('unitPreference' in body) {
+    const v = body.unitPreference;
+    if (v === null) { updates.unitPreference = FieldValue.delete(); }
+    else if (v !== 'metric' && v !== 'imperial') return { error: "unitPreference must be 'metric' or 'imperial'" };
+    else updates.unitPreference = v;
+  }
+
+  if ('healthProfilePromptDismissed' in body) {
+    const v = body.healthProfilePromptDismissed;
+    if (v === null) { updates.healthProfilePromptDismissed = FieldValue.delete(); }
+    else if (typeof v !== 'boolean') return { error: 'healthProfilePromptDismissed must be a boolean' };
+    else updates.healthProfilePromptDismissed = v;
+  }
+
+  return { updates };
+}
 
 /** Resolve the image MIME type, falling back to file extension when the browser reports an unrecognised type. */
 function resolveImageMimeType(file: Express.Multer.File): string {
@@ -66,7 +137,7 @@ router.get('/search', requireAuth, async (req: Request, res: Response): Promise<
       return;
     }
 
-    const user = snapshot.docs[0].data() as UserProfile;
+    const user = stripHealthFields(snapshot.docs[0].data() as UserProfile);
     res.json({ uid: user.uid, displayName: user.displayName, email: user.email, username: user.username, profilePictureUrl: user.profilePictureUrl });
     return;
   }
@@ -101,7 +172,7 @@ router.get('/search', requireAuth, async (req: Request, res: Response): Promise<
   const results: Array<{ uid: string; displayName: string; email: string; username?: string; profilePictureUrl?: string }> = [];
 
   for (const doc of [...emailSnapshot.docs, ...usernameSnapshot.docs]) {
-    const u = doc.data() as UserProfile;
+    const u = stripHealthFields(doc.data() as UserProfile);
     if (u.uid === currentUid || seen.has(u.uid)) continue;
     seen.add(u.uid);
     results.push({ uid: u.uid, displayName: u.displayName, email: u.email, username: u.username, profilePictureUrl: u.profilePictureUrl });
@@ -432,12 +503,20 @@ router.put('/me', requireAuth, async (req: Request, res: Response): Promise<void
 
   if (existing.exists) {
     const { gettingStartedDismissed, username: requestedUsername } = req.body as Partial<UserProfile>;
-    const updates: Partial<UserProfile> = {};
+    const updates: Record<string, unknown> = {};
     if (email !== undefined) updates.email = email;
     if (displayName !== undefined) updates.displayName = displayName;
     if (fcmToken !== undefined) updates.fcmToken = fcmToken;
     if (gettingStartedDismissed !== undefined) updates.gettingStartedDismissed = gettingStartedDismissed;
     if (typeof timezone === 'string' && timezone !== '') updates.timezone = timezone;
+
+    // Validate and apply health fields
+    const healthResult = validateHealthFields(req.body as Record<string, unknown>);
+    if ('error' in healthResult) {
+      res.status(400).json({ error: healthResult.error });
+      return;
+    }
+    Object.assign(updates, healthResult.updates);
 
     const existingData = existing.data() as UserProfile;
 
@@ -538,7 +617,7 @@ router.get('/:uid/profile', requireAuth, async (req: Request, res: Response): Pr
     res.status(404).json({ error: 'User not found' });
     return;
   }
-  const profile = userDoc.data() as UserProfile;
+  const profile = stripHealthFields(userDoc.data() as UserProfile);
 
   // 2. Check friendship (sorted composite key)
   const [friendUid1, friendUid2] = [requesterUid, targetUid].sort();
@@ -728,7 +807,7 @@ router.get('/:uid', requireAuth, async (req: Request, res: Response): Promise<vo
     return;
   }
 
-  const profile = doc.data() as UserProfile;
+  const profile = stripHealthFields(doc.data() as UserProfile);
   res.json({ uid: profile.uid, displayName: profile.displayName, email: profile.email, profilePictureUrl: profile.profilePictureUrl });
 });
 

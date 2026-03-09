@@ -1,3 +1,84 @@
 # Ralph Progress Log — Profile Health Info & Workout Goals
 Started: 2026-03-09
 ---
+
+## Codebase Patterns
+- After changing packages/shared/src/*, must run `cd packages/shared && yarn build` before API/web typecheck passes (they resolve from dist/)
+- Root `yarn typecheck` fails due to pre-existing mobile errors — use workspace-specific typecheck
+- Pre-existing test failure in users-profile.test.ts (streak assertion) — not related to our changes
+- Use FieldValue.delete() from firebase-admin/firestore to unset Firestore fields when client sends null
+- Health field validation is in validateHealthFields() in users.ts — reuse for new fields
+- TypeScript interfaces can't be assigned to Record<string, unknown> — use destructuring (not delete loops) for type-safe field stripping
+- stripHealthFields() in users.ts is the central place for health field privacy — add new health fields there too
+- Test files are colocated with route files (services/api/src/routes/*.test.ts), not in __tests__ subdirectory
+---
+
+## 2026-03-09 03:20 - US-001
+- What was implemented: Added WorkoutGoal type, 6 optional health fields to UserProfile interface, created units.ts with conversion helpers (cmToFeetInches, feetInchesToCm, kgToLbs, lbsToKg) and WORKOUT_GOAL_LABELS map, exported units.ts from index.ts
+- Files changed: packages/shared/src/types.ts, packages/shared/src/units.ts (new), packages/shared/src/index.ts
+- **Learnings for future iterations:**
+  - WorkoutGoal type is defined above UserProfile in types.ts
+  - WORKOUT_GOAL_LABELS is a Record<WorkoutGoal, {label, emoji}> — use it for rendering goal cards
+  - Unit conversion helpers round results to avoid floating point issues
+---
+
+## 2026-03-09 03:27 - US-002
+- What was implemented: Added health field validation and persistence to PUT /users/me handler. Imported WorkoutGoal type and FieldValue from firebase-admin/firestore. Created validateHealthFields() helper that validates heightCm (50-300), weightKg (10-500), dateOfBirth (ISO 8601, past, 13+ years), workoutGoal (5 valid values), unitPreference (metric/imperial), healthProfilePromptDismissed (boolean). Null values use FieldValue.delete() to unset fields. Changed updates type from Partial<UserProfile> to Record<string, unknown> to accommodate FieldValue.delete().
+- Files changed: services/api/src/routes/users.ts
+- **Learnings for future iterations:**
+  - Use FieldValue.delete() from firebase-admin/firestore to remove fields from Firestore documents
+  - Changed updates type to Record<string, unknown> since FieldValue.delete() is not assignable to UserProfile field types
+  - validateHealthFields() is a reusable helper at module scope — can be used for future field additions
+  - GET /users/me already returns full Firestore doc data, so health fields are automatically included in responses
+---
+
+## 2026-03-09 03:35 - US-003
+- What was implemented: Added stripHealthFields() helper to users.ts that destructures and omits heightCm, weightKg, dateOfBirth, workoutGoal, unitPreference, healthProfilePromptDismissed from UserProfile data. Applied as defense-in-depth to GET /users/:uid, GET /users/:uid/profile, GET /users/search (both legacy email and typeahead paths). GET /users/me left unchanged — owner sees all fields.
+- Files changed: services/api/src/routes/users.ts
+- **Learnings for future iterations:**
+  - Public endpoints already use explicit field picking (cherry-pick uid, displayName, etc.), so health fields couldn't leak — but stripHealthFields adds defense-in-depth
+  - TypeScript interfaces can't be assigned to Record<string, unknown> — use destructuring instead of delete loops for type-safe field stripping
+  - Pre-existing test failure in users-profile.test.ts (streak assertion) is unrelated to our changes
+---
+
+## 2026-03-09 03:43 - US-004
+- What was implemented: Created users-health.test.ts with 28 tests covering health field validation, persistence, and privacy. Tests follow existing vi.hoisted + vi.mock + buildApp() + supertest pattern.
+- Files changed: services/api/src/routes/users-health.test.ts (new)
+- **Learnings for future iterations:**
+  - Test files are colocated with route files (not in __tests__ subdirectory): services/api/src/routes/*.test.ts
+  - setupExistingProfile() helper pattern simplifies setting up mock chains for PUT update tests (first get = exists check, second get = fresh data after update)
+  - FieldValue.delete() from mocked firebase-admin is a real object — use expect.anything() to assert it was included in update calls
+  - Pre-existing test failure in users-profile.test.ts (streak assertion) remains unrelated to our changes
+---
+
+## 2026-03-09 03:50 - US-005
+- What was implemented: Added Health & Body section to account settings page with unit preference toggle (metric/imperial), height input (cm or ft/in), weight input (kg or lbs), and date of birth input with computed age display. Auto-detects unit preference from navigator.language. All fields save on blur via healthFieldMutation using apiPut. Added lock icon and "Private — only visible to you" subtitle.
+- Files changed: apps/web/src/app/(main)/account/page.tsx
+- **Learnings for future iterations:**
+  - Account page uses useMutation from @tanstack/react-query with optimistic updates and queryClient.invalidateQueries pattern
+  - Import conversion helpers (cmToFeetInches, feetInchesToCm, kgToLbs, lbsToKg) from @burnbuddy/shared
+  - Unit preference auto-detection: /^en-(US|GB|LR|MM)/ → imperial, others → metric
+  - Health fields sync from profile on first load via useEffect with healthSynced guard (same pattern as usernameSynced)
+  - Browser verification requires Firebase Auth API key — not available in local dev without env config
+  - Tailwind classes: border-primary bg-primary/20 text-primary for active toggle states, [color-scheme:dark] for native date input dark mode
+---
+
+## 2026-03-09 03:55 - US-006
+- What was implemented: Added Workout Goal section to account settings below Health & Body. Displays 5 goal options as selectable cards using WORKOUT_GOAL_LABELS from @burnbuddy/shared. Selected goal highlighted with primary color. Click to select/deselect. Saves immediately via healthFieldMutation.
+- Files changed: apps/web/src/app/(main)/account/page.tsx
+- **Learnings for future iterations:**
+  - healthFieldMutation accepts Record<string, unknown> (not Partial<UserProfile>) to allow null values for unsetting fields
+  - Use Object.keys(WORKOUT_GOAL_LABELS) as WorkoutGoal[] to iterate goals
+  - Tailwind: ring-1 ring-primary adds a subtle ring to selected cards
+  - responsive grid: grid-cols-2 gap-3 sm:grid-cols-3 works well for 5 goal cards
+---
+
+## 2026-03-09 04:00 - US-007
+- What was implemented: Created HealthProfilePrompt.tsx component with unit preference, height, weight, DOB, and workout goal inputs. Added to dashboard page above GettingStartedCard, shown when healthProfilePromptDismissed is falsy. Added "Complete your health profile" banner to account settings page linking to #health-body anchor when prompt was dismissed but all health fields unset.
+- Files changed: apps/web/src/components/HealthProfilePrompt.tsx (new), apps/web/src/app/(main)/page.tsx, apps/web/src/app/(main)/account/page.tsx
+- **Learnings for future iterations:**
+  - Dashboard page uses useDashboard() hook which returns dashboard?.user for profile data
+  - HealthProfilePrompt follows same pattern as GettingStartedCard — prop-based onComplete callback + local dismissal state
+  - queryClient.invalidateQueries with queryKeys.dashboard refreshes dashboard data after prompt completion
+  - Use id="health-body" + href="#health-body" for in-page anchor links to sections
+---

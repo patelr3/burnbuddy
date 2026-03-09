@@ -17,7 +17,7 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "Must build shared package after changes so downstream workspaces (api, web) can resolve the new types from dist/. The existing index.ts re-exports from types.ts — add a re-export for units.ts too."
     },
     {
@@ -35,7 +35,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Follow existing pattern in services/api/src/routes/users.ts PUT /me handler — add new fields to the updates object with validation. Use getDb() for Firestore access. Import WorkoutGoal type from @burnbuddy/shared for validation."
     },
     {
@@ -51,7 +51,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Check all endpoints in services/api/src/routes/users.ts that return user data to non-owners. The GET /:uid, GET /:uid/profile, and search endpoints should strip health fields before sending the response."
     },
     {
@@ -67,7 +67,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Follow the exact test pattern from existing test files in services/api/src/routes/__tests__/ — use vi.hoisted(() => { ... }) for mock functions, vi.mock('../lib/firebase') and vi.mock('../lib/firestore'), import router after mocks, buildApp() to create Express app, supertest for requests. Call vi.resetAllMocks() in beforeEach."
     },
     {
@@ -86,7 +86,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "The account settings page is at apps/web/src/app/(main)/account/page.tsx. It uses React Query mutations (useMutation from @tanstack/react-query) to save via apiPut. Follow the same pattern for new fields. Import conversion helpers from @burnbuddy/shared."
     },
     {
@@ -105,7 +105,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Follow the same mutation pattern as other account settings fields. The goal cards should be visually consistent with the app's Tailwind styling — use the color-primary CSS variable for the selected state."
     },
     {
@@ -123,7 +123,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "The dashboard home page is at apps/web/src/app/(main)/page.tsx. It already conditionally shows GettingStartedCard based on profile.gettingStartedDismissed. Add the HealthProfilePrompt above that with similar conditional logic. The prompt should be a centered card with a clean form layout, not a blocking modal."
     }
   ]

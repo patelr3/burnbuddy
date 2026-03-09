@@ -9,7 +9,8 @@ import { signOut, reauthenticateWithCredential, EmailAuthProvider, reauthenticat
 import { auth } from '@/lib/firebase-client';
 import { useRouter } from 'next/navigation';
 import { Avatar } from '@/components/Avatar';
-import type { UserProfile } from '@burnbuddy/shared';
+import type { UserProfile, WorkoutGoal } from '@burnbuddy/shared';
+import { cmToFeetInches, feetInchesToCm, kgToLbs, lbsToKg, WORKOUT_GOAL_LABELS } from '@burnbuddy/shared';
 
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,30}$/;
 const ACCEPTED_IMAGE_TYPES = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
@@ -83,6 +84,17 @@ export default function AccountPage() {
 
   const [uploadError, setUploadError] = useState<string | null>(null);
 
+  // ── Health & Body state ───────────────────────────────────────────────────
+  const [unitPref, setUnitPref] = useState<'metric' | 'imperial'>('metric');
+  const [unitPrefSynced, setUnitPrefSynced] = useState(false);
+  const [heightCm, setHeightCm] = useState('');
+  const [heightFeet, setHeightFeet] = useState('');
+  const [heightInches, setHeightInches] = useState('');
+  const [weightValue, setWeightValue] = useState('');
+  const [dob, setDob] = useState('');
+  const [healthSynced, setHealthSynced] = useState(false);
+  const [healthFeedback, setHealthFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
   // ── Delete Account state ──────────────────────────────────────────────────
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteStep, setDeleteStep] = useState<'confirm' | 'password' | 'deleting'>('confirm');
@@ -96,6 +108,32 @@ export default function AccountPage() {
       setUsernameSynced(true);
     }
   }, [profile, usernameSynced]);
+
+  // Sync health fields from profile
+  useEffect(() => {
+    if (profile && !healthSynced) {
+      const unit = profile.unitPreference ?? (
+        typeof navigator !== 'undefined' && /^en-(US|GB|LR|MM)/.test(navigator.language)
+          ? 'imperial' : 'metric'
+      );
+      setUnitPref(unit);
+      setUnitPrefSynced(true);
+
+      if (profile.heightCm != null) {
+        setHeightCm(String(profile.heightCm));
+        const { feet, inches } = cmToFeetInches(profile.heightCm);
+        setHeightFeet(String(feet));
+        setHeightInches(String(inches));
+      }
+      if (profile.weightKg != null) {
+        setWeightValue(unit === 'imperial' ? String(kgToLbs(profile.weightKg)) : String(profile.weightKg));
+      }
+      if (profile.dateOfBirth) {
+        setDob(profile.dateOfBirth);
+      }
+      setHealthSynced(true);
+    }
+  }, [profile, healthSynced]);
 
   // ── Mutations ──────────────────────────────────────────────────────────────
 
@@ -209,6 +247,22 @@ export default function AccountPage() {
     },
   });
 
+  const healthFieldMutation = useMutation({
+    mutationFn: (fields: Record<string, unknown>) =>
+      apiPut<UserProfile>('/users/me', fields),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<UserProfile>(queryKeys.account, updated);
+      setHealthFeedback({ type: 'success', message: 'Saved!' });
+      setTimeout(() => setHealthFeedback(null), 2000);
+    },
+    onError: () => {
+      setHealthFeedback({ type: 'error', message: 'Failed to save. Please try again.' });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.account });
+    },
+  });
+
   // ── Handlers ───────────────────────────────────────────────────────────────
 
   const handleUsernameChange = (value: string) => {
@@ -244,6 +298,66 @@ export default function AccountPage() {
     if (!file) return;
     e.target.value = '';
     uploadPictureMutation.mutate(file);
+  };
+
+  // ── Health & Body handlers ─────────────────────────────────────────────
+
+  const handleUnitPrefChange = (unit: 'metric' | 'imperial') => {
+    setUnitPref(unit);
+    // Convert displayed values to new unit
+    if (unit === 'imperial' && heightCm) {
+      const { feet, inches } = cmToFeetInches(Number(heightCm));
+      setHeightFeet(String(feet));
+      setHeightInches(String(inches));
+    }
+    if (unit === 'metric' && (heightFeet || heightInches)) {
+      const cm = feetInchesToCm(Number(heightFeet) || 0, Number(heightInches) || 0);
+      if (cm > 0) setHeightCm(String(cm));
+    }
+    if (unit === 'imperial' && weightValue && profile?.weightKg != null) {
+      setWeightValue(String(kgToLbs(profile.weightKg)));
+    }
+    if (unit === 'metric' && weightValue && profile?.weightKg != null) {
+      setWeightValue(String(profile.weightKg));
+    }
+    healthFieldMutation.mutate({ unitPreference: unit });
+  };
+
+  const handleHeightBlur = () => {
+    let cm: number;
+    if (unitPref === 'metric') {
+      cm = Number(heightCm);
+    } else {
+      cm = feetInchesToCm(Number(heightFeet) || 0, Number(heightInches) || 0);
+      setHeightCm(String(cm));
+    }
+    if (!cm || cm === profile?.heightCm) return;
+    healthFieldMutation.mutate({ heightCm: cm });
+  };
+
+  const handleWeightBlur = () => {
+    const raw = Number(weightValue);
+    if (!raw) return;
+    const kg = unitPref === 'imperial' ? lbsToKg(raw) : raw;
+    if (kg === profile?.weightKg) return;
+    healthFieldMutation.mutate({ weightKg: kg });
+  };
+
+  const handleDobChange = (value: string) => {
+    setDob(value);
+    if (!value) return;
+    if (value === profile?.dateOfBirth) return;
+    healthFieldMutation.mutate({ dateOfBirth: value });
+  };
+
+  const computeAge = (dateStr: string): number | null => {
+    if (!dateStr) return null;
+    const birth = new Date(dateStr);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age;
   };
 
   // ── Delete Account handlers ───────────────────────────────────────────────
@@ -338,6 +452,16 @@ export default function AccountPage() {
           <AccountSkeleton />
         ) : (
           <>
+            {/* Complete health profile banner */}
+            {profile?.healthProfilePromptDismissed &&
+              !profile.heightCm && !profile.weightKg && !profile.dateOfBirth && !profile.workoutGoal && (
+              <div className="mb-5 rounded-lg border border-primary/30 bg-primary/10 px-4 py-3">
+                <a href="#health-body" className="text-sm font-medium text-primary hover:underline">
+                  📋 Complete your health profile ↓
+                </a>
+              </div>
+            )}
+
             {/* Profile info with picture upload */}
             <section className="mb-5 rounded-lg border border-gray-700 bg-surface p-5">
               <h2 className="mb-4 text-base font-semibold text-white">Profile</h2>
@@ -458,6 +582,162 @@ export default function AccountPage() {
               {saveMessage && (
                 <p className="mt-2.5 text-[13px] text-gray-400">{saveMessage}</p>
               )}
+            </section>
+
+            {/* Health & Body */}
+            <section id="health-body" className="mb-5 rounded-lg border border-gray-700 bg-surface p-5">
+              <div className="mb-1 flex items-center gap-2">
+                <h2 className="text-base font-semibold text-white">🔒 Health &amp; Body</h2>
+              </div>
+              <p className="mb-4 text-xs text-gray-400">Private — only visible to you</p>
+
+              {/* Unit preference toggle */}
+              <div className="mb-5">
+                <label className="mb-2 block text-sm font-medium text-gray-300">Unit Preference</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleUnitPrefChange('metric')}
+                    className={`cursor-pointer rounded-md border px-4 py-2 text-sm font-medium transition-colors ${
+                      unitPref === 'metric'
+                        ? 'border-primary bg-primary/20 text-primary'
+                        : 'border-gray-600 bg-surface-elevated text-gray-300 hover:bg-gray-700'
+                    }`}
+                  >
+                    Metric (kg, cm)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUnitPrefChange('imperial')}
+                    className={`cursor-pointer rounded-md border px-4 py-2 text-sm font-medium transition-colors ${
+                      unitPref === 'imperial'
+                        ? 'border-primary bg-primary/20 text-primary'
+                        : 'border-gray-600 bg-surface-elevated text-gray-300 hover:bg-gray-700'
+                    }`}
+                  >
+                    Imperial (lbs, ft/in)
+                  </button>
+                </div>
+              </div>
+
+              {/* Height */}
+              <div className="mb-5">
+                <label className="mb-2 block text-sm font-medium text-gray-300">Height</label>
+                {unitPref === 'metric' ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={heightCm}
+                      onChange={(e) => setHeightCm(e.target.value)}
+                      onBlur={handleHeightBlur}
+                      placeholder="Not set"
+                      min={50}
+                      max={300}
+                      className="w-28 rounded-md border border-gray-600 bg-surface-elevated px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                    />
+                    <span className="text-sm text-gray-400">cm</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={heightFeet}
+                      onChange={(e) => setHeightFeet(e.target.value)}
+                      onBlur={handleHeightBlur}
+                      placeholder="ft"
+                      min={1}
+                      max={9}
+                      className="w-20 rounded-md border border-gray-600 bg-surface-elevated px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                    />
+                    <span className="text-sm text-gray-400">ft</span>
+                    <input
+                      type="number"
+                      value={heightInches}
+                      onChange={(e) => setHeightInches(e.target.value)}
+                      onBlur={handleHeightBlur}
+                      placeholder="in"
+                      min={0}
+                      max={11}
+                      className="w-20 rounded-md border border-gray-600 bg-surface-elevated px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                    />
+                    <span className="text-sm text-gray-400">in</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Weight */}
+              <div className="mb-5">
+                <label className="mb-2 block text-sm font-medium text-gray-300">Weight</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={weightValue}
+                    onChange={(e) => setWeightValue(e.target.value)}
+                    onBlur={handleWeightBlur}
+                    placeholder="Not set"
+                    min={unitPref === 'imperial' ? 22 : 10}
+                    max={unitPref === 'imperial' ? 1100 : 500}
+                    step={unitPref === 'imperial' ? 0.1 : 1}
+                    className="w-28 rounded-md border border-gray-600 bg-surface-elevated px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                  />
+                  <span className="text-sm text-gray-400">{unitPref === 'imperial' ? 'lbs' : 'kg'}</span>
+                </div>
+              </div>
+
+              {/* Date of Birth */}
+              <div className="mb-2">
+                <label className="mb-2 block text-sm font-medium text-gray-300">Date of Birth</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="date"
+                    value={dob}
+                    onChange={(e) => handleDobChange(e.target.value)}
+                    max={new Date().toISOString().split('T')[0]}
+                    className="rounded-md border border-gray-600 bg-surface-elevated px-3 py-2 text-sm text-white focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none [color-scheme:dark]"
+                  />
+                  {dob && computeAge(dob) !== null && (
+                    <span className="text-sm text-gray-400">Age: {computeAge(dob)}</span>
+                  )}
+                  {!dob && <span className="text-sm text-gray-500">Not set</span>}
+                </div>
+              </div>
+
+              {healthFeedback && (
+                <p className={`mt-3 text-sm ${healthFeedback.type === 'success' ? 'text-success' : 'text-danger'}`}>
+                  {healthFeedback.message}
+                </p>
+              )}
+            </section>
+
+            {/* Workout Goal */}
+            <section className="mb-5 rounded-lg border border-gray-700 bg-surface p-5">
+              <h2 className="mb-2 text-base font-semibold text-white">Workout Goal</h2>
+              <p className="mb-4 text-xs text-gray-400">
+                {profile?.workoutGoal ? `Current goal: ${WORKOUT_GOAL_LABELS[profile.workoutGoal].emoji} ${WORKOUT_GOAL_LABELS[profile.workoutGoal].label}` : 'No goal selected'}
+              </p>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {(Object.keys(WORKOUT_GOAL_LABELS) as WorkoutGoal[]).map((goal) => {
+                  const { label, emoji } = WORKOUT_GOAL_LABELS[goal];
+                  const isSelected = profile?.workoutGoal === goal;
+                  return (
+                    <button
+                      key={goal}
+                      type="button"
+                      onClick={() => {
+                        healthFieldMutation.mutate({ workoutGoal: isSelected ? null : goal });
+                      }}
+                      className={`cursor-pointer rounded-lg border p-3 text-center transition-colors ${
+                        isSelected
+                          ? 'border-primary bg-primary/20 text-white ring-1 ring-primary'
+                          : 'border-gray-600 bg-surface-elevated text-gray-300 hover:border-gray-500 hover:bg-gray-700'
+                      }`}
+                    >
+                      <div className="mb-1 text-2xl">{emoji}</div>
+                      <div className="text-sm font-medium">{label}</div>
+                    </button>
+                  );
+                })}
+              </div>
             </section>
 
             {/* Sign out */}
