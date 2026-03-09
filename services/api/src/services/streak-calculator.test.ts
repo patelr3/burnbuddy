@@ -169,6 +169,64 @@ describe('calculateStreaks', () => {
   });
 });
 
+describe('supernova vs burn streak differentiation', () => {
+  const FIXED_NOW = new Date('2026-03-02T12:00:00.000Z').getTime();
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FIXED_NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('workout only today → burnStreak=1, supernovaStreak=1', () => {
+    const groupWorkouts = [makeGroupWorkout(daysAgoStr(0))];
+    expect(calculateStreaks(groupWorkouts)).toMatchObject({ burnStreak: 1, supernovaStreak: 1 });
+  });
+
+  it('workout only yesterday → burnStreak=1, supernovaStreak=1', () => {
+    const groupWorkouts = [makeGroupWorkout(daysAgoStr(1))];
+    expect(calculateStreaks(groupWorkouts)).toMatchObject({ burnStreak: 1, supernovaStreak: 1 });
+  });
+
+  it('last workout 2 days ago → burnStreak=1, supernovaStreak=0', () => {
+    const groupWorkouts = [makeGroupWorkout(daysAgoStr(2))];
+    expect(calculateStreaks(groupWorkouts)).toMatchObject({ burnStreak: 1, supernovaStreak: 0 });
+  });
+
+  it('last workout 6 days ago → burnStreak=1, supernovaStreak=0', () => {
+    const groupWorkouts = [makeGroupWorkout(daysAgoStr(6))];
+    expect(calculateStreaks(groupWorkouts)).toMatchObject({ burnStreak: 1, supernovaStreak: 0 });
+  });
+
+  it('last workout 7 days ago → burnStreak=0, supernovaStreak=0', () => {
+    const groupWorkouts = [makeGroupWorkout(daysAgoStr(7))];
+    expect(calculateStreaks(groupWorkouts)).toMatchObject({ burnStreak: 0, supernovaStreak: 0 });
+  });
+
+  it('workouts today and 3 days ago (2-day gap) → burnStreak=2, supernovaStreak=1', () => {
+    const groupWorkouts = [
+      makeGroupWorkout(daysAgoStr(0)),
+      makeGroupWorkout(daysAgoStr(3)),
+    ];
+    expect(calculateStreaks(groupWorkouts)).toMatchObject({ burnStreak: 2, supernovaStreak: 1 });
+  });
+
+  it('workouts today and 2 days ago (1-day gap) → burnStreak=2, supernovaStreak=2', () => {
+    const groupWorkouts = [
+      makeGroupWorkout(daysAgoStr(0)),
+      makeGroupWorkout(daysAgoStr(2)),
+    ];
+    expect(calculateStreaks(groupWorkouts)).toMatchObject({ burnStreak: 2, supernovaStreak: 2 });
+  });
+
+  it('no workouts → burnStreak=0, supernovaStreak=0', () => {
+    expect(calculateStreaks([])).toMatchObject({ burnStreak: 0, supernovaStreak: 0 });
+  });
+});
+
 describe('calculateHighestStreakEver', () => {
   it('returns 0 when there are no group workouts', () => {
     expect(calculateHighestStreakEver([])).toEqual({ value: 0, date: '' });
