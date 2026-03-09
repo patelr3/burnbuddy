@@ -1262,6 +1262,62 @@ describe('GET /burn-squads/:id/calendar', () => {
     expect(body).toContain('RRULE:FREQ=WEEKLY;BYDAY=TU,TH');
     expect(body).toContain('DTSTART;VALUE=DATE:');
   });
+
+  it('returns .ics file with VTIMEZONE when user has timezone set', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        ...SAMPLE_SQUAD,
+        settings: {
+          onlyAdminsCanAddMembers: false,
+          workoutSchedule: { days: ['Mon', 'Wed', 'Fri'], time: '07:00' },
+        },
+      }),
+    });
+    // User profile with timezone
+    mockUsersDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ uid: TEST_UID, displayName: 'Test User', timezone: 'Europe/London' }),
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}/calendar`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    const body = res.text;
+    expect(body).toContain('BEGIN:VTIMEZONE');
+    expect(body).toContain('TZID:Europe/London');
+    expect(body).toContain('DTSTART;TZID=Europe/London:');
+    expect(body).not.toMatch(/DTSTART:\d{8}T\d{6}Z/);
+  });
+
+  it('falls back to UTC when user has no timezone set', async () => {
+    mockSquadDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        ...SAMPLE_SQUAD,
+        settings: {
+          onlyAdminsCanAddMembers: false,
+          workoutSchedule: { days: ['Mon', 'Wed', 'Fri'], time: '07:00' },
+        },
+      }),
+    });
+    // User profile without timezone
+    mockUsersDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ uid: TEST_UID, displayName: 'Test User' }),
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-squads/${SQUAD_ID}/calendar`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    const body = res.text;
+    expect(body).not.toContain('BEGIN:VTIMEZONE');
+    expect(body).toMatch(/DTSTART:\d{8}T\d{6}Z/);
+  });
 });
 
 // ── GET /burn-squads/:id/group-workouts ───────────────────────────────────────

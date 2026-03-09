@@ -15,6 +15,7 @@ export interface UserProfile {
   workoutGoal?: WorkoutGoal;
   unitPreference?: 'metric' | 'imperial';
   healthProfilePromptDismissed?: boolean;
+  timezone?: string;
   createdAt: string;
 }
 

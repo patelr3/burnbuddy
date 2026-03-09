@@ -189,7 +189,7 @@ router.get('/search', requireAuth, async (req: Request, res: Response): Promise<
  */
 router.post('/', requireAuth, async (req: Request, res: Response): Promise<void> => {
   const uid = req.user!.uid;
-  const { email, displayName, fcmToken } = req.body as Partial<UserProfile>;
+  const { email, displayName, fcmToken, timezone } = req.body as Partial<UserProfile>;
 
   if (!email || !displayName) {
     res.status(400).json({ error: 'email and displayName are required' });
@@ -215,6 +215,7 @@ router.post('/', requireAuth, async (req: Request, res: Response): Promise<void>
     usernameLower,
     createdAt: new Date().toISOString(),
     ...(fcmToken !== undefined ? { fcmToken } : {}),
+    ...(typeof timezone === 'string' && timezone !== '' ? { timezone } : {}),
   };
 
   // Username reservation was already done atomically in generateUniqueUsername
@@ -494,7 +495,7 @@ router.delete('/me', requireAuth, async (req: Request, res: Response): Promise<v
  */
 router.put('/me', requireAuth, async (req: Request, res: Response): Promise<void> => {
   const uid = req.user!.uid;
-  const { email, displayName, fcmToken } = req.body as Partial<UserProfile>;
+  const { email, displayName, fcmToken, timezone } = req.body as Partial<UserProfile>;
 
   const db = getDb();
   const docRef = db.collection('users').doc(uid);
@@ -507,6 +508,7 @@ router.put('/me', requireAuth, async (req: Request, res: Response): Promise<void
     if (displayName !== undefined) updates.displayName = displayName;
     if (fcmToken !== undefined) updates.fcmToken = fcmToken;
     if (gettingStartedDismissed !== undefined) updates.gettingStartedDismissed = gettingStartedDismissed;
+    if (typeof timezone === 'string' && timezone !== '') updates.timezone = timezone;
 
     // Validate and apply health fields
     const healthResult = validateHealthFields(req.body as Record<string, unknown>);
@@ -591,6 +593,7 @@ router.put('/me', requireAuth, async (req: Request, res: Response): Promise<void
       usernameLower,
       createdAt: new Date().toISOString(),
       ...(fcmToken !== undefined ? { fcmToken } : {}),
+      ...(typeof timezone === 'string' && timezone !== '' ? { timezone } : {}),
     };
 
     // Username reservation was already done atomically in generateUniqueUsername

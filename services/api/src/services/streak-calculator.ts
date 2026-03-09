@@ -37,6 +37,32 @@ function buildLast7Days(groupWorkouts: GroupWorkout[]): StreakDayInfo[] {
 }
 
 /**
+ * Walks backwards from today counting unique workout days. A gap of more than
+ * `maxGap` consecutive non-workout days ends the streak.
+ */
+function countStreak(datesWithGroupWorkout: Set<string>, maxGap: number): number {
+  let streak = 0;
+  let gapDays = 0;
+  const todayMs = Date.now();
+
+  for (let i = 0; i < 3_650; i++) {
+    const dateStr = new Date(todayMs - i * MS_PER_DAY).toISOString().substring(0, 10);
+
+    if (datesWithGroupWorkout.has(dateStr)) {
+      streak++;
+      gapDays = 0;
+    } else {
+      gapDays++;
+      if (gapDays > maxGap) {
+        break;
+      }
+    }
+  }
+
+  return streak;
+}
+
+/**
  * Calculates streak for a buddy/squad using GroupWorkout documents as the
  * source of truth.
  *
@@ -44,12 +70,9 @@ function buildLast7Days(groupWorkouts: GroupWorkout[]): StreakDayInfo[] {
  * GroupWorkouts already enforce the "all members working out within a 20-min
  * window" constraint, so no per-member checks are needed here.
  *
- * Both burnStreak and supernovaStreak return the same value — the distinction
- * is no longer meaningful when using group workouts as the data source.
- *
- * The streak walks backwards from today. It tolerates gaps of up to 6
- * consecutive days without a group workout. A gap of 7 or more consecutive
- * days resets the streak to 0.
+ * burnStreak tolerates gaps of up to 6 consecutive days (resets at 7+).
+ * supernovaStreak tolerates gaps of up to 1 day (resets at 2+), requiring
+ * near-daily activity.
  */
 export function calculateStreaks(
   groupWorkouts: GroupWorkout[],
@@ -60,33 +83,15 @@ export function calculateStreaks(
     return { burnStreak: 0, supernovaStreak: 0, last7Days };
   }
 
-  // Collect unique UTC dates that have a GroupWorkout
   const datesWithGroupWorkout = new Set<string>();
   for (const gw of groupWorkouts) {
     datesWithGroupWorkout.add(gw.startedAt.substring(0, 10));
   }
 
-  let streak = 0;
-  let gapDays = 0;
-  const todayMs = Date.now();
+  const burnStreak = countStreak(datesWithGroupWorkout, 6);
+  const supernovaStreak = countStreak(datesWithGroupWorkout, 1);
 
-  // Walk backwards from today up to 10 years to bound the loop.
-  // Gaps of up to 6 days are tolerated; 7+ consecutive gap days reset.
-  for (let i = 0; i < 3_650; i++) {
-    const dateStr = new Date(todayMs - i * MS_PER_DAY).toISOString().substring(0, 10);
-
-    if (datesWithGroupWorkout.has(dateStr)) {
-      streak++;
-      gapDays = 0;
-    } else {
-      gapDays++;
-      if (gapDays >= 7) {
-        break;
-      }
-    }
-  }
-
-  return { burnStreak: streak, supernovaStreak: streak, last7Days };
+  return { burnStreak, supernovaStreak, last7Days };
 }
 
 /**
