@@ -38,7 +38,6 @@ export function StreakDots({ streakCount, last7Days, color, label }: StreakDotsP
     <View style={styles.tile}>
       {/* Streak label + count */}
       <View style={styles.labelRow}>
-        <Text style={styles.fireEmoji}>🔥</Text>
         <Text style={[styles.countText, { color: accentColor }]}>{count}</Text>
         <Text style={styles.labelText}>{label}</Text>
       </View>
@@ -87,9 +86,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     marginBottom: 8,
-  },
-  fireEmoji: {
-    fontSize: 14,
   },
   countText: {
     fontSize: 14,
