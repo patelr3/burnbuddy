@@ -1,3 +1,65 @@
 # Ralph Progress Log — Calendar Timezone Fix
 Started: 2026-03-09
+
+## Codebase Patterns
+- After changing `packages/shared/src/types.ts`, must run `cd packages/shared && yarn build` before API typecheck passes
+- API typecheck: `cd services/api && yarn typecheck`
+- Web typecheck has pre-existing errors unrelated to this work; use API typecheck for validation
+---
+
+## 2026-03-09 - US-001
+- Added optional `timezone?: string` field to `UserProfile` interface
+- Files changed: `packages/shared/src/types.ts`
+- **Learnings for future iterations:**
+  - `UserProfile` is at the very top of types.ts (lines 1-12)
+  - yarn install needed in fresh worktree before typecheck works
+  - Shared package rebuild is required after any type change
+---
+
+## 2026-03-09 - US-002
+- Implemented timezone persistence on profile creation (POST /users) and update (PUT /users/me)
+- Added `timezone` to request body destructuring in both handlers
+- Used `typeof timezone === 'string' && timezone !== ''` guard to silently ignore invalid values
+- Added timezone to both the update path and the create-via-PUT path in PUT /users/me
+- Added 6 new unit tests covering creation/update with valid, empty, non-string, and missing timezone
+- Files changed: `services/api/src/routes/users.ts`, `services/api/src/routes/users.test.ts`
+- **Learnings for future iterations:**
+  - Follow the `fcmToken` pattern for optional fields: destructure from body, conditionally spread into profile/updates
+  - Use `typeof x === 'string' && x !== ''` for safe timezone validation
+  - PUT /users/me has two code paths: update (existing.exists) and create (!exists) — both need the new field
+---
+
+## 2026-03-09 - US-004
+- Modified burn-buddies calendar endpoint to fetch requesting user's profile and pass `timezone` to `generateIcs()`
+- Modified burn-squads calendar endpoint similarly — fetch user profile, pass timezone
+- Updated 3 existing burn-buddies calendar tests to include user profile mock (required since handler now makes two user doc reads)
+- Added 2 new tests to burn-buddies: VTIMEZONE present when timezone set, UTC fallback when not set
+- Added 2 new tests to burn-squads: same pattern (VTIMEZONE + UTC fallback)
+- Files changed: `services/api/src/routes/burn-buddies.ts`, `services/api/src/routes/burn-buddies.test.ts`, `services/api/src/routes/burn-squads.ts`, `services/api/src/routes/burn-squads.test.ts`
+- **Learnings for future iterations:**
+  - Calendar endpoints now make an extra Firestore read for the user's own profile — existing tests need the mock updated
+  - In burn-buddies tests, `mockUsersDocGet` is called twice per calendar test (user profile + partner profile); order matters
+  - In burn-squads tests, `beforeEach` sets a persistent `mockUsersDocGet.mockResolvedValue(...)` so existing tests don't need changes — only new timezone tests need `mockResolvedValueOnce`
+  - Pre-existing failure in users-profile.test.ts (streak assertion) — still unrelated
+---
+
+## 2026-03-09 - US-003
+- Verified previously committed implementation passes all 11 tests and typecheck
+- Updated PRD to mark `passes: true` (was missed in previous iteration)
+- Files changed: none (already committed in prior iteration)
+- **Learnings for future iterations:**
+  - Always verify PRD is updated after committing — previous iteration missed this step
+---
+
+## 2026-03-09 - US-005
+- Added timezone auto-detection to `auth-context.tsx` onAuthStateChanged handler
+- Detects timezone via `Intl.DateTimeFormat().resolvedOptions().timeZone` 
+- Includes timezone in the existing `apiPut('/users/me')` call (no extra API round-trip)
+- Wrapped detection in try-catch for graceful fallback if Intl API unavailable
+- Uses conditional spread `...(detectedTimezone ? { timezone } : {})` to omit when undefined
+- Files changed: `apps/web/src/lib/auth-context.tsx`
+- **Learnings for future iterations:**
+  - Auth state sync lives in `apps/web/src/lib/auth-context.tsx` — the `onAuthStateChanged` callback
+  - The existing `apiPut('/users/me')` call in the auth handler is the ideal place to piggyback profile data syncs
+  - Web typecheck: `cd apps/web && yarn typecheck` — passes cleanly for this branch
 ---

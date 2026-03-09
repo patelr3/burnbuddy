@@ -1000,6 +1000,12 @@ describe('GET /burn-buddies/:id/calendar', () => {
         createdAt: '2026-01-01T00:00:00.000Z',
       }),
     });
+    // User profile (timezone lookup)
+    mockUsersDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ uid: TEST_UID, displayName: 'Test User' }),
+    });
+    // Partner profile (display name lookup)
     mockUsersDocGet.mockResolvedValueOnce({
       exists: true,
       data: () => ({ uid: OTHER_UID, displayName: PARTNER_NAME, email: 'jane@test.com' }),
@@ -1034,6 +1040,12 @@ describe('GET /burn-buddies/:id/calendar', () => {
         createdAt: '2026-01-01T00:00:00.000Z',
       }),
     });
+    // User profile (timezone lookup)
+    mockUsersDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ uid: TEST_UID, displayName: 'Test User' }),
+    });
+    // Partner profile (display name lookup)
     mockUsersDocGet.mockResolvedValueOnce({
       exists: true,
       data: () => ({ uid: OTHER_UID, displayName: PARTNER_NAME, email: 'jane@test.com' }),
@@ -1053,6 +1065,72 @@ describe('GET /burn-buddies/:id/calendar', () => {
     expect(body).toContain('DTSTART;VALUE=DATE:');
   });
 
+  it('returns .ics file with VTIMEZONE when user has timezone set', async () => {
+    mockBBDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        id: BURN_BUDDY_ID,
+        uid1: TEST_UID,
+        uid2: OTHER_UID,
+        workoutSchedule: { days: ['Mon', 'Wed', 'Fri'], time: '07:00' },
+        createdAt: '2026-01-01T00:00:00.000Z',
+      }),
+    });
+    // User profile with timezone
+    mockUsersDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ uid: TEST_UID, displayName: 'Test User', timezone: 'America/New_York' }),
+    });
+    // Partner profile
+    mockUsersDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ uid: OTHER_UID, displayName: PARTNER_NAME, email: 'jane@test.com' }),
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-buddies/${BURN_BUDDY_ID}/calendar`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    const body = res.text;
+    expect(body).toContain('BEGIN:VTIMEZONE');
+    expect(body).toContain('TZID:America/New_York');
+    expect(body).toContain('DTSTART;TZID=America/New_York:');
+    expect(body).not.toMatch(/DTSTART:\d{8}T\d{6}Z/);
+  });
+
+  it('falls back to UTC when user has no timezone set', async () => {
+    mockBBDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        id: BURN_BUDDY_ID,
+        uid1: TEST_UID,
+        uid2: OTHER_UID,
+        workoutSchedule: { days: ['Mon', 'Wed', 'Fri'], time: '07:00' },
+        createdAt: '2026-01-01T00:00:00.000Z',
+      }),
+    });
+    // User profile without timezone
+    mockUsersDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ uid: TEST_UID, displayName: 'Test User' }),
+    });
+    // Partner profile
+    mockUsersDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ uid: OTHER_UID, displayName: PARTNER_NAME, email: 'jane@test.com' }),
+    });
+
+    const res = await request(buildApp())
+      .get(`/burn-buddies/${BURN_BUDDY_ID}/calendar`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    const body = res.text;
+    expect(body).not.toContain('BEGIN:VTIMEZONE');
+    expect(body).toMatch(/DTSTART:\d{8}T\d{6}Z/);
+  });
+
   it('falls back to "Buddy" when partner user doc not found', async () => {
     mockBBDocGet.mockResolvedValueOnce({
       exists: true,
@@ -1064,6 +1142,12 @@ describe('GET /burn-buddies/:id/calendar', () => {
         createdAt: '2026-01-01T00:00:00.000Z',
       }),
     });
+    // User profile (timezone lookup)
+    mockUsersDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ uid: TEST_UID, displayName: 'Test User' }),
+    });
+    // Partner profile not found
     mockUsersDocGet.mockResolvedValueOnce({ exists: false });
 
     const res = await request(buildApp())

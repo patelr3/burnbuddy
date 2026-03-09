@@ -27,10 +27,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       if (u) {
         document.cookie = 'auth_session=1; path=/; SameSite=Lax';
-        // Ensure Firestore profile exists for web users (idempotent PUT)
+
+        // Detect browser timezone (gracefully skip if unavailable)
+        let detectedTimezone: string | undefined;
+        try {
+          detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        } catch {
+          // Intl API unavailable — skip timezone sync
+        }
+
+        // Ensure Firestore profile exists and sync timezone (fire-and-forget)
         apiPut('/users/me', {
           email: u.email,
           displayName: u.displayName,
+          ...(detectedTimezone ? { timezone: detectedTimezone } : {}),
         }).catch((err) => {
           console.error('Failed to ensure Firestore profile:', err);
         });

@@ -415,6 +415,10 @@ router.get('/:id/calendar', requireAuth, async (req: Request, res: Response): Pr
     return;
   }
 
+  // Look up the requesting user's timezone
+  const userDoc = await db.collection('users').doc(uid).get();
+  const userTimezone = userDoc.exists ? (userDoc.data() as UserProfile).timezone : undefined;
+
   // Look up the partner's display name
   const partnerUid = burnBuddy.uid1 === uid ? burnBuddy.uid2 : burnBuddy.uid1;
   const partnerDoc = await db.collection('users').doc(partnerUid).get();
@@ -426,6 +430,7 @@ router.get('/:id/calendar', requireAuth, async (req: Request, res: Response): Pr
     days: schedule.days,
     time: schedule.time,
     title: `🔥 Workout with ${partnerName}`,
+    timezone: userTimezone,
   });
 
   res.setHeader('Content-Type', 'text/calendar');

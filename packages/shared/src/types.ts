@@ -7,6 +7,7 @@ export interface UserProfile {
   profilePictureUrl?: string;
   fcmToken?: string;
   gettingStartedDismissed?: boolean;
+  timezone?: string;
   createdAt: string;
 }
 
