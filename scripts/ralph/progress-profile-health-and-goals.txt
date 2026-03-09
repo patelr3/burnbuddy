@@ -10,6 +10,7 @@ Started: 2026-03-09
 - Health field validation is in validateHealthFields() in users.ts — reuse for new fields
 - TypeScript interfaces can't be assigned to Record<string, unknown> — use destructuring (not delete loops) for type-safe field stripping
 - stripHealthFields() in users.ts is the central place for health field privacy — add new health fields there too
+- Test files are colocated with route files (services/api/src/routes/*.test.ts), not in __tests__ subdirectory
 ---
 
 ## 2026-03-09 03:20 - US-001
@@ -38,4 +39,14 @@ Started: 2026-03-09
   - Public endpoints already use explicit field picking (cherry-pick uid, displayName, etc.), so health fields couldn't leak — but stripHealthFields adds defense-in-depth
   - TypeScript interfaces can't be assigned to Record<string, unknown> — use destructuring instead of delete loops for type-safe field stripping
   - Pre-existing test failure in users-profile.test.ts (streak assertion) is unrelated to our changes
+---
+
+## 2026-03-09 03:43 - US-004
+- What was implemented: Created users-health.test.ts with 28 tests covering health field validation, persistence, and privacy. Tests follow existing vi.hoisted + vi.mock + buildApp() + supertest pattern.
+- Files changed: services/api/src/routes/users-health.test.ts (new)
+- **Learnings for future iterations:**
+  - Test files are colocated with route files (not in __tests__ subdirectory): services/api/src/routes/*.test.ts
+  - setupExistingProfile() helper pattern simplifies setting up mock chains for PUT update tests (first get = exists check, second get = fresh data after update)
+  - FieldValue.delete() from mocked firebase-admin is a real object — use expect.anything() to assert it was included in update calls
+  - Pre-existing test failure in users-profile.test.ts (streak assertion) remains unrelated to our changes
 ---

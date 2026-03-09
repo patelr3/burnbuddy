@@ -67,7 +67,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Follow the exact test pattern from existing test files in services/api/src/routes/__tests__/ — use vi.hoisted(() => { ... }) for mock functions, vi.mock('../lib/firebase') and vi.mock('../lib/firestore'), import router after mocks, buildApp() to create Express app, supertest for requests. Call vi.resetAllMocks() in beforeEach."
     },
     {
