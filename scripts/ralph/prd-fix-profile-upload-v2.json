@@ -1,0 +1,77 @@
+{
+  "project": "BurnBuddy",
+  "branchName": "ralph/fix-profile-upload-v2",
+  "description": "Fix profile picture upload failures — improve client error surfacing, fix HEIC decoding in Alpine Docker, and add a diagnostics endpoint for storage and sharp health",
+  "dependsOn": [],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Surface server error messages in client upload function",
+      "description": "As a user, I want to see a specific error message when my upload fails so I know whether to retry, use a different image, or report a bug.",
+      "acceptanceCriteria": [
+        "In `apps/web/src/lib/api.ts`, update the `apiUploadFile()` function to read the JSON response body for ALL non-OK status codes — not just 400 and 413",
+        "Replace the generic `if (!res.ok) throw new Error('Upload failed. Please try again.')` with logic that reads `await res.json()` and throws the server's `error` field if present",
+        "For 500 responses, the thrown error message should come from the server body (e.g., 'Image processing failed. Please try a different image.')",
+        "For 503 responses, the thrown error message should come from the server body (e.g., 'Storage service unavailable. Please try again.')",
+        "If the response body cannot be parsed as JSON, fall back to a category-specific message based on status code: 5xx → 'Upload service error. Please try again.'",
+        "Existing 413 and 400 handling remain unchanged",
+        "Existing timeout and network error handling remain unchanged",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "This is a quick win that makes debugging easier. The server already returns specific error messages in the JSON body for 500 and 503 status codes, but the client currently ignores them."
+    },
+    {
+      "id": "US-002",
+      "title": "Add HEIC codec support to Alpine Docker image",
+      "description": "As an iPhone user, I want to upload HEIC photos without them failing at the image processing step.",
+      "acceptanceCriteria": [
+        "In `services/api/Dockerfile`, add `RUN apk add --no-cache libde265` to the runtime stage (the second FROM block, after `FROM node:24-alpine`) to provide the HEIC decoder",
+        "If `libde265` is not available in Alpine's repos or does not integrate with sharp's bundled libvips, switch BOTH stages of the Dockerfile from `node:24-alpine` to `node:24-slim` (Debian-based) and use `RUN apt-get update && apt-get install -y --no-install-recommends libde265-0 && rm -rf /var/lib/apt/lists/*` instead",
+        "After the fix, running `docker build -f services/api/Dockerfile -t burnbuddy-api-test .` succeeds",
+        "After the fix, running `docker run --rm burnbuddy-api-test node -e \"console.log(require('sharp').format.heif)\"` shows `.heic` in `fileSuffix` OR buffer input is true (confirming HEIC decode support)",
+        "Existing JPEG/PNG/WebP processing is not affected (no regression)",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "sharp 0.34.5 bundles libvips with libheif, but the Alpine prebuilt binary only includes the AVIF codec (libaom). HEIC requires the libde265 codec. sharp.format.heif.input.fileSuffix currently only shows ['.avif'], not '.heic'/'.heif'. The preferred approach is adding libde265 to Alpine; if that doesn't work with the bundled libvips, fall back to a Debian base image."
+    },
+    {
+      "id": "US-003",
+      "title": "Create diagnostics route for storage and sharp health",
+      "description": "As a developer, I want a diagnostics endpoint that reports the health of storage and image processing so I can detect issues proactively.",
+      "acceptanceCriteria": [
+        "Create a new file `services/api/src/routes/diagnostics.ts` with a default-exported Express router",
+        "Add `GET /` route (will be mounted at `/diagnostics`) protected by `requireAuth` middleware from `../middleware/auth`",
+        "Response JSON includes `sharp` object with: `version` (string from `sharp.versions.sharp`), `heifSupport` (boolean from `sharp.format.heif.input.buffer`), `heifFileSuffixes` (array from `sharp.format.heif.input.fileSuffix`)",
+        "Response JSON includes `storage` object with: `bucketName` (string from `FIREBASE_STORAGE_BUCKET` env var or the default), `bucketExists` (boolean from `bucket.exists()` call), `credentialsPresent` (boolean — true if `FIREBASE_SERVICE_ACCOUNT_JSON` env var is set and non-empty, does NOT leak the actual value)",
+        "If any check throws an error, catch it and include an `error` field in that section instead of crashing (e.g., `{ storage: { error: 'Failed to check bucket' } }`)",
+        "Register the router in `services/api/src/index.ts` with `app.use('/diagnostics', diagnosticsRouter)` — import it alongside existing route imports",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Use getStorageBucket() from lib/storage.ts for the bucket check. Import sharp for version/format info. The endpoint helps debug future storage or image processing issues without needing shell access to the container."
+    },
+    {
+      "id": "US-004",
+      "title": "Add unit test for diagnostics endpoint",
+      "description": "As a developer, I want test coverage for the diagnostics endpoint so regressions are caught automatically.",
+      "acceptanceCriteria": [
+        "Create `services/api/src/routes/diagnostics.test.ts` following the existing test pattern: use `vi.hoisted` + `vi.mock` to stub firebase-admin, firestore, storage, and logger",
+        "Mock `sharp` to return a fake `versions` object and `format.heif` object",
+        "Mock `getStorageBucket` to return a mock bucket with a `.exists()` method",
+        "Test: `GET /diagnostics` returns 401 when unauthenticated",
+        "Test: `GET /diagnostics` returns 200 with `{ sharp: { version, heifSupport, heifFileSuffixes }, storage: { bucketName, bucketExists, credentialsPresent } }` shape when authenticated",
+        "Test: endpoint returns partial results with error field when `bucket.exists()` throws",
+        "Tests pass (`cd services/api && yarn test`)",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Follow the exact mock pattern from services/api/src/routes/users-profile-picture.test.ts — use vi.hoisted for mock functions, vi.mock for module replacements, import router after mocks, buildApp() helper, supertest for HTTP assertions."
+    }
+  ]
+}
