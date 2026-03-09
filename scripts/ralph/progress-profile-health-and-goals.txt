@@ -1,3 +1,30 @@
 # Ralph Progress Log — Profile Health Info & Workout Goals
 Started: 2026-03-09
 ---
+
+## Codebase Patterns
+- After changing packages/shared/src/*, must run `cd packages/shared && yarn build` before API/web typecheck passes (they resolve from dist/)
+- Root `yarn typecheck` fails due to pre-existing mobile errors — use workspace-specific typecheck
+- Pre-existing test failure in users-profile.test.ts (streak assertion) — not related to our changes
+- Use FieldValue.delete() from firebase-admin/firestore to unset Firestore fields when client sends null
+- Health field validation is in validateHealthFields() in users.ts — reuse for new fields
+---
+
+## 2026-03-09 03:20 - US-001
+- What was implemented: Added WorkoutGoal type, 6 optional health fields to UserProfile interface, created units.ts with conversion helpers (cmToFeetInches, feetInchesToCm, kgToLbs, lbsToKg) and WORKOUT_GOAL_LABELS map, exported units.ts from index.ts
+- Files changed: packages/shared/src/types.ts, packages/shared/src/units.ts (new), packages/shared/src/index.ts
+- **Learnings for future iterations:**
+  - WorkoutGoal type is defined above UserProfile in types.ts
+  - WORKOUT_GOAL_LABELS is a Record<WorkoutGoal, {label, emoji}> — use it for rendering goal cards
+  - Unit conversion helpers round results to avoid floating point issues
+---
+
+## 2026-03-09 03:27 - US-002
+- What was implemented: Added health field validation and persistence to PUT /users/me handler. Imported WorkoutGoal type and FieldValue from firebase-admin/firestore. Created validateHealthFields() helper that validates heightCm (50-300), weightKg (10-500), dateOfBirth (ISO 8601, past, 13+ years), workoutGoal (5 valid values), unitPreference (metric/imperial), healthProfilePromptDismissed (boolean). Null values use FieldValue.delete() to unset fields. Changed updates type from Partial<UserProfile> to Record<string, unknown> to accommodate FieldValue.delete().
+- Files changed: services/api/src/routes/users.ts
+- **Learnings for future iterations:**
+  - Use FieldValue.delete() from firebase-admin/firestore to remove fields from Firestore documents
+  - Changed updates type to Record<string, unknown> since FieldValue.delete() is not assignable to UserProfile field types
+  - validateHealthFields() is a reusable helper at module scope — can be used for future field additions
+  - GET /users/me already returns full Firestore doc data, so health fields are automatically included in responses
+---
