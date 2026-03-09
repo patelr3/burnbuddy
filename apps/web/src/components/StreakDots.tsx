@@ -36,7 +36,6 @@ export function StreakDots({ streakCount, last7Days, color, label }: StreakDotsP
     <div className="rounded-lg border border-gray-700 bg-surface px-4 py-3.5">
       {/* Streak label + count */}
       <div className={`mb-2 flex items-center gap-1.5 text-sm font-semibold whitespace-nowrap ${danger ? 'text-red-500' : colorClass}`}>
-        <span>🔥</span>
         <span>{count}</span>
         <span className="text-gray-400 font-normal">{label}</span>
       </div>
