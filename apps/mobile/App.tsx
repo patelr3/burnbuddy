@@ -169,7 +169,7 @@ const tabStyles = StyleSheet.create({
     fontWeight: '500',
   },
   activeTabText: {
-    color: '#E05A00',
+    color: '#FF2D55',
     fontWeight: '700',
   },
 });
