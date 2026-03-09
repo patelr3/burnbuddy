@@ -7,11 +7,13 @@ import type {
   GroupWorkout,
   Workout,
   ProfileStats,
+  WorkoutGoal,
 } from '@burnbuddy/shared';
 import { requireAuth } from '../middleware/auth';
 import { admin } from '../lib/firebase';
 import { cacheControl } from '../middleware/cache-control';
 import { getDb } from '../lib/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
 import { getStorageBucket } from '../lib/storage';
 import { generateUniqueUsername, validateUsername } from '../lib/username';
 import sharp from 'sharp';
@@ -29,6 +31,64 @@ const EXTENSION_TO_MIME: Record<string, string> = {
   '.heic': 'image/heic',
   '.heif': 'image/heif',
 };
+
+const VALID_WORKOUT_GOALS: WorkoutGoal[] = ['lose_weight', 'build_muscle', 'stay_active', 'improve_endurance', 'reduce_stress'];
+
+/** Validate health fields from request body. Returns an error string or null if valid. */
+function validateHealthFields(body: Record<string, unknown>): { error: string } | { updates: Record<string, unknown> } {
+  const updates: Record<string, unknown> = {};
+
+  if ('heightCm' in body) {
+    const v = body.heightCm;
+    if (v === null) { updates.heightCm = FieldValue.delete(); }
+    else if (typeof v !== 'number' || v < 50 || v > 300) return { error: 'heightCm must be between 50 and 300' };
+    else updates.heightCm = v;
+  }
+
+  if ('weightKg' in body) {
+    const v = body.weightKg;
+    if (v === null) { updates.weightKg = FieldValue.delete(); }
+    else if (typeof v !== 'number' || v < 10 || v > 500) return { error: 'weightKg must be between 10 and 500' };
+    else updates.weightKg = v;
+  }
+
+  if ('dateOfBirth' in body) {
+    const v = body.dateOfBirth;
+    if (v === null) { updates.dateOfBirth = FieldValue.delete(); }
+    else {
+      if (typeof v !== 'string') return { error: 'dateOfBirth must be a valid ISO 8601 date string' };
+      const d = new Date(v);
+      if (isNaN(d.getTime())) return { error: 'dateOfBirth must be a valid ISO 8601 date string' };
+      if (d >= new Date()) return { error: 'dateOfBirth must be in the past' };
+      const age = (Date.now() - d.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+      if (age < 13) return { error: 'User must be at least 13 years old' };
+      updates.dateOfBirth = v;
+    }
+  }
+
+  if ('workoutGoal' in body) {
+    const v = body.workoutGoal;
+    if (v === null) { updates.workoutGoal = FieldValue.delete(); }
+    else if (!VALID_WORKOUT_GOALS.includes(v as WorkoutGoal)) return { error: `workoutGoal must be one of: ${VALID_WORKOUT_GOALS.join(', ')}` };
+    else updates.workoutGoal = v;
+  }
+
+  if ('unitPreference' in body) {
+    const v = body.unitPreference;
+    if (v === null) { updates.unitPreference = FieldValue.delete(); }
+    else if (v !== 'metric' && v !== 'imperial') return { error: "unitPreference must be 'metric' or 'imperial'" };
+    else updates.unitPreference = v;
+  }
+
+  if ('healthProfilePromptDismissed' in body) {
+    const v = body.healthProfilePromptDismissed;
+    if (v === null) { updates.healthProfilePromptDismissed = FieldValue.delete(); }
+    else if (typeof v !== 'boolean') return { error: 'healthProfilePromptDismissed must be a boolean' };
+    else updates.healthProfilePromptDismissed = v;
+  }
+
+  return { updates };
+}
 
 /** Resolve the image MIME type, falling back to file extension when the browser reports an unrecognised type. */
 function resolveImageMimeType(file: Express.Multer.File): string {
@@ -431,11 +491,19 @@ router.put('/me', requireAuth, async (req: Request, res: Response): Promise<void
 
   if (existing.exists) {
     const { gettingStartedDismissed, username: requestedUsername } = req.body as Partial<UserProfile>;
-    const updates: Partial<UserProfile> = {};
+    const updates: Record<string, unknown> = {};
     if (email !== undefined) updates.email = email;
     if (displayName !== undefined) updates.displayName = displayName;
     if (fcmToken !== undefined) updates.fcmToken = fcmToken;
     if (gettingStartedDismissed !== undefined) updates.gettingStartedDismissed = gettingStartedDismissed;
+
+    // Validate and apply health fields
+    const healthResult = validateHealthFields(req.body as Record<string, unknown>);
+    if ('error' in healthResult) {
+      res.status(400).json({ error: healthResult.error });
+      return;
+    }
+    Object.assign(updates, healthResult.updates);
 
     const existingData = existing.data() as UserProfile;
 
