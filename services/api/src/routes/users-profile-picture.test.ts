@@ -8,10 +8,10 @@ const {
   mockUsersDocRef,
   mockSharpToBuffer,
   mockSharpConstructor,
-  mockStorageSave,
-  mockGetSignedUrl,
-  mockStorageFile,
-  mockStorageBucket,
+  mockUpload,
+  mockGetBlockBlobClient,
+  mockGetContainerClient,
+  mockGetBlobUrl,
   mockLoggerInfo,
   mockLoggerWarn,
   mockLoggerError,
@@ -26,15 +26,14 @@ const {
   const mockSharpToBuffer = vi.fn();
   const mockSharpConstructor = vi.fn();
 
-  const mockStorageSave = vi.fn();
-  const mockGetSignedUrl = vi.fn();
-  const mockStorageFile = vi.fn(() => ({
-    save: mockStorageSave,
-    getSignedUrl: mockGetSignedUrl,
+  const mockUpload = vi.fn();
+  const mockGetBlockBlobClient = vi.fn(() => ({
+    upload: mockUpload,
   }));
-  const mockStorageBucket = vi.fn(() => ({
-    file: mockStorageFile,
+  const mockGetContainerClient = vi.fn(() => ({
+    getBlockBlobClient: mockGetBlockBlobClient,
   }));
+  const mockGetBlobUrl = vi.fn();
 
   const mockLoggerInfo = vi.fn();
   const mockLoggerWarn = vi.fn();
@@ -46,10 +45,10 @@ const {
     mockUsersDocRef,
     mockSharpToBuffer,
     mockSharpConstructor,
-    mockStorageSave,
-    mockGetSignedUrl,
-    mockStorageFile,
-    mockStorageBucket,
+    mockUpload,
+    mockGetBlockBlobClient,
+    mockGetContainerClient,
+    mockGetBlobUrl,
     mockLoggerInfo,
     mockLoggerWarn,
     mockLoggerError,
@@ -64,7 +63,8 @@ vi.mock('../lib/firebase', () => ({
 }));
 
 vi.mock('../lib/storage', () => ({
-  getStorageBucket: mockStorageBucket,
+  getContainerClient: mockGetContainerClient,
+  getBlobUrl: mockGetBlobUrl,
 }));
 
 vi.mock('../lib/firestore', () => ({
@@ -121,7 +121,7 @@ function buildApp() {
 
 const VALID_TOKEN = 'Bearer valid.token';
 const TEST_UID = 'test-uid-001';
-const SIGNED_URL = 'https://storage.googleapis.com/signed-url/avatar.webp';
+const TEST_BLOB_URL = 'https://burnbuddybetasa.blob.core.windows.net/uploads/profile-pictures/test-uid-001/avatar.webp';
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -135,19 +135,18 @@ beforeEach(() => {
     toBuffer: mockSharpToBuffer,
   };
   mockSharpConstructor.mockReturnValue(sharpChain);
-  mockStorageSave.mockResolvedValue(undefined);
-  mockGetSignedUrl.mockResolvedValue([SIGNED_URL]);
+  mockUpload.mockResolvedValue(undefined);
+  mockGetBlobUrl.mockReturnValue(TEST_BLOB_URL);
   mockUsersDocUpdate.mockResolvedValue(undefined);
 
   mockUsersDocRef.mockImplementation(() => ({
     update: mockUsersDocUpdate,
   }));
-  mockStorageFile.mockImplementation(() => ({
-    save: mockStorageSave,
-    getSignedUrl: mockGetSignedUrl,
+  mockGetBlockBlobClient.mockImplementation(() => ({
+    upload: mockUpload,
   }));
-  mockStorageBucket.mockImplementation(() => ({
-    file: mockStorageFile,
+  mockGetContainerClient.mockImplementation(() => ({
+    getBlockBlobClient: mockGetBlockBlobClient,
   }));
 });
 
@@ -168,27 +167,34 @@ describe('POST /users/me/profile-picture', () => {
       .attach('picture', imageBuffer, { filename: 'photo.jpg', contentType: 'image/jpeg' });
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ profilePictureUrl: SIGNED_URL });
+    expect(res.body.profilePictureUrl).toContain(TEST_BLOB_URL);
+    expect(res.body.profilePictureUrl).toMatch(/\?v=\d+/);
 
     // Verify sharp was called for image processing
     expect(mockSharpConstructor).toHaveBeenCalledOnce();
     expect(mockSharpToBuffer).toHaveBeenCalledOnce();
 
-    // Verify storage upload
-    expect(mockStorageFile).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/avatar.webp`);
-    expect(mockStorageSave).toHaveBeenCalledWith(
+    // Verify Azure Blob Storage upload
+    expect(mockGetBlockBlobClient).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/avatar.webp`);
+    expect(mockUpload).toHaveBeenCalledWith(
       Buffer.from('optimized-image-data'),
-      expect.objectContaining({ contentType: 'image/webp' }),
+      Buffer.from('optimized-image-data').length,
+      expect.objectContaining({
+        blobHTTPHeaders: expect.objectContaining({
+          blobContentType: 'image/webp',
+          blobCacheControl: 'public, max-age=86400',
+        }),
+      }),
     );
 
-    // Verify signed URL generation
-    expect(mockGetSignedUrl).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'read' }),
-    );
+    // Verify getBlobUrl was called
+    expect(mockGetBlobUrl).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/avatar.webp`);
 
-    // Verify Firestore update
+    // Verify Firestore update includes cache-busting param
     expect(mockUsersDocRef).toHaveBeenCalledWith(TEST_UID);
-    expect(mockUsersDocUpdate).toHaveBeenCalledWith({ profilePictureUrl: SIGNED_URL });
+    const updateArg = mockUsersDocUpdate.mock.calls[0][0];
+    expect(updateArg.profilePictureUrl).toContain(TEST_BLOB_URL);
+    expect(updateArg.profilePictureUrl).toMatch(/\?v=\d+/);
   });
 
   it('accepts PNG uploads', async () => {
@@ -200,7 +206,8 @@ describe('POST /users/me/profile-picture', () => {
       .attach('picture', imageBuffer, { filename: 'photo.png', contentType: 'image/png' });
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ profilePictureUrl: SIGNED_URL });
+    expect(res.body.profilePictureUrl).toContain(TEST_BLOB_URL);
+    expect(res.body.profilePictureUrl).toMatch(/\?v=\d+/);
   });
 
   it('accepts WebP uploads', async () => {
@@ -212,7 +219,8 @@ describe('POST /users/me/profile-picture', () => {
       .attach('picture', imageBuffer, { filename: 'photo.webp', contentType: 'image/webp' });
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ profilePictureUrl: SIGNED_URL });
+    expect(res.body.profilePictureUrl).toContain(TEST_BLOB_URL);
+    expect(res.body.profilePictureUrl).toMatch(/\?v=\d+/);
   });
 
   it('returns 413 when file exceeds 5 MB', async () => {
@@ -227,7 +235,7 @@ describe('POST /users/me/profile-picture', () => {
     expect(res.body.error).toMatch(/too large/i);
 
     // Processing and storage should not be called
-    expect(mockStorageSave).not.toHaveBeenCalled();
+    expect(mockUpload).not.toHaveBeenCalled();
   });
 
   it('accepts HEIC uploads (iPhone format)', async () => {
@@ -239,7 +247,8 @@ describe('POST /users/me/profile-picture', () => {
       .attach('picture', imageBuffer, { filename: 'photo.heic', contentType: 'image/heic' });
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ profilePictureUrl: SIGNED_URL });
+    expect(res.body.profilePictureUrl).toContain(TEST_BLOB_URL);
+    expect(res.body.profilePictureUrl).toMatch(/\?v=\d+/);
   });
 
   it('accepts HEIF uploads', async () => {
@@ -251,7 +260,8 @@ describe('POST /users/me/profile-picture', () => {
       .attach('picture', imageBuffer, { filename: 'photo.heif', contentType: 'image/heif' });
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ profilePictureUrl: SIGNED_URL });
+    expect(res.body.profilePictureUrl).toContain(TEST_BLOB_URL);
+    expect(res.body.profilePictureUrl).toMatch(/\?v=\d+/);
   });
 
   it('returns 400 when content type is not an image', async () => {
@@ -265,7 +275,7 @@ describe('POST /users/me/profile-picture', () => {
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/invalid file type/i);
 
-    expect(mockStorageSave).not.toHaveBeenCalled();
+    expect(mockUpload).not.toHaveBeenCalled();
   });
 
   it('returns 400 when no file is uploaded', async () => {
@@ -289,7 +299,20 @@ describe('POST /users/me/profile-picture', () => {
     expect(res.status).toBe(500);
     expect(res.body.error).toMatch(/processing failed/i);
 
-    expect(mockStorageSave).not.toHaveBeenCalled();
+    expect(mockUpload).not.toHaveBeenCalled();
+  });
+
+  it('returns 503 when storage upload fails', async () => {
+    mockUpload.mockRejectedValueOnce(new Error('Azure Blob Storage unavailable'));
+
+    const imageBuffer = Buffer.alloc(100, 0xff);
+    const res = await request(buildApp())
+      .post('/users/me/profile-picture')
+      .set('Authorization', VALID_TOKEN)
+      .attach('picture', imageBuffer, { filename: 'photo.jpg', contentType: 'image/jpeg' });
+
+    expect(res.status).toBe(503);
+    expect(res.body.error).toMatch(/storage service unavailable/i);
   });
 
   it('stores only the optimized buffer, not the original', async () => {
@@ -304,11 +327,17 @@ describe('POST /users/me/profile-picture', () => {
 
     expect(res.status).toBe(200);
 
-    // Only one storage save — with the optimized buffer, not the original
-    expect(mockStorageSave).toHaveBeenCalledOnce();
-    expect(mockStorageSave).toHaveBeenCalledWith(
+    // Only one storage upload — with the optimized buffer, not the original
+    expect(mockUpload).toHaveBeenCalledOnce();
+    expect(mockUpload).toHaveBeenCalledWith(
       optimizedBuffer,
-      expect.objectContaining({ contentType: 'image/webp' }),
+      optimizedBuffer.length,
+      expect.objectContaining({
+        blobHTTPHeaders: expect.objectContaining({
+          blobContentType: 'image/webp',
+          blobCacheControl: 'public, max-age=86400',
+        }),
+      }),
     );
   });
 
@@ -321,7 +350,8 @@ describe('POST /users/me/profile-picture', () => {
       .attach('picture', imageBuffer, { filename: 'photo.heic', contentType: 'application/octet-stream' });
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ profilePictureUrl: SIGNED_URL });
+    expect(res.body.profilePictureUrl).toContain(TEST_BLOB_URL);
+    expect(res.body.profilePictureUrl).toMatch(/\?v=\d+/);
 
     // Should log that MIME type was inferred from extension
     expect(mockLoggerInfo).toHaveBeenCalledWith(
@@ -339,7 +369,8 @@ describe('POST /users/me/profile-picture', () => {
       .attach('picture', imageBuffer, { filename: 'photo.heif', contentType: '' });
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ profilePictureUrl: SIGNED_URL });
+    expect(res.body.profilePictureUrl).toContain(TEST_BLOB_URL);
+    expect(res.body.profilePictureUrl).toMatch(/\?v=\d+/);
   });
 
   it('rejects file with unknown extension and unknown MIME type', async () => {
