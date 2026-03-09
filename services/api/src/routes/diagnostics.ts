@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import sharp from 'sharp';
 import { requireAuth } from '../middleware/auth';
-import { getStorageBucket } from '../lib/storage';
+import { getContainerClient } from '../lib/storage';
 import { logger } from '../lib/logger';
 
 const router = Router();
@@ -27,24 +27,19 @@ router.get('/', requireAuth, async (_req: Request, res: Response) => {
 
   // Storage info
   try {
-    const projectId = process.env.FIREBASE_PROJECT_ID ?? 'burnbuddy-dev';
-    const bucketName =
-      process.env.FIREBASE_STORAGE_BUCKET ?? `${projectId}.appspot.com`;
-
-    const bucket = getStorageBucket();
-    const [bucketExists] = await bucket.exists();
+    const storageAccountUrl = process.env.AZURE_STORAGE_ACCOUNT_URL ?? '';
+    const containerName = 'uploads';
+    const containerClient = getContainerClient(containerName);
+    const containerExists = await containerClient.exists();
 
     result.storage = {
-      bucketName,
-      bucketExists,
-      credentialsPresent: !!(
-        process.env.FIREBASE_SERVICE_ACCOUNT_JSON &&
-        process.env.FIREBASE_SERVICE_ACCOUNT_JSON.trim() !== ''
-      ),
+      storageAccountUrl,
+      containerName,
+      containerExists,
     };
   } catch (err) {
     logger.error({ err }, 'Diagnostics: failed to check storage');
-    result.storage = { error: 'Failed to check bucket' };
+    result.storage = { error: 'Failed to check container' };
   }
 
   res.json(result);
