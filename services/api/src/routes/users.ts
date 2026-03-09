@@ -34,6 +34,17 @@ const EXTENSION_TO_MIME: Record<string, string> = {
 
 const VALID_WORKOUT_GOALS: WorkoutGoal[] = ['lose_weight', 'build_muscle', 'stay_active', 'improve_endurance', 'reduce_stress'];
 
+/** Private health fields that must not appear in public-facing responses. */
+const HEALTH_FIELDS = ['heightCm', 'weightKg', 'dateOfBirth', 'workoutGoal', 'unitPreference', 'healthProfilePromptDismissed'] as const;
+
+type HealthField = (typeof HEALTH_FIELDS)[number];
+
+/** Strip private health fields from user data for public-facing responses. */
+function stripHealthFields(data: UserProfile): Omit<UserProfile, HealthField> {
+  const { heightCm, weightKg, dateOfBirth, workoutGoal, unitPreference, healthProfilePromptDismissed, ...rest } = data;
+  return rest;
+}
+
 /** Validate health fields from request body. Returns an error string or null if valid. */
 function validateHealthFields(body: Record<string, unknown>): { error: string } | { updates: Record<string, unknown> } {
   const updates: Record<string, unknown> = {};
@@ -126,7 +137,7 @@ router.get('/search', requireAuth, async (req: Request, res: Response): Promise<
       return;
     }
 
-    const user = snapshot.docs[0].data() as UserProfile;
+    const user = stripHealthFields(snapshot.docs[0].data() as UserProfile);
     res.json({ uid: user.uid, displayName: user.displayName, email: user.email, username: user.username, profilePictureUrl: user.profilePictureUrl });
     return;
   }
@@ -161,7 +172,7 @@ router.get('/search', requireAuth, async (req: Request, res: Response): Promise<
   const results: Array<{ uid: string; displayName: string; email: string; username?: string; profilePictureUrl?: string }> = [];
 
   for (const doc of [...emailSnapshot.docs, ...usernameSnapshot.docs]) {
-    const u = doc.data() as UserProfile;
+    const u = stripHealthFields(doc.data() as UserProfile);
     if (u.uid === currentUid || seen.has(u.uid)) continue;
     seen.add(u.uid);
     results.push({ uid: u.uid, displayName: u.displayName, email: u.email, username: u.username, profilePictureUrl: u.profilePictureUrl });
@@ -603,7 +614,7 @@ router.get('/:uid/profile', requireAuth, async (req: Request, res: Response): Pr
     res.status(404).json({ error: 'User not found' });
     return;
   }
-  const profile = userDoc.data() as UserProfile;
+  const profile = stripHealthFields(userDoc.data() as UserProfile);
 
   // 2. Check friendship (sorted composite key)
   const [friendUid1, friendUid2] = [requesterUid, targetUid].sort();
@@ -793,7 +804,7 @@ router.get('/:uid', requireAuth, async (req: Request, res: Response): Promise<vo
     return;
   }
 
-  const profile = doc.data() as UserProfile;
+  const profile = stripHealthFields(doc.data() as UserProfile);
   res.json({ uid: profile.uid, displayName: profile.displayName, email: profile.email, profilePictureUrl: profile.profilePictureUrl });
 });
 
