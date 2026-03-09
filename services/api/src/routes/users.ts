@@ -14,7 +14,7 @@ import { admin } from '../lib/firebase';
 import { cacheControl } from '../middleware/cache-control';
 import { getDb } from '../lib/firestore';
 import { FieldValue } from 'firebase-admin/firestore';
-import { getStorageBucket } from '../lib/storage';
+import { getContainerClient, getBlobUrl } from '../lib/storage';
 import { generateUniqueUsername, validateUsername } from '../lib/username';
 import sharp from 'sharp';
 import { calculateStreaks, calculateHighestStreakEver } from '../services/streak-calculator';
@@ -244,7 +244,7 @@ router.get('/me', requireAuth, cacheControl(0), async (req: Request, res: Respon
 /**
  * POST /users/me/profile-picture
  * Uploads a profile picture, resizes to 256×256, converts to WebP, stores it in
- * Firebase Storage, and updates the user's Firestore document with the download URL.
+ * Azure Blob Storage, and updates the user's Firestore document with the public URL.
  */
 router.post(
   '/me/profile-picture',
@@ -296,60 +296,44 @@ router.post(
       return;
     }
 
-    const bucket = getStorageBucket();
-    const filePath = `profile-pictures/${uid}/avatar.webp`;
-    const storageFile = bucket.file(filePath);
+    const blobPath = `profile-pictures/${uid}/avatar.webp`;
+    const containerClient = getContainerClient('uploads');
+    const blockBlobClient = containerClient.getBlockBlobClient(blobPath);
 
     try {
-      await storageFile.save(optimizedBuffer, {
-        contentType: 'image/webp',
-        metadata: { cacheControl: 'public, max-age=86400' },
+      await blockBlobClient.upload(optimizedBuffer, optimizedBuffer.length, {
+        blobHTTPHeaders: {
+          blobContentType: 'image/webp',
+          blobCacheControl: 'public, max-age=86400',
+        },
       });
     } catch (err) {
-      logger.error({ err, uid, bucket: bucket.name }, 'Firebase Storage upload failed');
+      logger.error({ err, uid }, 'Azure Blob Storage upload failed');
       res.status(503).json({ error: 'Storage service unavailable. Please try again.' });
       return;
     }
 
-    let url: string;
-    try {
-      const [signedUrl] = await storageFile.getSignedUrl({
-        action: 'read',
-        expires: '2099-12-31',
-      });
-      url = signedUrl;
-    } catch (err) {
-      logger.error({ err, uid }, 'Failed to generate signed URL');
-      res.status(503).json({ error: 'Storage service unavailable. Please try again.' });
-      return;
-    }
+    const profilePictureUrl = `${getBlobUrl(blobPath)}?v=${Date.now()}`;
 
     const db = getDb();
-    await db.collection('users').doc(uid).update({ profilePictureUrl: url });
+    await db.collection('users').doc(uid).update({ profilePictureUrl });
 
     logger.info({ uid }, 'Profile picture upload completed');
-    res.json({ profilePictureUrl: url });
+    res.json({ profilePictureUrl });
   },
 );
 
 /**
  * DELETE /users/me/profile-picture
- * Removes the user's profile picture from Firebase Storage and clears the Firestore field.
+ * Removes the user's profile picture from Azure Blob Storage and clears the Firestore field.
  * Returns 204 on success (idempotent — succeeds even if no picture existed).
  */
 router.delete('/me/profile-picture', requireAuth, async (req: Request, res: Response): Promise<void> => {
   const uid = req.user!.uid;
-  const bucket = getStorageBucket();
-  const filePath = `profile-pictures/${uid}/avatar.webp`;
-  const storageFile = bucket.file(filePath);
 
-  // Delete from Storage — ignore "not found" errors for idempotency
-  try {
-    await storageFile.delete();
-  } catch (err: unknown) {
-    const code = (err as { code?: number }).code;
-    if (code !== 404) throw err;
-  }
+  await getContainerClient('uploads')
+    .getBlockBlobClient(`profile-pictures/${uid}/avatar.webp`)
+    .deleteIfExists();
 
   // Clear the profilePictureUrl field in Firestore
   const db = getDb();
@@ -469,13 +453,11 @@ router.delete('/me', requireAuth, async (req: Request, res: Response): Promise<v
 
   // Delete profile picture from Storage
   try {
-    const bucket = getStorageBucket();
-    await bucket.file(`profile-pictures/${uid}/avatar.webp`).delete();
+    await getContainerClient('uploads')
+      .getBlockBlobClient(`profile-pictures/${uid}/avatar.webp`)
+      .deleteIfExists();
   } catch (err: unknown) {
-    const code = (err as { code?: number }).code;
-    if (code !== 404) {
-      logger.error({ err }, 'Failed to delete profile picture');
-    }
+    logger.error({ err }, 'Failed to delete profile picture');
   }
 
   // Delete Firebase Auth user record — FINAL step
