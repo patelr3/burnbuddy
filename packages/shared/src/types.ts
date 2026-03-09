@@ -1,3 +1,5 @@
+export type WorkoutGoal = 'lose_weight' | 'build_muscle' | 'stay_active' | 'improve_endurance' | 'reduce_stress';
+
 export interface UserProfile {
   uid: string;
   email: string;
@@ -7,6 +9,12 @@ export interface UserProfile {
   profilePictureUrl?: string;
   fcmToken?: string;
   gettingStartedDismissed?: boolean;
+  heightCm?: number;
+  weightKg?: number;
+  dateOfBirth?: string;
+  workoutGoal?: WorkoutGoal;
+  unitPreference?: 'metric' | 'imperial';
+  healthProfilePromptDismissed?: boolean;
   createdAt: string;
 }
 
