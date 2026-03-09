@@ -10,7 +10,7 @@ import { auth } from '@/lib/firebase-client';
 import { useRouter } from 'next/navigation';
 import { Avatar } from '@/components/Avatar';
 import type { UserProfile, WorkoutGoal } from '@burnbuddy/shared';
-import { cmToFeetInches, feetInchesToCm, kgToLbs, lbsToKg } from '@burnbuddy/shared';
+import { cmToFeetInches, feetInchesToCm, kgToLbs, lbsToKg, WORKOUT_GOAL_LABELS } from '@burnbuddy/shared';
 
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,30}$/;
 const ACCEPTED_IMAGE_TYPES = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
@@ -248,7 +248,7 @@ export default function AccountPage() {
   });
 
   const healthFieldMutation = useMutation({
-    mutationFn: (fields: Partial<UserProfile> & Record<string, unknown>) =>
+    mutationFn: (fields: Record<string, unknown>) =>
       apiPut<UserProfile>('/users/me', fields),
     onSuccess: (updated) => {
       queryClient.setQueryData<UserProfile>(queryKeys.account, updated);
@@ -697,6 +697,37 @@ export default function AccountPage() {
                   {healthFeedback.message}
                 </p>
               )}
+            </section>
+
+            {/* Workout Goal */}
+            <section className="mb-5 rounded-lg border border-gray-700 bg-surface p-5">
+              <h2 className="mb-2 text-base font-semibold text-white">Workout Goal</h2>
+              <p className="mb-4 text-xs text-gray-400">
+                {profile?.workoutGoal ? `Current goal: ${WORKOUT_GOAL_LABELS[profile.workoutGoal].emoji} ${WORKOUT_GOAL_LABELS[profile.workoutGoal].label}` : 'No goal selected'}
+              </p>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {(Object.keys(WORKOUT_GOAL_LABELS) as WorkoutGoal[]).map((goal) => {
+                  const { label, emoji } = WORKOUT_GOAL_LABELS[goal];
+                  const isSelected = profile?.workoutGoal === goal;
+                  return (
+                    <button
+                      key={goal}
+                      type="button"
+                      onClick={() => {
+                        healthFieldMutation.mutate({ workoutGoal: isSelected ? null : goal });
+                      }}
+                      className={`cursor-pointer rounded-lg border p-3 text-center transition-colors ${
+                        isSelected
+                          ? 'border-primary bg-primary/20 text-white ring-1 ring-primary'
+                          : 'border-gray-600 bg-surface-elevated text-gray-300 hover:border-gray-500 hover:bg-gray-700'
+                      }`}
+                    >
+                      <div className="mb-1 text-2xl">{emoji}</div>
+                      <div className="text-sm font-medium">{label}</div>
+                    </button>
+                  );
+                })}
+              </div>
             </section>
 
             {/* Sign out */}

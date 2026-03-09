@@ -50,3 +50,15 @@ Started: 2026-03-09
   - FieldValue.delete() from mocked firebase-admin is a real object — use expect.anything() to assert it was included in update calls
   - Pre-existing test failure in users-profile.test.ts (streak assertion) remains unrelated to our changes
 ---
+
+## 2026-03-09 03:50 - US-005
+- What was implemented: Added Health & Body section to account settings page with unit preference toggle (metric/imperial), height input (cm or ft/in), weight input (kg or lbs), and date of birth input with computed age display. Auto-detects unit preference from navigator.language. All fields save on blur via healthFieldMutation using apiPut. Added lock icon and "Private — only visible to you" subtitle.
+- Files changed: apps/web/src/app/(main)/account/page.tsx
+- **Learnings for future iterations:**
+  - Account page uses useMutation from @tanstack/react-query with optimistic updates and queryClient.invalidateQueries pattern
+  - Import conversion helpers (cmToFeetInches, feetInchesToCm, kgToLbs, lbsToKg) from @burnbuddy/shared
+  - Unit preference auto-detection: /^en-(US|GB|LR|MM)/ → imperial, others → metric
+  - Health fields sync from profile on first load via useEffect with healthSynced guard (same pattern as usernameSynced)
+  - Browser verification requires Firebase Auth API key — not available in local dev without env config
+  - Tailwind classes: border-primary bg-primary/20 text-primary for active toggle states, [color-scheme:dark] for native date input dark mode
+---

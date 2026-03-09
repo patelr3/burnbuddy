@@ -86,7 +86,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "The account settings page is at apps/web/src/app/(main)/account/page.tsx. It uses React Query mutations (useMutation from @tanstack/react-query) to save via apiPut. Follow the same pattern for new fields. Import conversion helpers from @burnbuddy/shared."
     },
     {
