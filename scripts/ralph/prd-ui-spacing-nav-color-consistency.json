@@ -1,0 +1,68 @@
+{
+  "project": "burnbuddy",
+  "branchName": "ralph/ui-spacing-nav-color-consistency",
+  "description": "UI Spacing & Nav Color Consistency - Standardize Home page header styling across all tabs and align nav bar active text color with the pink-red icon color (#FF2D55) on both web and mobile apps.",
+  "dependsOn": [],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Standardize Home page header on web",
+      "description": "As a user, I want the Home page header to look the same as the Friends and Account page headers so the app feels polished and consistent.",
+      "acceptanceCriteria": [
+        "In apps/web/src/app/(main)/page.tsx, change the 'Burn Buddies' header from <h2 className=\"m-0 text-lg font-semibold text-white\"> to <h1 className=\"mb-6 text-2xl font-bold text-white\"> to match Friends and Account headers",
+        "Home page container padding (pt-6 px-4) remains consistent with other pages",
+        "The header sits inside a flex row with a 'Log Workout' button — verify layout is not broken after changing from h2 to h1",
+        "Typecheck passes (cd apps/web && yarn typecheck)",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Friends page header: <h1 className=\"text-2xl font-bold text-white\"> with mb-6. Account page header: <h1 className=\"mb-6 text-2xl font-bold\">. The Home header is currently in a flex row with a Log Workout button — be careful not to break that layout."
+    },
+    {
+      "id": "US-002",
+      "title": "Update active nav bar text color on web",
+      "description": "As a user, I want the active tab label in the navigation bar to use the same pink-red color as the tab icons so the nav feels cohesive.",
+      "acceptanceCriteria": [
+        "In apps/web/src/components/NavBar.tsx, change the active link text class from text-primary to text-accent-pink in the desktop nav (desktopLinkClass variable, around line 57-58)",
+        "In apps/web/src/components/NavBar.tsx, change the active mobile nav label from text-primary to text-accent-pink (around line 100-101)",
+        "Inactive tab text colors remain unchanged — desktop: text-gray-400 hover:text-white, mobile: text-gray-500",
+        "The accent-pink color (#FF2D55) is already defined in globals.css and tailwind.config.ts — no new color definitions needed",
+        "Typecheck passes (cd apps/web && yarn typecheck)",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Nav icons already use #FF2D55 (accent-pink) for active state. Active text currently uses text-primary (#FF9500 orange). The Tailwind class text-accent-pink maps to #FF2D55 via the existing theme."
+    },
+    {
+      "id": "US-003",
+      "title": "Standardize Home screen header on mobile",
+      "description": "As a user, I want the Home screen header on the mobile app to have consistent styling and text with the Friends and Account screens.",
+      "acceptanceCriteria": [
+        "In apps/mobile/src/screens/HomeScreen.tsx, change the header text from 'buddyburn 🔥' to 'Burn Buddies' (around line 334)",
+        "In apps/mobile/src/screens/HomeScreen.tsx, change headerTitle.color from '#E05A00' to '#333' to match the Friends screen header color (around line 633)",
+        "All three screen headers (Home, Friends, Account) use fontSize: 22 and fontWeight: 'bold' — verify Home matches",
+        "No layout shifts or visual regressions on the Home screen",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Friends headerTitle color is #333, Account title color is #111827. Use #333 to match Friends. Header padding is already consistent (paddingTop: 56, paddingBottom: 12, paddingHorizontal: 16)."
+    },
+    {
+      "id": "US-004",
+      "title": "Update active tab bar text color on mobile",
+      "description": "As a user, I want the active tab label in the mobile app's tab bar to use the pink-red accent color, matching the web app's nav bar.",
+      "acceptanceCriteria": [
+        "In apps/mobile/App.tsx, change activeTabText.color from '#E05A00' to '#FF2D55' in tabStyles (around line 171-173)",
+        "Inactive tab text color remains '#9ca3af' (gray) — do not change tabStyles.tabText",
+        "Tab bar is still readable and visually clear with the new color",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "The mobile tab bar uses emoji icons (🏠 👥 👤) not SVG icons, so there is no separate icon color to coordinate with. The #FF2D55 color matches what the web nav icons use."
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+# Ralph Progress Log — Azure Blob Storage for Profile Pictures
+Started: 2026-03-09
+---
