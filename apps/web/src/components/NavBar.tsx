@@ -55,7 +55,7 @@ export function NavBar() {
     href === '/' ? pathname === '/' : pathname.startsWith(href);
 
   const desktopLinkClass = (href: string) =>
-    `text-sm no-underline transition-colors ${isActive(href) ? 'text-primary font-semibold' : 'text-gray-400 hover:text-white'}`;
+    `text-sm no-underline transition-colors ${isActive(href) ? 'text-accent-pink font-semibold' : 'text-gray-400 hover:text-white'}`;
 
   return (
     <>
@@ -97,7 +97,7 @@ export function NavBar() {
                 }`}
               >
                 <Icon active={active} />
-                <span className={`text-[10px] font-medium ${active ? 'text-primary' : 'text-gray-500'}`}>
+                <span className={`text-[10px] font-medium ${active ? 'text-accent-pink' : 'text-gray-500'}`}>
                   {label}
                 </span>
               </Link>

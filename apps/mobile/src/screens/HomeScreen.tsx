@@ -331,7 +331,7 @@ function HomeListView({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>buddyburn 🔥</Text>
+        <Text style={styles.headerTitle}>Burn Buddies</Text>
         <TouchableOpacity onPress={handleSignOut} testID="home-sign-out-button">
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
@@ -629,7 +629,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
-  headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#E05A00' },
+  headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#333' },
   signOutText: { color: '#E05A00', fontSize: 14 },
   content: { flex: 1 },
   contentContainer: { padding: 16, paddingBottom: 24 },
