@@ -1,3 +1,30 @@
 # Ralph Progress Log — Calendar Timezone Fix
 Started: 2026-03-09
+
+## Codebase Patterns
+- After changing `packages/shared/src/types.ts`, must run `cd packages/shared && yarn build` before API typecheck passes
+- API typecheck: `cd services/api && yarn typecheck`
+- Web typecheck has pre-existing errors unrelated to this work; use API typecheck for validation
+---
+
+## 2026-03-09 - US-001
+- Added optional `timezone?: string` field to `UserProfile` interface
+- Files changed: `packages/shared/src/types.ts`
+- **Learnings for future iterations:**
+  - `UserProfile` is at the very top of types.ts (lines 1-12)
+  - yarn install needed in fresh worktree before typecheck works
+  - Shared package rebuild is required after any type change
+---
+
+## 2026-03-09 - US-002
+- Implemented timezone persistence on profile creation (POST /users) and update (PUT /users/me)
+- Added `timezone` to request body destructuring in both handlers
+- Used `typeof timezone === 'string' && timezone !== ''` guard to silently ignore invalid values
+- Added timezone to both the update path and the create-via-PUT path in PUT /users/me
+- Added 6 new unit tests covering creation/update with valid, empty, non-string, and missing timezone
+- Files changed: `services/api/src/routes/users.ts`, `services/api/src/routes/users.test.ts`
+- **Learnings for future iterations:**
+  - Follow the `fcmToken` pattern for optional fields: destructure from body, conditionally spread into profile/updates
+  - Use `typeof x === 'string' && x !== ''` for safe timezone validation
+  - PUT /users/me has two code paths: update (existing.exists) and create (!exists) — both need the new field
 ---

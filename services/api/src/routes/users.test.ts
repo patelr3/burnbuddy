@@ -178,6 +178,45 @@ describe('POST /users', () => {
 
     expect(mockGenerateUniqueUsername).toHaveBeenCalledWith('bob@test.com', expect.anything(), TEST_UID);
   });
+
+  it('includes timezone in the created profile when provided', async () => {
+    mockGet.mockResolvedValueOnce({ exists: false });
+    mockGenerateUniqueUsername.mockResolvedValueOnce({ username: 'test', usernameLower: 'test' });
+
+    const res = await request(buildApp())
+      .post('/users')
+      .set('Authorization', VALID_TOKEN)
+      .send({ email: 'test@example.com', displayName: 'Test User', timezone: 'America/New_York' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.timezone).toBe('America/New_York');
+  });
+
+  it('ignores empty string timezone on profile creation', async () => {
+    mockGet.mockResolvedValueOnce({ exists: false });
+    mockGenerateUniqueUsername.mockResolvedValueOnce({ username: 'test', usernameLower: 'test' });
+
+    const res = await request(buildApp())
+      .post('/users')
+      .set('Authorization', VALID_TOKEN)
+      .send({ email: 'test@example.com', displayName: 'Test User', timezone: '' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.timezone).toBeUndefined();
+  });
+
+  it('ignores non-string timezone on profile creation', async () => {
+    mockGet.mockResolvedValueOnce({ exists: false });
+    mockGenerateUniqueUsername.mockResolvedValueOnce({ username: 'test', usernameLower: 'test' });
+
+    const res = await request(buildApp())
+      .post('/users')
+      .set('Authorization', VALID_TOKEN)
+      .send({ email: 'test@example.com', displayName: 'Test User', timezone: 123 });
+
+    expect(res.status).toBe(201);
+    expect(res.body.timezone).toBeUndefined();
+  });
 });
 
 // ── GET /users/me ──────────────────────────────────────────────────────────────
@@ -468,6 +507,73 @@ describe('PUT /users/me', () => {
     // Should use regular update, not batch (since lowercase is same)
     expect(mockUpdate).toHaveBeenCalledWith({ username: 'MyName' });
     expect(mockBatchSet).not.toHaveBeenCalled();
+  });
+
+  it('updates timezone when profile exists', async () => {
+    const existingProfile = { ...TEST_PROFILE, username: 'test', usernameLower: 'test' };
+    const updatedProfile = { ...existingProfile, timezone: 'Europe/London' };
+    mockGet
+      .mockResolvedValueOnce({ exists: true, data: () => existingProfile })
+      .mockResolvedValueOnce({ exists: true, data: () => updatedProfile });
+    mockUpdate.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .put('/users/me')
+      .set('Authorization', VALID_TOKEN)
+      .send({ timezone: 'Europe/London' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.timezone).toBe('Europe/London');
+    expect(mockUpdate).toHaveBeenCalledWith({ timezone: 'Europe/London' });
+  });
+
+  it('does not include timezone in updates when not provided', async () => {
+    const existingProfile = { ...TEST_PROFILE, username: 'test', usernameLower: 'test', timezone: 'America/New_York' };
+    const updatedProfile = { ...existingProfile, displayName: 'Updated Name' };
+    mockGet
+      .mockResolvedValueOnce({ exists: true, data: () => existingProfile })
+      .mockResolvedValueOnce({ exists: true, data: () => updatedProfile });
+    mockUpdate.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .put('/users/me')
+      .set('Authorization', VALID_TOKEN)
+      .send({ displayName: 'Updated Name' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.displayName).toBe('Updated Name');
+    // Timezone should not be in the update call since it wasn't sent
+    expect(mockUpdate).toHaveBeenCalledWith({ displayName: 'Updated Name' });
+  });
+
+  it('ignores empty string timezone on profile update', async () => {
+    const existingProfile = { ...TEST_PROFILE, username: 'test', usernameLower: 'test' };
+    mockGet
+      .mockResolvedValueOnce({ exists: true, data: () => existingProfile })
+      .mockResolvedValueOnce({ exists: true, data: () => existingProfile });
+    mockUpdate.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .put('/users/me')
+      .set('Authorization', VALID_TOKEN)
+      .send({ timezone: '' });
+
+    expect(res.status).toBe(200);
+    // Empty timezone should not appear in updates
+    expect(mockUpdate).toHaveBeenCalledWith({});
+  });
+
+  it('includes timezone when creating profile via PUT /users/me', async () => {
+    mockGet.mockResolvedValueOnce({ exists: false });
+    mockGenerateUniqueUsername.mockResolvedValueOnce({ username: 'newuser', usernameLower: 'newuser' });
+
+    const res = await request(buildApp())
+      .put('/users/me')
+      .set('Authorization', VALID_TOKEN)
+      .send({ email: 'newuser@example.com', displayName: 'New User', timezone: 'Asia/Tokyo' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.timezone).toBe('Asia/Tokyo');
   });
 });
 
