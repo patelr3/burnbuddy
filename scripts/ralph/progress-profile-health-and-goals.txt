@@ -72,3 +72,13 @@ Started: 2026-03-09
   - Tailwind: ring-1 ring-primary adds a subtle ring to selected cards
   - responsive grid: grid-cols-2 gap-3 sm:grid-cols-3 works well for 5 goal cards
 ---
+
+## 2026-03-09 04:00 - US-007
+- What was implemented: Created HealthProfilePrompt.tsx component with unit preference, height, weight, DOB, and workout goal inputs. Added to dashboard page above GettingStartedCard, shown when healthProfilePromptDismissed is falsy. Added "Complete your health profile" banner to account settings page linking to #health-body anchor when prompt was dismissed but all health fields unset.
+- Files changed: apps/web/src/components/HealthProfilePrompt.tsx (new), apps/web/src/app/(main)/page.tsx, apps/web/src/app/(main)/account/page.tsx
+- **Learnings for future iterations:**
+  - Dashboard page uses useDashboard() hook which returns dashboard?.user for profile data
+  - HealthProfilePrompt follows same pattern as GettingStartedCard — prop-based onComplete callback + local dismissal state
+  - queryClient.invalidateQueries with queryKeys.dashboard refreshes dashboard data after prompt completion
+  - Use id="health-body" + href="#health-body" for in-page anchor links to sections
+---
