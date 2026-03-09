@@ -579,10 +579,15 @@ router.get(
       return;
     }
 
+    // Look up the requesting user's timezone
+    const userDoc = await db.collection('users').doc(uid).get();
+    const userTimezone = userDoc.exists ? (userDoc.data() as UserProfile).timezone : undefined;
+
     const icsContent = generateIcs({
       days: schedule.days,
       time: schedule.time,
       title: `🔥 ${squad.name} Workout`,
+      timezone: userTimezone,
     });
 
     res.setHeader('Content-Type', 'text/calendar');
