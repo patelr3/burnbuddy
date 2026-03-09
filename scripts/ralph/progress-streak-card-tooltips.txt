@@ -1,0 +1,3 @@
+# Ralph Progress Log — Streak Card Cleanup & Tooltips
+Started: 2026-03-09
+---
