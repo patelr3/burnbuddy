@@ -80,6 +80,21 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
 }
 
 // ---------------------------------------------------------------------------
+// Azure Storage Account (profile picture uploads)
+// ---------------------------------------------------------------------------
+
+var storageAccountName = 'burnbuddy${environment}sa'
+
+module storageAccount 'modules/storage-account.bicep' = {
+  name: 'storage-account'
+  params: {
+    name: storageAccountName
+    location: location
+    principalId: apiApp.outputs.principalId
+  }
+}
+
+// ---------------------------------------------------------------------------
 // API Container App (services/api)
 // ---------------------------------------------------------------------------
 
@@ -92,6 +107,7 @@ module apiApp 'modules/api-container-app.bicep' = {
     containerRegistryServer: containerRegistryServer
     imageTag: imageTag
     keyVaultId: keyVault.id
+    storageAccountUrl: 'https://${storageAccountName}.blob.core.windows.net'
   }
 }
 

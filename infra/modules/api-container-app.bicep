@@ -23,6 +23,9 @@ param imageTag string
 @description('Resource ID of the existing Key Vault.')
 param keyVaultId string
 
+@description('Azure Storage Account blob endpoint URL (e.g. https://burnbuddybetasa.blob.core.windows.net).')
+param storageAccountUrl string
+
 // Derive Key Vault base URI from resource ID using environment() for cross-cloud compatibility
 var keyVaultUri = 'https://${last(split(keyVaultId, '/'))}.${environment().suffixes.keyvaultDns}'
 
@@ -55,11 +58,6 @@ resource apiApp 'Microsoft.App/containerApps@2023-05-01' = {
         {
           name: 'firebase-web-project-id'
           keyVaultUrl: '${keyVaultUri}/secrets/firebase-web-project-id'
-          identity: 'system'
-        }
-        {
-          name: 'firebase-storage-bucket'
-          keyVaultUrl: '${keyVaultUri}/secrets/firebase-storage-bucket'
           identity: 'system'
         }
         {
@@ -96,8 +94,8 @@ resource apiApp 'Microsoft.App/containerApps@2023-05-01' = {
               secretRef: 'firebase-service-account-json'
             }
             {
-              name: 'FIREBASE_STORAGE_BUCKET'
-              secretRef: 'firebase-storage-bucket'
+              name: 'AZURE_STORAGE_ACCOUNT_URL'
+              value: storageAccountUrl
             }
             {
               name: 'OTEL_EXPORTER_OTLP_ENDPOINT'
