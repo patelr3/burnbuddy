@@ -19,7 +19,7 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "This is a quick win that makes debugging easier. The server already returns specific error messages in the JSON body for 500 and 503 status codes, but the client currently ignores them."
     },
     {
@@ -35,7 +35,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "sharp 0.34.5 bundles libvips with libheif, but the Alpine prebuilt binary only includes the AVIF codec (libaom). HEIC requires the libde265 codec. sharp.format.heif.input.fileSuffix currently only shows ['.avif'], not '.heic'/'.heif'. The preferred approach is adding libde265 to Alpine; if that doesn't work with the bundled libvips, fall back to a Debian base image."
     },
     {
@@ -52,7 +52,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Use getStorageBucket() from lib/storage.ts for the bucket check. Import sharp for version/format info. The endpoint helps debug future storage or image processing issues without needing shell access to the container."
     },
     {
@@ -70,7 +70,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Follow the exact mock pattern from services/api/src/routes/users-profile-picture.test.ts — use vi.hoisted for mock functions, vi.mock for module replacements, import router after mocks, buildApp() helper, supertest for HTTP assertions."
     }
   ]

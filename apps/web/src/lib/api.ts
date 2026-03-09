@@ -119,7 +119,12 @@ export async function apiUploadFile<T>(
     const data = await res.json().catch(() => null);
     throw new Error(data?.error ?? 'Invalid file. Please use JPEG, PNG, WebP, or HEIC.');
   }
-  if (!res.ok) throw new Error('Upload failed. Please try again.');
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    if (data?.error) throw new Error(data.error);
+    if (res.status >= 500) throw new Error('Upload service error. Please try again.');
+    throw new Error('Upload failed. Please try again.');
+  }
   return res.json() as Promise<T>;
 }
 
