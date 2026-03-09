@@ -280,6 +280,7 @@ describe('GET /users/:uid/profile', () => {
     const now = new Date();
     const thisMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
     const today = now.toISOString().substring(0, 10);
+    const yesterday = new Date(now.getTime() - 86_400_000).toISOString().substring(0, 10);
 
     const bbId = 'bb-001';
     const burnBuddy = {
@@ -327,7 +328,7 @@ describe('GET /users/:uid/profile', () => {
             type: 'buddy',
             referenceId: bbId,
             memberUids: [REQUESTER_UID, TARGET_UID],
-            startedAt: `${thisMonth}-01T10:00:00.000Z`,
+            startedAt: `${yesterday}T10:00:00.000Z`,
             workoutIds: ['w3', 'w4'],
           }),
         },
