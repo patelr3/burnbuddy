@@ -12,11 +12,13 @@ Converts existing PRDs to the prd.json format that Ralph uses for autonomous exe
 
 ## The Job
 
-Take a PRD (markdown file or text) and convert it to a branch-suffixed `prd-<branch-suffix>.json` in your ralph directory (scripts/ralph).
+Take a PRD (markdown file or text) and convert it to a numbered, branch-suffixed `prdNNNN-<branch-suffix>.json` in your ralph directory (scripts/ralph).
 
-The branch suffix is derived from the `branchName` field with the `ralph/` prefix stripped. For example, `branchName: "ralph/task-status"` produces `prd-task-status.json`.
+The branch suffix is derived from the `branchName` field with the `ralph/` prefix stripped. For example, `branchName: "ralph/task-status"` produces `task-status` as the suffix.
 
-Also initialize a corresponding `progress-<branch-suffix>.txt` file.
+The 4-digit number (NNNN) is determined by scanning for the highest existing numbered PRD and incrementing by 1 (see Numbering section below).
+
+Also initialize a corresponding `progressNNNN-<branch-suffix>.txt` file (same number).
 
 ---
 
@@ -129,8 +131,8 @@ Frontend stories are NOT complete until visually verified. Ralph will use the de
 4. **All stories**: `passes: false` and empty `notes`
 5. **branchName**: Derive from feature name, kebab-case, prefixed with `ralph/`
 6. **Always add**: "Typecheck passes" to every story's acceptance criteria
-7. **dependsOn**: Read the `## Dependencies` section from the source PRD. Map each listed PRD filename to its corresponding branch name (e.g., `prd-friend-search.md` → `ralph/friend-search`). If no dependencies, use an empty array `[]`.
-8. **Output filename**: `prd-<branch-suffix>.json` where `<branch-suffix>` is the branchName with `ralph/` stripped (e.g., `prd-task-status.json`)
+7. **dependsOn**: Read the `## Dependencies` section from the source PRD. Map each listed PRD filename to its corresponding branch name (e.g., `prd0001-friend-search.md` → `ralph/friend-search`). If no dependencies, use an empty array `[]`.
+8. **Output filename**: `prdNNNN-<branch-suffix>.json` where NNNN is the next sequential number and `<branch-suffix>` is the branchName with `ralph/` stripped (e.g., `prd0001-task-status.json`)
 
 ---
 
@@ -168,7 +170,7 @@ Add ability to mark tasks with different statuses.
 - Persist status in database
 ```
 
-**Output `prd-task-status.json`:**
+**Output `prd0001-task-status.json`:**
 ```json
 {
   "project": "TaskApp",
@@ -240,19 +242,31 @@ Add ability to mark tasks with different statuses.
 
 ## File Naming Convention
 
-Each PRD gets its own uniquely-named files based on the branch name:
+Each PRD gets its own uniquely-named files with a sequential 4-digit number:
 
-- **PRD file**: `scripts/ralph/prd-<branch-suffix>.json`
-- **Progress file**: `scripts/ralph/progress-<branch-suffix>.txt`
+- **PRD file**: `scripts/ralph/prdNNNN-<branch-suffix>.json`
+- **Progress file**: `scripts/ralph/progressNNNN-<branch-suffix>.txt`
 
-Where `<branch-suffix>` is the `branchName` with the `ralph/` prefix stripped.
+Where NNNN is a zero-padded sequential number and `<branch-suffix>` is the `branchName` with the `ralph/` prefix stripped.
 
 **Example:**
 - Branch: `ralph/task-status`
-- PRD: `scripts/ralph/prd-task-status.json`
-- Progress: `scripts/ralph/progress-task-status.txt`
+- PRD: `scripts/ralph/prd0001-task-status.json`
+- Progress: `scripts/ralph/progress0001-task-status.txt`
 
-**After saving the prd.json, initialize the progress file:**
+## PRD Numbering
+
+To determine the next number, scan the PRD markdown files for the highest existing number:
+
+```bash
+HIGHEST=$(find docs/prds/ -name 'prd[0-9][0-9][0-9][0-9]-*.md' 2>/dev/null | \
+  sed 's/.*prd\([0-9]\{4\}\)-.*/\1/' | sort -n | tail -1)
+NEXT=$(printf "%04d" $((10#${HIGHEST:-0} + 1)))
+```
+
+Use `NEXT` as the number for both the PRD and progress files.
+
+**After saving the prd JSON, initialize the progress file:**
 ```
 # Ralph Progress Log — <feature name>
 Started: <current date>
@@ -272,5 +286,5 @@ Before writing prd.json, verify:
 - [ ] Acceptance criteria are verifiable (not vague)
 - [ ] No story depends on a later story
 - [ ] `dependsOn` correctly maps PRD dependencies to branch names
-- [ ] Output file is named `prd-<branch-suffix>.json` (not `prd.json`)
-- [ ] Progress file `progress-<branch-suffix>.txt` is initialized
+- [ ] Output file is named `prdNNNN-<branch-suffix>.json` with next sequential number
+- [ ] Progress file `progressNNNN-<branch-suffix>.txt` is initialized (same number)

@@ -62,9 +62,9 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 if [ -n "$PRD_ARG" ]; then
   # Parameterized mode: branch-suffixed files + worktree
   PRD_FILE="$SCRIPT_DIR/$PRD_ARG"
-  # Derive progress file: prd-foo.json → progress-foo.txt
-  PROGRESS_SUFFIX=$(echo "$PRD_ARG" | sed 's/^prd-//; s/\.json$//')
-  PROGRESS_FILE="$SCRIPT_DIR/progress-${PROGRESS_SUFFIX}.txt"
+  # Derive progress file: prd0001-foo.json → progress0001-foo.txt (also handles legacy prd-foo.json)
+  PROGRESS_SUFFIX=$(echo "$PRD_ARG" | sed 's/^prd//; s/\.json$//')
+  PROGRESS_FILE="$SCRIPT_DIR/progress${PROGRESS_SUFFIX}.txt"
 
   if [ ! -f "$PRD_FILE" ]; then
     echo "Error: PRD file not found: $PRD_FILE"

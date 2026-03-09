@@ -13,12 +13,12 @@ You execute a single PRD (Product Requirements Document) from start to finish: s
 
 ## How You Are Invoked
 
-You will be given a specific `prd-<branch-suffix>.json` file to work on. This file is located in `scripts/ralph/` in the main repository.
+You will be given a specific PRD JSON file to work on (e.g., `prd0001-<feature>.json`). This file is located in `scripts/ralph/` in the main repository. Both numbered (`prd0001-feature.json`) and legacy (`prd-feature.json`) naming formats are supported.
 
 ## Execution Flow
 
-1. **Read the PRD**: Load the specified `prd-*.json` file from `scripts/ralph/`
-2. **Read progress**: Load the corresponding `progress-*.txt` file (same suffix). Check the Codebase Patterns section first.
+1. **Read the PRD**: Load the specified `prd*.json` file from `scripts/ralph/`
+2. **Read progress**: Load the corresponding `progress*.txt` file (same suffix). Check the Codebase Patterns section first.
 3. **Set up worktree**: Create or reuse a git worktree at `../burnbuddy-<branch-suffix>/` based on `origin/main`
 4. **Run ralph.sh**: Execute the ralph loop:
    ```bash
@@ -30,7 +30,7 @@ You will be given a specific `prd-<branch-suffix>.json` file to work on. This fi
 
 ## Progress File
 
-The progress file (`progress-<suffix>.txt`) tracks learnings across iterations:
+The progress file (`progress*.txt`, e.g. `progress0001-feature.txt`) tracks learnings across iterations:
 - **Codebase Patterns** section at the top: reusable patterns for future iterations
 - **Story logs**: timestamped entries for each completed story with learnings
 

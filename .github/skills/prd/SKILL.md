@@ -15,7 +15,8 @@ Create detailed Product Requirements Documents that are clear, actionable, and s
 1. Receive a feature description from the user
 2. Ask 3-5 essential clarifying questions (with lettered options)
 3. Generate a structured PRD based on answers
-4. Save to `docs/prds/prd-[feature-name].md`
+4. Determine the next sequential PRD number (see Numbering section below)
+5. Save to `docs/prds/prdNNNN-[feature-name].md`
 
 **Important:** Do NOT start implementing. Just create the PRD.
 
@@ -106,7 +107,7 @@ List any PRDs that must be completed before this one can begin. If this PRD has 
 **Format:**
 ```markdown
 ## Dependencies
-- prd-friend-search-and-usernames.md
+- prd0001-friend-search-and-usernames.md
 ```
 
 Or if no dependencies:
@@ -151,7 +152,24 @@ The PRD reader may be a junior developer or AI agent. Therefore:
 
 - **Format:** Markdown (`.md`)
 - **Location:** `docs/prds/`
-- **Filename:** `prd-[feature-name].md` (kebab-case)
+- **Filename:** `prdNNNN-[feature-name].md` (4-digit zero-padded number + kebab-case name)
+
+---
+
+## PRD Numbering
+
+PRD files use sequential 4-digit numbering (e.g., `prd0001-calendar-sync.md`).
+
+To determine the next number, scan for the highest existing numbered PRD:
+
+```bash
+# Scan docs/prds/ and docs/prds/complete/ for highest number
+HIGHEST=$(find docs/prds/ -name 'prd[0-9][0-9][0-9][0-9]-*.md' 2>/dev/null | \
+  sed 's/.*prd\([0-9]\{4\}\)-.*/\1/' | sort -n | tail -1)
+NEXT=$(printf "%04d" $((10#${HIGHEST:-0} + 1)))
+```
+
+Then use `prd${NEXT}-[feature-name].md` as the filename.
 
 ---
 
@@ -258,4 +276,4 @@ Before saving the PRD:
 - [ ] Functional requirements are numbered and unambiguous
 - [ ] Non-goals section defines clear boundaries
 - [ ] Dependencies section lists prerequisite PRDs (or "None")
-- [ ] Saved to `docs/prds/prd-[feature-name].md`
+- [ ] Saved to `docs/prds/prdNNNN-[feature-name].md` with next sequential number

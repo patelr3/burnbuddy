@@ -5,8 +5,8 @@ You are an autonomous coding agent working on a software project.
 ## Your Task
 
 1. Read the **Runtime Configuration** section at the bottom of this prompt for your PRD file path, progress file path, and working directory
-2. Read the PRD file (the `prd-*.json` file specified in Runtime Configuration)
-3. Read the progress log (the `progress-*.txt` file specified in Runtime Configuration) — check the Codebase Patterns section first
+2. Read the PRD file (the `prd*.json` file specified in Runtime Configuration — may be `prd0001-feature.json` or legacy `prd-feature.json`)
+3. Read the progress log (the `progress*.txt` file specified in Runtime Configuration) — check the Codebase Patterns section first
 4. Ensure you are working in the correct working directory (specified in Runtime Configuration)
 5. Check you're on the correct branch from PRD `branchName`. If not, check it out or create from main.
 6. Pick the **highest priority** user story where `passes: false`
@@ -108,5 +108,6 @@ If there are still stories with `passes: false`, end your response normally (ano
 - Keep CI green
 - Read the Codebase Patterns section in the progress file before starting
 - Use the file paths from Runtime Configuration — do NOT hardcode `prd.json` or `progress.txt`
+- File names may use numbered format (e.g., `prd0001-feature.json`, `progress0001-feature.txt`) or legacy format (`prd-feature.json`, `progress-feature.txt`)
 - You may be working in a git worktree — this is normal, treat it as your working directory
 - If port configuration is provided in Runtime Configuration, use those ports when starting dev servers (e.g., `PORT=<api-port> yarn dev:api`, `yarn dev:web --port <web-port>`)

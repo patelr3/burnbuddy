@@ -9,13 +9,13 @@ You are the Ralph Orchestrator — a fleet manager that coordinates multiple Ral
 
 ## Overview
 
-You manage the lifecycle of multiple features being developed simultaneously. Each feature has a PRD file (`prd-*.json`) in `scripts/ralph/`. You build a dependency graph, launch independent features in parallel via sub-agents, monitor their progress, and start dependent features when their prerequisites complete.
+You manage the lifecycle of multiple features being developed simultaneously. Each feature has a PRD file (`prd*.json`, e.g. `prd0001-feature.json`) in `scripts/ralph/`. You build a dependency graph, launch independent features in parallel via sub-agents, monitor their progress, and start dependent features when their prerequisites complete.
 
 ## Execution Flow
 
 ### Phase 1: Discovery
 
-1. Scan `scripts/ralph/` for all `prd-*.json` files
+1. Scan `scripts/ralph/` for all `prd*.json` files (matches both `prd0001-feature.json` and legacy `prd-feature.json`)
 2. For each file, read:
    - `branchName`: the git branch for this feature
    - `dependsOn`: array of branch names this feature depends on (may be empty)
@@ -50,7 +50,7 @@ task(
 
 **The sub-agent prompt must include:**
 - The full ralph-agent instructions (read from `.github/agents/ralph-agent.md`)
-- The specific PRD file to work on (e.g., `prd-task-status.json`)
+- The specific PRD file to work on (e.g., `prd0001-task-status.json`)
 - The assigned port offset (e.g., `--port-offset 10`)
 - The working directory context
 
@@ -82,8 +82,9 @@ When a PRD completes:
    SUFFIX="<branch-suffix>"  # e.g., "calendar-sync"
    DATE=$(date +%Y-%m-%d)
    mkdir -p scripts/ralph/archive/${DATE}-${SUFFIX}
-   mv scripts/ralph/prd-${SUFFIX}.json scripts/ralph/archive/${DATE}-${SUFFIX}/
-   mv scripts/ralph/progress-${SUFFIX}.txt scripts/ralph/archive/${DATE}-${SUFFIX}/
+   # Handle both numbered (prd0001-) and legacy (prd-) naming
+   mv scripts/ralph/prd*-${SUFFIX}.json scripts/ralph/archive/${DATE}-${SUFFIX}/
+   mv scripts/ralph/progress*-${SUFFIX}.txt scripts/ralph/archive/${DATE}-${SUFFIX}/
    ```
    Commit the archive move to main so the working directory stays clean.
 4. Update the dependency graph — check if any blocked PRDs are now unblocked
