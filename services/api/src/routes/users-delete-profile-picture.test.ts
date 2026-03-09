@@ -8,9 +8,9 @@ const {
   mockVerifyIdToken,
   mockUsersDocUpdate,
   mockUsersDocRef,
-  mockStorageDelete,
-  mockStorageFile,
-  mockStorageBucket,
+  mockDeleteIfExists,
+  mockGetBlockBlobClient,
+  mockGetContainerClient,
   mockFieldValueDelete,
 } = vi.hoisted(() => {
   const mockVerifyIdToken = vi.fn();
@@ -20,12 +20,12 @@ const {
     update: mockUsersDocUpdate,
   }));
 
-  const mockStorageDelete = vi.fn();
-  const mockStorageFile = vi.fn(() => ({
-    delete: mockStorageDelete,
+  const mockDeleteIfExists = vi.fn();
+  const mockGetBlockBlobClient = vi.fn(() => ({
+    deleteIfExists: mockDeleteIfExists,
   }));
-  const mockStorageBucket = vi.fn(() => ({
-    file: mockStorageFile,
+  const mockGetContainerClient = vi.fn(() => ({
+    getBlockBlobClient: mockGetBlockBlobClient,
   }));
 
   const mockFieldValueDelete = vi.fn(() => '__FIELD_DELETE_SENTINEL__');
@@ -34,9 +34,9 @@ const {
     mockVerifyIdToken,
     mockUsersDocUpdate,
     mockUsersDocRef,
-    mockStorageDelete,
-    mockStorageFile,
-    mockStorageBucket,
+    mockDeleteIfExists,
+    mockGetBlockBlobClient,
+    mockGetContainerClient,
     mockFieldValueDelete,
   };
 });
@@ -54,7 +54,7 @@ vi.mock('../lib/firebase', () => ({
 }));
 
 vi.mock('../lib/storage', () => ({
-  getStorageBucket: mockStorageBucket,
+  getContainerClient: mockGetContainerClient,
 }));
 
 vi.mock('../lib/firestore', () => ({
@@ -99,17 +99,17 @@ beforeEach(() => {
   vi.resetAllMocks();
 
   mockVerifyIdToken.mockResolvedValue({ uid: TEST_UID });
-  mockStorageDelete.mockResolvedValue(undefined);
+  mockDeleteIfExists.mockResolvedValue(undefined);
   mockUsersDocUpdate.mockResolvedValue(undefined);
 
   mockUsersDocRef.mockImplementation(() => ({
     update: mockUsersDocUpdate,
   }));
-  mockStorageFile.mockImplementation(() => ({
-    delete: mockStorageDelete,
+  mockGetBlockBlobClient.mockImplementation(() => ({
+    deleteIfExists: mockDeleteIfExists,
   }));
-  mockStorageBucket.mockImplementation(() => ({
-    file: mockStorageFile,
+  mockGetContainerClient.mockImplementation(() => ({
+    getBlockBlobClient: mockGetBlockBlobClient,
   }));
 });
 
@@ -121,7 +121,7 @@ describe('DELETE /users/me/profile-picture', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns 204 and deletes storage file and Firestore field', async () => {
+  it('returns 204 and deletes blob and Firestore field', async () => {
     const res = await request(buildApp())
       .delete('/users/me/profile-picture')
       .set('Authorization', VALID_TOKEN);
@@ -129,9 +129,9 @@ describe('DELETE /users/me/profile-picture', () => {
     expect(res.status).toBe(204);
     expect(res.body).toEqual({});
 
-    // Verify storage delete was called with correct path
-    expect(mockStorageFile).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/avatar.webp`);
-    expect(mockStorageDelete).toHaveBeenCalledOnce();
+    // Verify blob delete was called with correct path
+    expect(mockGetBlockBlobClient).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/avatar.webp`);
+    expect(mockDeleteIfExists).toHaveBeenCalledOnce();
 
     // Verify Firestore field was deleted
     expect(mockUsersDocRef).toHaveBeenCalledWith(TEST_UID);
@@ -141,9 +141,9 @@ describe('DELETE /users/me/profile-picture', () => {
     expect(mockFieldValueDelete).toHaveBeenCalled();
   });
 
-  it('returns 204 even if no picture existed in storage (idempotent)', async () => {
-    // Simulate storage "not found" error
-    mockStorageDelete.mockRejectedValueOnce({ code: 404 });
+  it('returns 204 even if no picture existed (deleteIfExists is idempotent)', async () => {
+    // deleteIfExists resolves successfully even when the blob does not exist
+    mockDeleteIfExists.mockResolvedValue(undefined);
 
     const res = await request(buildApp())
       .delete('/users/me/profile-picture')
@@ -157,8 +157,8 @@ describe('DELETE /users/me/profile-picture', () => {
     });
   });
 
-  it('propagates non-404 storage errors', async () => {
-    mockStorageDelete.mockRejectedValueOnce({ code: 500, message: 'Internal error' });
+  it('propagates storage errors', async () => {
+    mockDeleteIfExists.mockRejectedValueOnce(new Error('Storage unavailable'));
 
     const res = await request(buildApp())
       .delete('/users/me/profile-picture')
@@ -166,7 +166,7 @@ describe('DELETE /users/me/profile-picture', () => {
 
     expect(res.status).toBe(500);
 
-    // Firestore should NOT be updated when storage fails with non-404
+    // Firestore should NOT be updated when storage fails
     expect(mockUsersDocUpdate).not.toHaveBeenCalled();
   });
 });

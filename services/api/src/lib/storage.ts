@@ -1,37 +1,60 @@
-import { admin } from './firebase';
+import { BlobServiceClient } from '@azure/storage-blob';
+import { DefaultAzureCredential } from '@azure/identity';
 import { logger } from './logger';
 
 /**
- * Returns the Firebase Storage bucket using an explicit bucket name
- * from FIREBASE_STORAGE_BUCKET env var (falls back to {projectId}.appspot.com).
+ * Returns a ContainerClient for the given container, authenticated via
+ * managed identity (DefaultAzureCredential). Reads AZURE_STORAGE_ACCOUNT_URL.
  */
-export function getStorageBucket() {
-  const projectId = process.env.FIREBASE_PROJECT_ID ?? 'burnbuddy-dev';
-  const bucketName =
-    process.env.FIREBASE_STORAGE_BUCKET ?? `${projectId}.appspot.com`;
-  return admin.storage().bucket(bucketName);
+export function getContainerClient(containerName: string = 'uploads') {
+  const accountUrl = process.env.AZURE_STORAGE_ACCOUNT_URL;
+  if (!accountUrl) {
+    throw new Error('AZURE_STORAGE_ACCOUNT_URL environment variable is not set');
+  }
+  const blobServiceClient = new BlobServiceClient(
+    accountUrl,
+    new DefaultAzureCredential(),
+  );
+  return blobServiceClient.getContainerClient(containerName);
+}
+
+/**
+ * Returns the public blob URL for a given path and container.
+ */
+export function getBlobUrl(
+  blobPath: string,
+  containerName: string = 'uploads',
+): string {
+  const accountUrl = process.env.AZURE_STORAGE_ACCOUNT_URL;
+  if (!accountUrl) {
+    throw new Error('AZURE_STORAGE_ACCOUNT_URL environment variable is not set');
+  }
+  return `${accountUrl}/${containerName}/${blobPath}`;
 }
 
 /**
  * Lightweight connectivity check at startup.
- * Logs a warning if the bucket is unreachable — does NOT block startup.
+ * Logs a warning if the container is unreachable — does NOT block startup.
  */
 export async function checkStorageConnectivity(): Promise<void> {
   try {
-    const bucket = getStorageBucket();
-    const [exists] = await bucket.exists();
+    const containerClient = getContainerClient('uploads');
+    const exists = await containerClient.exists();
     if (!exists) {
       logger.warn(
-        { bucket: bucket.name },
-        'Firebase Storage bucket does not exist — uploads will fail',
+        { container: 'uploads' },
+        'Azure Blob Storage container does not exist — uploads will fail',
       );
     } else {
-      logger.info({ bucket: bucket.name }, 'Firebase Storage bucket verified');
+      logger.info(
+        { container: 'uploads' },
+        'Azure Blob Storage container verified',
+      );
     }
   } catch (err) {
     logger.warn(
       { err },
-      'Firebase Storage connectivity check failed — storage features may not work',
+      'Azure Blob Storage connectivity check failed — storage features may not work',
     );
   }
 }

@@ -16,9 +16,9 @@ const {
   mockDocUpdate,
   mockBatchDelete,
   mockBatchCommit,
-  mockStorageDelete,
-  mockStorageFile,
-  mockStorageBucket,
+  mockDeleteIfExists,
+  mockGetBlockBlobClient,
+  mockGetContainerClient,
   mockArrayRemove,
 } = vi.hoisted(() => {
   return {
@@ -30,9 +30,9 @@ const {
     mockDocUpdate: vi.fn(),
     mockBatchDelete: vi.fn(),
     mockBatchCommit: vi.fn(),
-    mockStorageDelete: vi.fn(),
-    mockStorageFile: vi.fn(),
-    mockStorageBucket: vi.fn(),
+    mockDeleteIfExists: vi.fn(),
+    mockGetBlockBlobClient: vi.fn(),
+    mockGetContainerClient: vi.fn(),
     mockArrayRemove: vi.fn(),
   };
 });
@@ -59,7 +59,7 @@ vi.mock('../lib/firebase', () => ({
 }));
 
 vi.mock('../lib/storage', () => ({
-  getStorageBucket: mockStorageBucket,
+  getContainerClient: mockGetContainerClient,
 }));
 
 vi.mock('../lib/firestore', () => {
@@ -143,9 +143,9 @@ beforeEach(() => {
   mockDeleteUser.mockResolvedValue(undefined);
 
   // Storage
-  mockStorageDelete.mockResolvedValue(undefined);
-  mockStorageFile.mockReturnValue({ delete: mockStorageDelete });
-  mockStorageBucket.mockReturnValue({ file: mockStorageFile });
+  mockDeleteIfExists.mockResolvedValue(undefined);
+  mockGetBlockBlobClient.mockReturnValue({ deleteIfExists: mockDeleteIfExists });
+  mockGetContainerClient.mockReturnValue({ getBlockBlobClient: mockGetBlockBlobClient });
 
   // arrayRemove sentinel
   mockArrayRemove.mockReturnValue('__ARRAY_REMOVE__');
@@ -299,12 +299,12 @@ describe('DELETE /users/me', () => {
       .delete('/users/me')
       .set('Authorization', VALID_TOKEN);
 
-    expect(mockStorageFile).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/avatar.webp`);
-    expect(mockStorageDelete).toHaveBeenCalled();
+    expect(mockGetBlockBlobClient).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/avatar.webp`);
+    expect(mockDeleteIfExists).toHaveBeenCalled();
   });
 
-  it('ignores 404 errors when deleting profile picture', async () => {
-    mockStorageDelete.mockRejectedValueOnce({ code: 404 });
+  it('logs error but succeeds when storage delete throws', async () => {
+    mockDeleteIfExists.mockRejectedValueOnce(new Error('storage unavailable'));
 
     const res = await request(buildApp())
       .delete('/users/me')
@@ -322,7 +322,7 @@ describe('DELETE /users/me', () => {
       return Promise.resolve(undefined);
     });
 
-    mockStorageDelete.mockImplementation(() => {
+    mockDeleteIfExists.mockImplementation(() => {
       callOrder.push('storage-delete');
       return Promise.resolve(undefined);
     });

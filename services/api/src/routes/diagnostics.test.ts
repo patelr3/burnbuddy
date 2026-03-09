@@ -4,21 +4,21 @@ import request from 'supertest';
 
 const {
   mockVerifyIdToken,
-  mockBucketExists,
-  mockGetStorageBucket,
+  mockContainerExists,
+  mockGetContainerClient,
   mockLoggerError,
 } = vi.hoisted(() => {
   const mockVerifyIdToken = vi.fn();
-  const mockBucketExists = vi.fn();
-  const mockGetStorageBucket = vi.fn(() => ({
-    exists: mockBucketExists,
+  const mockContainerExists = vi.fn();
+  const mockGetContainerClient = vi.fn(() => ({
+    exists: mockContainerExists,
   }));
   const mockLoggerError = vi.fn();
 
   return {
     mockVerifyIdToken,
-    mockBucketExists,
-    mockGetStorageBucket,
+    mockContainerExists,
+    mockGetContainerClient,
     mockLoggerError,
   };
 });
@@ -31,7 +31,7 @@ vi.mock('../lib/firebase', () => ({
 }));
 
 vi.mock('../lib/storage', () => ({
-  getStorageBucket: mockGetStorageBucket,
+  getContainerClient: mockGetContainerClient,
 }));
 
 vi.mock('../lib/firestore', () => ({
@@ -85,14 +85,12 @@ beforeEach(() => {
   vi.resetAllMocks();
 
   savedEnv = {
-    FIREBASE_SERVICE_ACCOUNT_JSON: process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
-    FIREBASE_STORAGE_BUCKET: process.env.FIREBASE_STORAGE_BUCKET,
-    FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
+    AZURE_STORAGE_ACCOUNT_URL: process.env.AZURE_STORAGE_ACCOUNT_URL,
   };
 
   mockVerifyIdToken.mockResolvedValue({ uid: TEST_UID });
-  mockBucketExists.mockResolvedValue([true]);
-  mockGetStorageBucket.mockReturnValue({ exists: mockBucketExists });
+  mockContainerExists.mockResolvedValue(true);
+  mockGetContainerClient.mockReturnValue({ exists: mockContainerExists });
 });
 
 afterEach(() => {
@@ -112,8 +110,7 @@ describe('GET /diagnostics', () => {
   });
 
   it('returns 200 with sharp and storage info when authenticated', async () => {
-    process.env.FIREBASE_SERVICE_ACCOUNT_JSON = '{"key": "value"}';
-    process.env.FIREBASE_STORAGE_BUCKET = 'test-bucket.appspot.com';
+    process.env.AZURE_STORAGE_ACCOUNT_URL = 'https://burnbuddybetasa.blob.core.windows.net';
 
     const res = await request(buildApp())
       .get('/diagnostics')
@@ -127,27 +124,15 @@ describe('GET /diagnostics', () => {
         heifFileSuffixes: ['.heic', '.heif', '.avif'],
       },
       storage: {
-        bucketName: 'test-bucket.appspot.com',
-        bucketExists: true,
-        credentialsPresent: true,
+        storageAccountUrl: 'https://burnbuddybetasa.blob.core.windows.net',
+        containerName: 'uploads',
+        containerExists: true,
       },
     });
   });
 
-  it('reports credentialsPresent as false when env var is missing', async () => {
-    delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-    process.env.FIREBASE_STORAGE_BUCKET = 'test-bucket.appspot.com';
-
-    const res = await request(buildApp())
-      .get('/diagnostics')
-      .set('Authorization', VALID_TOKEN);
-
-    expect(res.status).toBe(200);
-    expect(res.body.storage.credentialsPresent).toBe(false);
-  });
-
-  it('returns partial results with error field when bucket.exists() throws', async () => {
-    mockBucketExists.mockRejectedValueOnce(new Error('bucket access denied'));
+  it('returns partial results with error field when exists() throws', async () => {
+    mockContainerExists.mockRejectedValueOnce(new Error('container access denied'));
 
     const res = await request(buildApp())
       .get('/diagnostics')
@@ -164,12 +149,12 @@ describe('GET /diagnostics', () => {
 
     // Storage section should contain error, not crash the whole response
     expect(res.body.storage).toEqual({
-      error: 'Failed to check bucket',
+      error: 'Failed to check container',
     });
   });
 
-  it('returns storage error when getStorageBucket throws', async () => {
-    mockGetStorageBucket.mockImplementationOnce(() => {
+  it('returns storage error when getContainerClient throws', async () => {
+    mockGetContainerClient.mockImplementationOnce(() => {
       throw new Error('storage not initialized');
     });
 
@@ -180,7 +165,7 @@ describe('GET /diagnostics', () => {
     expect(res.status).toBe(200);
     expect(res.body.sharp.version).toBe('0.34.5');
     expect(res.body.storage).toEqual({
-      error: 'Failed to check bucket',
+      error: 'Failed to check container',
     });
   });
 });
