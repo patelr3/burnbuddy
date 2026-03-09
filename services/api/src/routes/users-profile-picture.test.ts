@@ -12,6 +12,9 @@ const {
   mockGetSignedUrl,
   mockStorageFile,
   mockStorageBucket,
+  mockLoggerInfo,
+  mockLoggerWarn,
+  mockLoggerError,
 } = vi.hoisted(() => {
   const mockVerifyIdToken = vi.fn();
 
@@ -33,6 +36,10 @@ const {
     file: mockStorageFile,
   }));
 
+  const mockLoggerInfo = vi.fn();
+  const mockLoggerWarn = vi.fn();
+  const mockLoggerError = vi.fn();
+
   return {
     mockVerifyIdToken,
     mockUsersDocUpdate,
@@ -43,6 +50,9 @@ const {
     mockGetSignedUrl,
     mockStorageFile,
     mockStorageBucket,
+    mockLoggerInfo,
+    mockLoggerWarn,
+    mockLoggerError,
   };
 });
 
@@ -83,6 +93,21 @@ vi.mock('../lib/username', () => ({
 vi.mock('../services/streak-calculator', () => ({
   calculateStreaks: vi.fn(() => ({ burnStreak: 0 })),
   calculateHighestStreakEver: vi.fn(() => ({ value: 0 })),
+}));
+
+vi.mock('../lib/logger', () => ({
+  logger: {
+    info: mockLoggerInfo,
+    warn: mockLoggerWarn,
+    error: mockLoggerError,
+    debug: vi.fn(),
+    child: vi.fn(() => ({
+      info: mockLoggerInfo,
+      warn: mockLoggerWarn,
+      error: mockLoggerError,
+      debug: vi.fn(),
+    })),
+  },
 }));
 
 import usersRouter from './users';
@@ -284,6 +309,54 @@ describe('POST /users/me/profile-picture', () => {
     expect(mockStorageSave).toHaveBeenCalledWith(
       optimizedBuffer,
       expect.objectContaining({ contentType: 'image/webp' }),
+    );
+  });
+
+  it('accepts HEIC file when browser reports application/octet-stream (extension fallback)', async () => {
+    const imageBuffer = Buffer.alloc(100, 0xff);
+
+    const res = await request(buildApp())
+      .post('/users/me/profile-picture')
+      .set('Authorization', VALID_TOKEN)
+      .attach('picture', imageBuffer, { filename: 'photo.heic', contentType: 'application/octet-stream' });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ profilePictureUrl: SIGNED_URL });
+
+    // Should log that MIME type was inferred from extension
+    expect(mockLoggerInfo).toHaveBeenCalledWith(
+      expect.objectContaining({ originalMimetype: 'application/octet-stream', resolvedMimetype: 'image/heic' }),
+      'MIME type inferred from file extension',
+    );
+  });
+
+  it('accepts HEIF file when browser reports empty MIME type (extension fallback)', async () => {
+    const imageBuffer = Buffer.alloc(100, 0xff);
+
+    const res = await request(buildApp())
+      .post('/users/me/profile-picture')
+      .set('Authorization', VALID_TOKEN)
+      .attach('picture', imageBuffer, { filename: 'photo.heif', contentType: '' });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ profilePictureUrl: SIGNED_URL });
+  });
+
+  it('rejects file with unknown extension and unknown MIME type', async () => {
+    const imageBuffer = Buffer.alloc(100, 0xff);
+
+    const res = await request(buildApp())
+      .post('/users/me/profile-picture')
+      .set('Authorization', VALID_TOKEN)
+      .attach('picture', imageBuffer, { filename: 'file.bmp', contentType: 'application/octet-stream' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/invalid file type/i);
+
+    // Should log a warning for the rejected upload
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({ mimetype: 'application/octet-stream', originalname: 'file.bmp' }),
+      'Profile picture rejected: unsupported file type',
     );
   });
 });

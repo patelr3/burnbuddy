@@ -16,7 +16,7 @@ import { apiGet, apiPut, apiDelete, apiUploadFile } from '../lib/api';
 import { Avatar } from '../components/Avatar';
 import type { UserProfile } from '@burnbuddy/shared';
 
-const ACCEPTED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const ACCEPTED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 
 export default function AccountScreen() {
   const { user } = useAuth();
@@ -94,7 +94,7 @@ export default function AccountScreen() {
     const asset = result.assets[0];
     const mimeType = asset.mimeType ?? 'image/jpeg';
     if (!ACCEPTED_MIME_TYPES.includes(mimeType)) {
-      setUploadError('Invalid file type. Please use a JPEG, PNG, or WebP image.');
+      setUploadError('Invalid file type. Please use a JPEG, PNG, WebP, or HEIC image.');
       return;
     }
 

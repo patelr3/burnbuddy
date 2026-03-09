@@ -75,7 +75,7 @@ export async function apiUploadFile<T>(
   } as unknown as Blob);
 
   const controller = new AbortController();
-  const timeoutMs = 20_000;
+  const timeoutMs = 45_000;
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   // If the caller provides an external signal, forward its abort
@@ -109,7 +109,7 @@ export async function apiUploadFile<T>(
   if (res.status === 413) throw new Error('File is too large. Maximum size is 5 MB.');
   if (res.status === 400) {
     const data = await res.json().catch(() => null);
-    throw new Error(data?.error ?? 'Invalid file. Please use JPEG, PNG, or WebP.');
+    throw new Error(data?.error ?? 'Invalid file. Please use JPEG, PNG, WebP, or HEIC.');
   }
   if (!res.ok) throw new Error('Upload failed. Please try again.');
   return res.json() as Promise<T>;

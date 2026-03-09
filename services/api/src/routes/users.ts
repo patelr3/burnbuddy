@@ -25,6 +25,26 @@ const upload = multer({
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 
+const EXTENSION_TO_MIME: Record<string, string> = {
+  '.heic': 'image/heic',
+  '.heif': 'image/heif',
+};
+
+/** Resolve the image MIME type, falling back to file extension when the browser reports an unrecognised type. */
+function resolveImageMimeType(file: Express.Multer.File): string {
+  if (ALLOWED_IMAGE_TYPES.includes(file.mimetype)) return file.mimetype;
+  const ext = file.originalname?.toLowerCase().match(/\.[^.]+$/)?.[0] ?? '';
+  const inferred = EXTENSION_TO_MIME[ext];
+  if (inferred) {
+    logger.info(
+      { originalMimetype: file.mimetype, resolvedMimetype: inferred, originalname: file.originalname },
+      'MIME type inferred from file extension',
+    );
+    return inferred;
+  }
+  return file.mimetype;
+}
+
 /**
  * GET /users/search?q=<query>   — typeahead prefix search (returns array)
  * GET /users/search?email=<email> — exact email lookup (returns single object, legacy)
@@ -173,14 +193,23 @@ router.post(
       return;
     }
 
-    if (!ALLOWED_IMAGE_TYPES.includes(req.file.mimetype)) {
-      res.status(400).json({ error: 'Invalid file type. Only JPEG, PNG, and WebP are allowed.' });
+    const uid = req.user!.uid;
+    const resolvedMimetype = resolveImageMimeType(req.file);
+    logger.info(
+      { uid, fileSize: req.file.size, mimetype: req.file.mimetype, resolvedMimetype, originalname: req.file.originalname },
+      'Profile picture upload received',
+    );
+
+    if (!ALLOWED_IMAGE_TYPES.includes(resolvedMimetype)) {
+      logger.warn(
+        { uid, mimetype: req.file.mimetype, originalname: req.file.originalname },
+        'Profile picture rejected: unsupported file type',
+      );
+      res.status(400).json({ error: 'Invalid file type. Only JPEG, PNG, WebP, and HEIC are allowed.' });
       return;
     }
 
-    const uid = req.user!.uid;
     const fileSize = req.file.size;
-    logger.info({ uid, fileSize, mimetype: req.file.mimetype }, 'Profile picture upload started');
 
     let optimizedBuffer: Buffer;
     try {
