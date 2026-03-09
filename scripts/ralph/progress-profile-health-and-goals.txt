@@ -8,6 +8,8 @@ Started: 2026-03-09
 - Pre-existing test failure in users-profile.test.ts (streak assertion) — not related to our changes
 - Use FieldValue.delete() from firebase-admin/firestore to unset Firestore fields when client sends null
 - Health field validation is in validateHealthFields() in users.ts — reuse for new fields
+- TypeScript interfaces can't be assigned to Record<string, unknown> — use destructuring (not delete loops) for type-safe field stripping
+- stripHealthFields() in users.ts is the central place for health field privacy — add new health fields there too
 ---
 
 ## 2026-03-09 03:20 - US-001
@@ -27,4 +29,13 @@ Started: 2026-03-09
   - Changed updates type to Record<string, unknown> since FieldValue.delete() is not assignable to UserProfile field types
   - validateHealthFields() is a reusable helper at module scope — can be used for future field additions
   - GET /users/me already returns full Firestore doc data, so health fields are automatically included in responses
+---
+
+## 2026-03-09 03:35 - US-003
+- What was implemented: Added stripHealthFields() helper to users.ts that destructures and omits heightCm, weightKg, dateOfBirth, workoutGoal, unitPreference, healthProfilePromptDismissed from UserProfile data. Applied as defense-in-depth to GET /users/:uid, GET /users/:uid/profile, GET /users/search (both legacy email and typeahead paths). GET /users/me left unchanged — owner sees all fields.
+- Files changed: services/api/src/routes/users.ts
+- **Learnings for future iterations:**
+  - Public endpoints already use explicit field picking (cherry-pick uid, displayName, etc.), so health fields couldn't leak — but stripHealthFields adds defense-in-depth
+  - TypeScript interfaces can't be assigned to Record<string, unknown> — use destructuring instead of delete loops for type-safe field stripping
+  - Pre-existing test failure in users-profile.test.ts (streak assertion) is unrelated to our changes
 ---

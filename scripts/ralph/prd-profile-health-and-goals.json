@@ -51,7 +51,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Check all endpoints in services/api/src/routes/users.ts that return user data to non-owners. The GET /:uid, GET /:uid/profile, and search endpoints should strip health fields before sending the response."
     },
     {
