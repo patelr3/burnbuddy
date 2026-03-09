@@ -62,3 +62,13 @@ Started: 2026-03-09
   - Browser verification requires Firebase Auth API key — not available in local dev without env config
   - Tailwind classes: border-primary bg-primary/20 text-primary for active toggle states, [color-scheme:dark] for native date input dark mode
 ---
+
+## 2026-03-09 03:55 - US-006
+- What was implemented: Added Workout Goal section to account settings below Health & Body. Displays 5 goal options as selectable cards using WORKOUT_GOAL_LABELS from @burnbuddy/shared. Selected goal highlighted with primary color. Click to select/deselect. Saves immediately via healthFieldMutation.
+- Files changed: apps/web/src/app/(main)/account/page.tsx
+- **Learnings for future iterations:**
+  - healthFieldMutation accepts Record<string, unknown> (not Partial<UserProfile>) to allow null values for unsetting fields
+  - Use Object.keys(WORKOUT_GOAL_LABELS) as WorkoutGoal[] to iterate goals
+  - Tailwind: ring-1 ring-primary adds a subtle ring to selected cards
+  - responsive grid: grid-cols-2 gap-3 sm:grid-cols-3 works well for 5 goal cards
+---

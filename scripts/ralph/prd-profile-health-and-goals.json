@@ -105,7 +105,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Follow the same mutation pattern as other account settings fields. The goal cards should be visually consistent with the app's Tailwind styling — use the color-primary CSS variable for the selected state."
     },
     {

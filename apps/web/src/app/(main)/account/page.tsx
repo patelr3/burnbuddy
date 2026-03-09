@@ -452,6 +452,16 @@ export default function AccountPage() {
           <AccountSkeleton />
         ) : (
           <>
+            {/* Complete health profile banner */}
+            {profile?.healthProfilePromptDismissed &&
+              !profile.heightCm && !profile.weightKg && !profile.dateOfBirth && !profile.workoutGoal && (
+              <div className="mb-5 rounded-lg border border-primary/30 bg-primary/10 px-4 py-3">
+                <a href="#health-body" className="text-sm font-medium text-primary hover:underline">
+                  📋 Complete your health profile ↓
+                </a>
+              </div>
+            )}
+
             {/* Profile info with picture upload */}
             <section className="mb-5 rounded-lg border border-gray-700 bg-surface p-5">
               <h2 className="mb-4 text-base font-semibold text-white">Profile</h2>
@@ -575,7 +585,7 @@ export default function AccountPage() {
             </section>
 
             {/* Health & Body */}
-            <section className="mb-5 rounded-lg border border-gray-700 bg-surface p-5">
+            <section id="health-body" className="mb-5 rounded-lg border border-gray-700 bg-surface p-5">
               <div className="mb-1 flex items-center gap-2">
                 <h2 className="text-base font-semibold text-white">🔒 Health &amp; Body</h2>
               </div>

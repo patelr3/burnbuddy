@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useDashboard, queryKeys, type DashboardData } from '@/lib/queries';
 import { apiPost, apiPut, apiPatch } from '@/lib/api';
 import { GettingStartedCard } from '@/components/GettingStartedCard';
+import { HealthProfilePrompt } from '@/components/HealthProfilePrompt';
 import { Avatar } from '@/components/Avatar';
 import Link from 'next/link';
 import { UserPlus, UsersRound } from 'lucide-react';
@@ -123,6 +124,7 @@ export default function Home() {
 
   // UI-only state
   const [showCardDismissed, setShowCardDismissed] = useState(false);
+  const [healthPromptDismissed, setHealthPromptDismissed] = useState(false);
   const [showWorkoutSelector, setShowWorkoutSelector] = useState(false);
   const [selectedType, setSelectedType] = useState<WorkoutType | ''>('');
   const [customType, setCustomType] = useState('');
@@ -133,6 +135,7 @@ export default function Home() {
   const profile = dashboard?.user ?? null;
   const activeWorkout = dashboard?.activeWorkout ?? null;
   const showCard = profile ? !profile.gettingStartedDismissed && !showCardDismissed : false;
+  const showHealthPrompt = profile ? !profile.healthProfilePromptDismissed && !healthPromptDismissed : false;
   const groupWorkoutWindowMs = dashboard?.partnerActivity?.groupWorkoutWindowMs ?? 0;
   const incomingBuddyRequests = dashboard?.buddyRequests?.incoming ?? [];
   const incomingSquadRequests = dashboard?.squadJoinRequests?.incoming ?? [];
@@ -285,6 +288,15 @@ export default function Home() {
 
   return (
       <main className="mx-auto max-w-xl px-4">
+
+      {showHealthPrompt && (
+        <HealthProfilePrompt
+          onComplete={() => {
+            setHealthPromptDismissed(true);
+            queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
+          }}
+        />
+      )}
 
       {showCard && <GettingStartedCard onDismiss={handleDismiss} />}
 
