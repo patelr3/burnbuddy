@@ -242,6 +242,40 @@ router.get('/me', requireAuth, cacheControl(0), async (req: Request, res: Respon
 });
 
 /**
+ * GET /users/me/points
+ * Returns the authenticated user's monthly points for the current month
+ * and up to 12 months of history.
+ */
+router.get('/me/points', requireAuth, cacheControl(30), async (req: Request, res: Response): Promise<void> => {
+  const uid = req.user!.uid;
+  const db = getDb();
+
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  // Fetch all monthlyPoints docs for this user
+  const snap = await db.collection('monthlyPoints').where('uid', '==', uid).get();
+
+  type MonthlyPointsDoc = { uid: string; month: string; points: number; updatedAt: string };
+  const allDocs = snap.docs.map((d) => d.data() as MonthlyPointsDoc);
+
+  // Current month's points
+  const currentDoc = allDocs.find((d) => d.month === currentMonth);
+  const currentMonthPoints = {
+    month: currentMonth,
+    points: currentDoc?.points ?? 0,
+  };
+
+  // History: last 12 months excluding current month, sorted newest-first
+  const history = allDocs
+    .filter((d) => d.month !== currentMonth)
+    .sort((a, b) => b.month.localeCompare(a.month))
+    .slice(0, 12);
+
+  res.json({ currentMonth: currentMonthPoints, history });
+});
+
+/**
  * POST /users/me/profile-picture
  * Uploads a profile picture, resizes to 256×256, converts to WebP, stores it in
  * Azure Blob Storage, and updates the user's Firestore document with the public URL.

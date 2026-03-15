@@ -143,6 +143,13 @@ export interface ActivePartnerWorkout {
   earliestStartedAt: string; // ISO 8601
 }
 
+export interface MonthlyPoints {
+  uid: string;
+  month: string; // YYYY-MM format
+  points: number;
+  updatedAt: string; // ISO 8601
+}
+
 export interface ProfileStats {
   displayName: string;
   username?: string;

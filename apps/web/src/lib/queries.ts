@@ -3,6 +3,7 @@ import { apiGet } from './api';
 import { auth } from './firebase-client';
 import type {
   UserProfile,
+  MonthlyPoints,
   BurnBuddy,
   BurnSquad,
   BurnSquadJoinRequest,
@@ -119,6 +120,7 @@ export const queryKeys = {
   burnSquad: (id: string) => ['burn-squad', id] as const,
   groupWorkoutDetail: (gwId: string) => ['group-workout-detail', gwId] as const,
   account: ['account'] as const,
+  monthlyPoints: ['monthly-points'] as const,
 };
 
 // ── Hooks ────────────────────────────────────────────────────────────────────
@@ -142,6 +144,18 @@ export function useProfile(uid: string) {
     queryKey: queryKeys.profile(uid),
     queryFn: () => apiGet<ProfileStats>(`/users/${uid}/profile`),
     enabled: !!uid,
+  });
+}
+
+export interface MonthlyPointsData {
+  currentMonth: { month: string; points: number };
+  history: MonthlyPoints[];
+}
+
+export function useMonthlyPoints() {
+  return useQuery({
+    queryKey: queryKeys.monthlyPoints,
+    queryFn: () => apiGet<MonthlyPointsData>('/users/me/points'),
   });
 }
 

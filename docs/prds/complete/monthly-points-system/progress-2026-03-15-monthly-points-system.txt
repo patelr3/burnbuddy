@@ -1,0 +1,64 @@
+# Ralph Progress Log — Monthly Points System
+Started: 2026-03-15
+
+## Codebase Patterns
+- Shared types in `packages/shared/src/types.ts`, must run `cd packages/shared && yarn build` after changes
+- API typecheck: `cd services/api && npx tsc --noEmit`
+- Firestore collection naming: camelCase (e.g., `monthlyPoints`)
+- Document IDs can be composite: `${uid}_${YYYY-MM}`
+---
+
+## 2026-03-15 - US-001
+- Added `MonthlyPoints` interface to `packages/shared/src/types.ts` with fields: uid, month (YYYY-MM), points, updatedAt (ISO 8601)
+- Files changed: `packages/shared/src/types.ts`
+- **Learnings for future iterations:**
+  - Must run `yarn install` in worktree before typecheck (node_modules may not be present)
+  - Shared package build is fast (~0.3s) — always rebuild after type changes
+  - API typecheck passes cleanly once deps installed
+---
+
+## 2026-03-15 - US-002
+- Created `services/api/src/services/monthly-points.ts` with `awardGroupWorkoutPoints()` and `getCurrentMonth()`
+- Integrated point awarding into `group-workout-detection.ts` — fires after each GroupWorkout creation
+- Created `services/api/src/services/monthly-points.test.ts` with 8 tests
+- Files changed: `services/monthly-points.ts`, `services/monthly-points.test.ts`, `services/group-workout-detection.ts`
+- **Learnings for future iterations:**
+  - `FieldValue.increment(1)` needs mock from `firebase-admin/firestore` in tests
+  - The group-workout-detection test mocks `../lib/firestore` with collection routing — new collections need to be added to the mock router
+  - Fire-and-forget pattern: call `.catch()` on the promise and log the error, never re-throw
+  - Existing group-workout-detection tests still pass because `awardGroupWorkoutPoints` import resolves to undefined (no mock needed) — the `.catch()` swallows errors
+---
+
+## 2026-03-15 - US-003
+- Added `GET /users/me/points` endpoint to `services/api/src/routes/users.ts`
+- Returns `{ currentMonth: { month, points }, history: MonthlyPoints[] }`
+- Created `services/api/src/routes/users-points.test.ts` with 6 tests
+- Files changed: `routes/users.ts`, `routes/users-points.test.ts`
+- **Learnings for future iterations:**
+  - When testing a users sub-route, need to mock sharp and storage modules since users.ts imports them
+  - The `cacheControl(30)` middleware is used for endpoints that don't change frequently
+  - Firestore queries with `.where('uid', '==', uid)` followed by in-memory filtering is the standard pattern
+---
+
+## 2026-03-15 - US-004
+- Created `apps/web/src/components/MonthlyPointsCard.tsx` with fire emoji, bar chart, and empty state
+- Added `useMonthlyPoints` hook and `MonthlyPointsData` type to `apps/web/src/lib/queries.ts`
+- Integrated into dashboard page `apps/web/src/app/(main)/page.tsx`
+- Files changed: `MonthlyPointsCard.tsx`, `queries.ts`, `page.tsx`
+- **Learnings for future iterations:**
+  - Dashboard page is at `apps/web/src/app/(main)/page.tsx` — this is the user's home view
+  - React Query hooks follow pattern: `useXxx()` → `useQuery({ queryKey, queryFn })`
+  - Cannot browser-test locally without Firebase auth session — login redirect is expected
+  - Tailwind v4 color classes like `text-primary`, `bg-surface` are defined in globals.css `@theme` block
+---
+
+## 2026-03-15 - US-005
+- Added `pruneOldMonthlyPoints()` and `getCutoffMonth()` to `services/api/src/services/monthly-points.ts`
+- Pruning integrated into `awardGroupWorkoutPoints()` as fire-and-forget after point award
+- Added 7 new tests to `services/api/src/services/monthly-points.test.ts` (total now 15)
+- Files changed: `services/monthly-points.ts`, `services/monthly-points.test.ts`
+- **Learnings for future iterations:**
+  - YYYY-MM string comparison works for month ordering (lexicographic sort matches chronological)
+  - Date constructor `new Date(year, month - 12, 1)` handles negative months correctly (wraps to previous year)
+  - Fire-and-forget pruning: outer `.catch()` on the function call + inner try/catch for the query
+---

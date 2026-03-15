@@ -2,6 +2,8 @@ import { randomUUID } from 'crypto';
 import { GROUP_WORKOUT_WINDOW_MS } from '@burnbuddy/shared';
 import type { BurnBuddy, BurnSquad, GroupWorkout, Workout } from '@burnbuddy/shared';
 import { getDb } from '../lib/firestore';
+import { awardGroupWorkoutPoints } from './monthly-points';
+import { logger } from '../lib/logger';
 
 /**
  * Finds active workouts for a user that started within the detection window.
@@ -92,6 +94,11 @@ export async function detectGroupWorkouts(uid: string, workout: Workout): Promis
 
     await db.collection('groupWorkouts').doc(id).set(groupWorkout);
     created.push(groupWorkout);
+
+    // Award monthly points — fire-and-forget
+    awardGroupWorkoutPoints(groupWorkout.memberUids).catch((err: unknown) => {
+      logger.error({ err, groupWorkoutId: id }, 'Monthly point award failed (buddy)');
+    });
   }
 
   // ── Burn Squad detection ────────────────────────────────────────────────────
@@ -138,6 +145,11 @@ export async function detectGroupWorkouts(uid: string, workout: Workout): Promis
 
     await db.collection('groupWorkouts').doc(id).set(groupWorkout);
     created.push(groupWorkout);
+
+    // Award monthly points — fire-and-forget
+    awardGroupWorkoutPoints(groupWorkout.memberUids).catch((err: unknown) => {
+      logger.error({ err, groupWorkoutId: id }, 'Monthly point award failed (squad)');
+    });
   }
 
   return created;
