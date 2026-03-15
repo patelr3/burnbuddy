@@ -15,7 +15,7 @@ Create detailed Product Requirements Documents that are clear, actionable, and s
 1. Receive a feature description from the user
 2. Ask 3-5 essential clarifying questions (with lettered options)
 3. Generate a structured PRD based on answers
-4. Save to `docs/prds/prd-[feature-name].md`
+4. Save to `docs/prds/todo/prd-[YYYY-MM-DD]-[feature-name].md` (date is today's date)
 
 **Important:** Do NOT start implementing. Just create the PRD.
 
@@ -106,7 +106,7 @@ List any PRDs that must be completed before this one can begin. If this PRD has 
 **Format:**
 ```markdown
 ## Dependencies
-- prd-friend-search-and-usernames.md
+- prd-2026-03-15-friend-search-and-usernames.md
 ```
 
 Or if no dependencies:
@@ -150,8 +150,8 @@ The PRD reader may be a junior developer or AI agent. Therefore:
 ## Output
 
 - **Format:** Markdown (`.md`)
-- **Location:** `docs/prds/`
-- **Filename:** `prd-[feature-name].md` (kebab-case)
+- **Location:** `docs/prds/todo/`
+- **Filename:** `prd-[YYYY-MM-DD]-[feature-name].md` (date is today, feature-name is kebab-case)
 
 ---
 
@@ -258,4 +258,4 @@ Before saving the PRD:
 - [ ] Functional requirements are numbered and unambiguous
 - [ ] Non-goals section defines clear boundaries
 - [ ] Dependencies section lists prerequisite PRDs (or "None")
-- [ ] Saved to `docs/prds/prd-[feature-name].md`
+- [ ] Saved to `docs/prds/todo/prd-[YYYY-MM-DD]-[feature-name].md`
