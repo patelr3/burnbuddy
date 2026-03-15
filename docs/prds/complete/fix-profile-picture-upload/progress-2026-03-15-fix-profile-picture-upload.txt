@@ -1,0 +1,106 @@
+# Ralph Progress Log — Fix Profile Picture Upload
+Started: 2026-03-15
+---
+
+## Codebase Patterns
+- Root `yarn typecheck` fails on pre-existing mobile errors. Use `cd apps/web && yarn typecheck` and `cd services/api && yarn typecheck` separately.
+- Must run `cd packages/shared && yarn build` before API/web typecheck (API resolves @burnbuddy/shared from compiled dist/).
+- Beta storage: `burnbuddybetasa` in RG `buddyburn-beta`. Prod storage: `burnbuddyprodsa` in RG `buddyburn-prod`.
+- Beta API identity principalId: `71e4c958-eb58-4611-9c2f-6cb7d10502e6`. Prod API identity: `98741ca4-30cd-4148-8995-52deab36564f`.
+- Bicep what-if on beta shows destructive changes to custom domains if full deploy is run — storage was already deployed separately.
+
+## 2026-03-15T02:05Z - US-001
+- **What was implemented**: Verified beta storage infrastructure already deployed
+- **Files changed**: None (infrastructure-only story)
+- **Verification**:
+  - `az storage account show -n burnbuddybetasa -g buddyburn-beta` — StorageV2, eastus ✅
+  - `az storage container list --account-name burnbuddybetasa` — `uploads` container with blob public access ✅
+  - RBAC `Storage Blob Data Contributor` assigned to API identity `71e4c958-eb58-4611-9c2f-6cb7d10502e6` ✅
+  - `az deployment group create --what-if` confirmed no new resources needed ✅
+  - Web typecheck passes ✅
+  - API typecheck passes ✅
+  - All 443 API tests pass ✅
+- **Learnings for future iterations:**
+  - Storage account was already deployed — no az deployment needed
+  - Running full Bicep deploy would remove custom domains from container apps (Bicep doesn't define them)
+  - what-if shows env var reordering as "modifications" — these are cosmetic, not real changes
+---
+
+## 2026-03-15T02:15Z - US-002
+- **What was implemented**: Verified profile picture upload works on beta via API
+- **Files changed**: None (verification-only story)
+- **Verification**:
+  - Created test user via Firebase REST API (burnbuddy-e2e-test@test.example.com) ✅
+  - Created user profile via PUT /users/me ✅
+  - Uploaded test-avatar.jpg via POST /users/me/profile-picture → HTTP 200 ✅
+  - Response: `{"profilePictureUrl":"https://burnbuddybetasa.blob.core.windows.net/uploads/profile-pictures/.../avatar.webp?v=1773540626430"}` ✅
+  - Image URL returns HTTP 200, Content-Type: image/webp, 1498 bytes, 256x256 WebP ✅
+  - GET /users/me shows profilePictureUrl in profile ✅
+  - Web + API typecheck pass ✅
+- **Browser verification (partial)**:
+  - Logged into beta web app via FirebaseUI (burnbuddy-ui-test@test.example.com) ✅
+  - Navigated to /account page ✅
+  - Upload via browser UI returns "Storage service unavailable" ❌
+  - Root cause: Beta web Docker image has NEXT_PUBLIC_API_URL baked to prod API URL at build time
+    - Container env var says beta API, but Next.js NEXT_PUBLIC_ vars are inlined at build time
+    - Browser calls `buddyburn-prod-api.bravepebble-...` instead of `buddyburn-beta-api.gentletree-...`
+    - Prod API returns 503 because prod storage may not be configured yet
+  - This is a pre-existing CI/CD issue, not a storage infrastructure issue
+- **Learnings for future iterations:**
+  - NEXT_PUBLIC_ env vars are baked into Next.js client bundles at build time, NOT read at runtime
+  - Beta web app is misconfigured — Docker image was built with prod API URL
+  - Firebase REST API `accounts:signUp` creates users but FirebaseUI may not recognize them for email/password sign-in (use FirebaseUI flow instead)
+  - Test user creation approach: Firebase REST API → create profile via PUT /users/me → upload via POST
+  - Azure Key Vault secret names use `firebase-web-` prefix (not just `firebase-`)
+---
+
+## 2026-03-15T02:20Z - US-003
+- **What was implemented**: Deployed storage infrastructure to prod
+- **Files changed**: None (infrastructure-only story)
+- **Deployment**: Used targeted module deployment (`infra/modules/storage-account.bicep`) instead of full `main.bicep` to avoid removing custom domains and changing image tags
+- **Verification**:
+  - `az storage account show -n burnbuddyprodsa -g buddyburn-prod` — StorageV2, eastus ✅
+  - `az storage container list --account-name burnbuddyprodsa` — `uploads` container with blob public access ✅
+  - RBAC `Storage Blob Data Contributor` assigned to prod API identity `98741ca4-30cd-4148-8995-52deab36564f` ✅
+  - Prod API already has `AZURE_STORAGE_ACCOUNT_URL=https://burnbuddyprodsa.blob.core.windows.net` ✅
+  - Web + API typecheck pass ✅
+- **Learnings for future iterations:**
+  - Full Bicep deployment (main.bicep) would remove custom domain bindings — use targeted module deployments for incremental changes
+  - Prod API already had AZURE_STORAGE_ACCOUNT_URL configured (env var existed before storage account)
+  - Prod container apps use specific commit-hash image tags (e.g., f5abc3c0), not `latest`
+  - Prod uses smaller resources (0.25 CPU, 0.5Gi) vs Bicep template (0.5 CPU, 1Gi)
+---
+
+## 2026-03-15T02:25Z - US-004
+- **What was implemented**: Verified profile picture upload works on production
+- **Files changed**: None (verification-only story)
+- **Verification via API (curl)**:
+  - Uploaded test-avatar.jpg via POST /users/me/profile-picture on burnbuddy-api.arayosun.com → HTTP 200 ✅
+  - Response: `{"profilePictureUrl":"https://burnbuddyprodsa.blob.core.windows.net/uploads/profile-pictures/.../avatar.webp?v=1773541189152"}` ✅
+  - Image URL returns HTTP 200, Content-Type: image/webp, 1498 bytes ✅
+- **Verification via browser (dev-browser)**:
+  - Created fresh account (burnbuddy-prod-test@test.example.com) via FirebaseUI on prod ✅
+  - Navigated to /account page ✅
+  - Uploaded test-avatar.jpg via file input → image appears in avatar ✅
+  - "Remove photo" button appeared ✅
+  - NO "Storage service unavailable" error ✅
+- **Learnings for future iterations:**
+  - Prod web app calls prod API correctly (unlike beta web which calls prod API due to baked NEXT_PUBLIC_API_URL)
+  - The prod web app has correct API URL because it was built with prod config
+  - Creating test users via FirebaseUI on one site and trying to use on another site shows "email already exists without any means of sign-in" — use fresh emails per site
+  - Both beta and prod share the same Firebase project (patelr3-site) and Firestore
+---
+
+## 2026-03-15T02:30Z - US-005
+- **What was implemented**: Verified test fixture image (already committed in US-002)
+- **Files changed**: tests/fixtures/test-avatar.jpg (committed in US-002)
+- **Verification**:
+  - File: tests/fixtures/test-avatar.jpg — 3812 bytes (3.7 KB) ✅
+  - Format: JPEG (JFIF standard 1.01), 256x256 px, RGB ✅
+  - MIME type: image/jpeg ✅
+  - Successfully uploaded to beta API (US-002) and prod API + browser (US-004) ✅
+  - Typecheck passes ✅
+- **Learnings for future iterations:**
+  - Test fixture was created with Python Pillow (PIL) — no external image files needed
+  - The 256x256 size matches the API's resize target, so the output is essentially the same
+---

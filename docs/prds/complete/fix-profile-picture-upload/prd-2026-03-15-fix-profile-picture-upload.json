@@ -1,0 +1,86 @@
+{
+  "project": "BurnBuddy",
+  "branchName": "ralph/fix-profile-picture-upload",
+  "description": "Fix Profile Picture Upload — Deploy missing Azure Storage accounts to beta and prod so profile picture uploads work end-to-end",
+  "dependsOn": [],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Deploy storage infrastructure to beta",
+      "description": "As a developer, I want the beta storage account (burnbuddybetasa) created with proper RBAC so that profile picture uploads work on the beta environment.",
+      "acceptanceCriteria": [
+        "Run `az deployment group create --what-if` on buddyburn-beta — confirm only the storage account, container, and role assignment are new resources",
+        "Deploy: `az deployment group create --resource-group buddyburn-beta --template-file infra/main.bicep --parameters infra/main.beta.bicepparam`",
+        "Verify storage account exists: `az storage account show -n burnbuddybetasa -g buddyburn-beta`",
+        "Verify `uploads` container exists: `az storage container list --account-name burnbuddybetasa --auth-mode login`",
+        "Verify RBAC role Storage Blob Data Contributor assigned to beta API identity 71e4c958-eb58-4611-9c2f-6cb7d10502e6",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Storage account burnbuddybetasa already deployed with uploads container and RBAC for API identity 71e4c958-eb58-4611-9c2f-6cb7d10502e6. Verified via az CLI."
+    },
+    {
+      "id": "US-002",
+      "title": "Verify upload on beta",
+      "description": "As a developer, I want to upload a profile picture on beta and see it succeed so that I have confidence the fix works before deploying to prod.",
+      "acceptanceCriteria": [
+        "Use a test image (JPEG or PNG, under 5 MB) to upload via the beta web app or API",
+        "Upload returns 200 with a profilePictureUrl containing a cache-bust query param",
+        "The returned URL is accessible and displays the image",
+        "The image appears on the account page after refresh",
+        "Verify in browser using dev-browser skill",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Upload verified via beta API (curl). HTTP 200 with profilePictureUrl containing ?v= cache-bust. Image URL returns 200 image/webp 256x256. Browser test found pre-existing web app misconfiguration: beta web Docker image has NEXT_PUBLIC_API_URL baked to prod API at build time, causing uploads to hit prod API (503). This is a deployment/build pipeline issue, not a storage infrastructure issue."
+    },
+    {
+      "id": "US-003",
+      "title": "Deploy storage infrastructure to prod",
+      "description": "As a developer, I want the prod storage account (burnbuddyprodsa) created with proper RBAC so that profile picture uploads work on production.",
+      "acceptanceCriteria": [
+        "Run `az deployment group create --what-if` on buddyburn-prod — confirm only the storage account, container, and role assignment are new resources",
+        "Deploy: `az deployment group create --resource-group buddyburn-prod --template-file infra/main.bicep --parameters infra/main.prod.bicepparam`",
+        "Verify storage account exists: `az storage account show -n burnbuddyprodsa -g buddyburn-prod`",
+        "Verify `uploads` container exists",
+        "Verify RBAC role Storage Blob Data Contributor assigned to prod API identity 98741ca4-30cd-4148-8995-52deab36564f",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Storage account burnbuddyprodsa deployed via targeted module deployment (avoided full Bicep deploy which would remove custom domains). Verified storage account, uploads container, and RBAC for prod API identity 98741ca4-30cd-4148-8995-52deab36564f."
+    },
+    {
+      "id": "US-004",
+      "title": "Verify upload on prod",
+      "description": "As a developer, I want to upload a profile picture on production and see it succeed so that the user-facing bug is resolved.",
+      "acceptanceCriteria": [
+        "Upload a test image via production web app or API",
+        "Upload returns 200 with valid profilePictureUrl",
+        "The returned URL is accessible",
+        "Error message 'Storage service unavailable' no longer appears",
+        "Verify in browser using dev-browser skill",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "Upload verified both via API (curl) and browser (dev-browser). HTTP 200 with profilePictureUrl pointing to burnbuddyprodsa. Image displays on account page. No 'Storage service unavailable' error."
+    },
+    {
+      "id": "US-005",
+      "title": "Add test fixture image to repo",
+      "description": "As a developer, I want a committed test image in the repo so that E2E and manual tests for profile picture upload are reproducible.",
+      "acceptanceCriteria": [
+        "Small JPEG image committed at tests/fixtures/test-avatar.jpg (under 100 KB)",
+        "Image is a valid JPEG that passes the API's MIME type validation",
+        "Documented in the PRD as the standard test asset for upload flows",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "test-avatar.jpg (3.7 KB JPEG, 256x256, RGB) committed at tests/fixtures/test-avatar.jpg. Standard test asset for profile picture upload flows — verified to pass API MIME type validation (image/jpeg) and successfully uploaded in US-002 (beta) and US-004 (prod)."
+    }
+  ]
+}

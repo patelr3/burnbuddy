@@ -107,7 +107,6 @@ resource apiApp 'Microsoft.App/containerApps@2023-05-01' = {
       scale: {
         minReplicas: 1
         maxReplicas: 5
-        cooldownPeriod: 3600
         rules: [
           {
             name: 'http-scaling'
