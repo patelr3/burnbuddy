@@ -25,3 +25,31 @@ Started: 2026-03-15
   - Running full Bicep deploy would remove custom domains from container apps (Bicep doesn't define them)
   - what-if shows env var reordering as "modifications" — these are cosmetic, not real changes
 ---
+
+## 2026-03-15T02:15Z - US-002
+- **What was implemented**: Verified profile picture upload works on beta via API
+- **Files changed**: None (verification-only story)
+- **Verification**:
+  - Created test user via Firebase REST API (burnbuddy-e2e-test@test.example.com) ✅
+  - Created user profile via PUT /users/me ✅
+  - Uploaded test-avatar.jpg via POST /users/me/profile-picture → HTTP 200 ✅
+  - Response: `{"profilePictureUrl":"https://burnbuddybetasa.blob.core.windows.net/uploads/profile-pictures/.../avatar.webp?v=1773540626430"}` ✅
+  - Image URL returns HTTP 200, Content-Type: image/webp, 1498 bytes, 256x256 WebP ✅
+  - GET /users/me shows profilePictureUrl in profile ✅
+  - Web + API typecheck pass ✅
+- **Browser verification (partial)**:
+  - Logged into beta web app via FirebaseUI (burnbuddy-ui-test@test.example.com) ✅
+  - Navigated to /account page ✅
+  - Upload via browser UI returns "Storage service unavailable" ❌
+  - Root cause: Beta web Docker image has NEXT_PUBLIC_API_URL baked to prod API URL at build time
+    - Container env var says beta API, but Next.js NEXT_PUBLIC_ vars are inlined at build time
+    - Browser calls `buddyburn-prod-api.bravepebble-...` instead of `buddyburn-beta-api.gentletree-...`
+    - Prod API returns 503 because prod storage may not be configured yet
+  - This is a pre-existing CI/CD issue, not a storage infrastructure issue
+- **Learnings for future iterations:**
+  - NEXT_PUBLIC_ env vars are baked into Next.js client bundles at build time, NOT read at runtime
+  - Beta web app is misconfigured — Docker image was built with prod API URL
+  - Firebase REST API `accounts:signUp` creates users but FirebaseUI may not recognize them for email/password sign-in (use FirebaseUI flow instead)
+  - Test user creation approach: Firebase REST API → create profile via PUT /users/me → upload via POST
+  - Azure Key Vault secret names use `firebase-web-` prefix (not just `firebase-`)
+---

@@ -33,8 +33,8 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Upload verified via beta API (curl). HTTP 200 with profilePictureUrl containing ?v= cache-bust. Image URL returns 200 image/webp 256x256. Browser test found pre-existing web app misconfiguration: beta web Docker image has NEXT_PUBLIC_API_URL baked to prod API at build time, causing uploads to hit prod API (503). This is a deployment/build pipeline issue, not a storage infrastructure issue."
     },
     {
       "id": "US-003",
