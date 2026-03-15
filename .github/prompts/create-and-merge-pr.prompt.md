@@ -2,6 +2,8 @@
 
 Create a pull request for the current branch's changes and merge it to `main`.
 
+> **Note:** This prompt is also used by the Ralph loop's final iteration (see `.github/skills/ralph-loop/scripts/CLAUDE.md`). Keep the two in sync when making changes.
+
 ## Steps
 
 1. **Check prerequisites**

@@ -110,3 +110,12 @@ Store all secrets in Azure Key Vault. Prefer managed identity and federated cred
 ## Development Environment
 
 This project uses a Dev Container. You do not need to open a devcontainer, but other users in the system will.
+
+## Agent System
+
+This project uses the [Ralph agent system](.github/skills/ralph-loop/) for autonomous feature development. See the [agents README](README.md) for details on how agents, skills, and the orchestrator interact.
+
+### PRD Locations
+- **Todo**: `docs/prds/todo/` — PRDs waiting to be worked on
+- **In Progress**: `docs/prds/inprogress/` — PRD currently being implemented
+- **Complete**: `docs/prds/complete/<feature-name>/` — Archived completed PRDs
