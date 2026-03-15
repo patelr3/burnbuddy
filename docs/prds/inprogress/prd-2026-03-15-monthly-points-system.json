@@ -1,0 +1,86 @@
+{
+  "project": "BurnBuddy",
+  "branchName": "ralph/monthly-points-system",
+  "description": "Monthly Points System - Reward users with points for group workouts, tracked monthly with 12-month history",
+  "dependsOn": [],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Store monthly points in Firestore",
+      "description": "As a developer, I need a data model to store per-user monthly point totals so that points persist and can be queried efficiently.",
+      "acceptanceCriteria": [
+        "Create a `MonthlyPoints` type in `packages/shared/src/types.ts` with fields: `uid` (string), `month` (string, YYYY-MM format), `points` (number), `updatedAt` (string, ISO 8601)",
+        "Firestore collection: `monthlyPoints` with composite document ID `${uid}_${YYYY-MM}`",
+        "Build shared package successfully after type changes (`cd packages/shared && yarn build`)",
+        "Typecheck passes (`cd services/api && npx tsc --noEmit`)"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Award a point when a group workout is detected",
+      "description": "As a user, I want to automatically earn 1 point whenever a group workout is detected so that I'm rewarded for working out with my buddies or squad.",
+      "acceptanceCriteria": [
+        "When `detectGroupWorkouts()` creates a new `GroupWorkout`, increment the current month's point total by 1 for every user in `GroupWorkout.memberUids`",
+        "Use Firestore `FieldValue.increment(1)` for atomic updates (no read-before-write race conditions)",
+        "If the `monthlyPoints` document does not exist for the current month, create it with `points: 1` using `set` with `merge: true`",
+        "Point awarding runs as a background side-effect (fire-and-forget), same pattern as push notifications — errors are logged but do not fail the workout creation request",
+        "Write unit tests following the existing API test pattern (`vi.mock` + `vi.hoisted` + `supertest`)",
+        "Tests verify: point document created on first group workout, point incremented on subsequent group workouts, all group members receive points",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "API endpoint to get current month's points",
+      "description": "As a user, I want to see how many points I've earned this month so I can track my progress.",
+      "acceptanceCriteria": [
+        "`GET /users/me/points` returns `{ currentMonth: { month: \"YYYY-MM\", points: number }, history: MonthlyPoints[] }`",
+        "`currentMonth` returns the current calendar month's points (0 if no document exists)",
+        "`history` returns up to the last 12 months of point records, sorted newest-first, excluding the current month",
+        "Endpoint requires authentication (`requireAuth` middleware)",
+        "Write unit tests: no points returns 0, returns correct current month, returns history sorted correctly, only returns the user's own points",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Display points on user's own profile in the web app",
+      "description": "As a user, I want to see my current month's points on my profile page so I feel motivated to keep working out.",
+      "acceptanceCriteria": [
+        "Profile page shows a 'Monthly Points' card/section displaying the current month's point total",
+        "Shows a flame/fire emoji or icon next to the point count for visual appeal",
+        "If points are 0, show '0' with encouraging text (e.g., 'Start a group workout to earn points!')",
+        "Card also shows a small sparkline or simple list of the last few months' totals for trend context",
+        "Points data is fetched from `GET /users/me/points` when the profile page loads",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Prune point history older than 12 months",
+      "description": "As a developer, I want to keep the `monthlyPoints` collection lean by removing records older than 12 months.",
+      "acceptanceCriteria": [
+        "When writing a new month's points (in US-002's increment logic), check if the user has any `monthlyPoints` documents older than 12 months and delete them",
+        "Pruning runs as a background side-effect (fire-and-forget) — errors are logged but do not block the main flow",
+        "Write unit tests verifying: documents older than 12 months are deleted, documents within 12 months are kept",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
