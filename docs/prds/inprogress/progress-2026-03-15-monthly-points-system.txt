@@ -1,3 +1,18 @@
 # Ralph Progress Log — Monthly Points System
 Started: 2026-03-15
+
+## Codebase Patterns
+- Shared types in `packages/shared/src/types.ts`, must run `cd packages/shared && yarn build` after changes
+- API typecheck: `cd services/api && npx tsc --noEmit`
+- Firestore collection naming: camelCase (e.g., `monthlyPoints`)
+- Document IDs can be composite: `${uid}_${YYYY-MM}`
+---
+
+## 2026-03-15 - US-001
+- Added `MonthlyPoints` interface to `packages/shared/src/types.ts` with fields: uid, month (YYYY-MM), points, updatedAt (ISO 8601)
+- Files changed: `packages/shared/src/types.ts`
+- **Learnings for future iterations:**
+  - Must run `yarn install` in worktree before typecheck (node_modules may not be present)
+  - Shared package build is fast (~0.3s) — always rebuild after type changes
+  - API typecheck passes cleanly once deps installed
 ---
