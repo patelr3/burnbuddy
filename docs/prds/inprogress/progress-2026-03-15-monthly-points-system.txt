@@ -28,3 +28,14 @@ Started: 2026-03-15
   - Fire-and-forget pattern: call `.catch()` on the promise and log the error, never re-throw
   - Existing group-workout-detection tests still pass because `awardGroupWorkoutPoints` import resolves to undefined (no mock needed) — the `.catch()` swallows errors
 ---
+
+## 2026-03-15 - US-003
+- Added `GET /users/me/points` endpoint to `services/api/src/routes/users.ts`
+- Returns `{ currentMonth: { month, points }, history: MonthlyPoints[] }`
+- Created `services/api/src/routes/users-points.test.ts` with 6 tests
+- Files changed: `routes/users.ts`, `routes/users-points.test.ts`
+- **Learnings for future iterations:**
+  - When testing a users sub-route, need to mock sharp and storage modules since users.ts imports them
+  - The `cacheControl(30)` middleware is used for endpoints that don't change frequently
+  - Firestore queries with `.where('uid', '==', uid)` followed by in-memory filtering is the standard pattern
+---

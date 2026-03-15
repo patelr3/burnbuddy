@@ -7,6 +7,7 @@ import { useDashboard, queryKeys, type DashboardData } from '@/lib/queries';
 import { apiPost, apiPut, apiPatch } from '@/lib/api';
 import { GettingStartedCard } from '@/components/GettingStartedCard';
 import { HealthProfilePrompt } from '@/components/HealthProfilePrompt';
+import { MonthlyPointsCard } from '@/components/MonthlyPointsCard';
 import { Avatar } from '@/components/Avatar';
 import Link from 'next/link';
 import { UserPlus, UsersRound } from 'lucide-react';
@@ -365,6 +366,11 @@ export default function Home() {
           </button>
         </div>
       )}
+
+      {/* Monthly Points */}
+      <div className="mb-6">
+        <MonthlyPointsCard />
+      </div>
 
       {/* Workout Type Selector */}
       {showWorkoutSelector && (
