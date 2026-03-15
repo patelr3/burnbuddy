@@ -65,8 +65,8 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Upload verified both via API (curl) and browser (dev-browser). HTTP 200 with profilePictureUrl pointing to burnbuddyprodsa. Image displays on account page. No 'Storage service unavailable' error."
     },
     {
       "id": "US-005",

@@ -70,3 +70,23 @@ Started: 2026-03-15
   - Prod container apps use specific commit-hash image tags (e.g., f5abc3c0), not `latest`
   - Prod uses smaller resources (0.25 CPU, 0.5Gi) vs Bicep template (0.5 CPU, 1Gi)
 ---
+
+## 2026-03-15T02:25Z - US-004
+- **What was implemented**: Verified profile picture upload works on production
+- **Files changed**: None (verification-only story)
+- **Verification via API (curl)**:
+  - Uploaded test-avatar.jpg via POST /users/me/profile-picture on burnbuddy-api.arayosun.com → HTTP 200 ✅
+  - Response: `{"profilePictureUrl":"https://burnbuddyprodsa.blob.core.windows.net/uploads/profile-pictures/.../avatar.webp?v=1773541189152"}` ✅
+  - Image URL returns HTTP 200, Content-Type: image/webp, 1498 bytes ✅
+- **Verification via browser (dev-browser)**:
+  - Created fresh account (burnbuddy-prod-test@test.example.com) via FirebaseUI on prod ✅
+  - Navigated to /account page ✅
+  - Uploaded test-avatar.jpg via file input → image appears in avatar ✅
+  - "Remove photo" button appeared ✅
+  - NO "Storage service unavailable" error ✅
+- **Learnings for future iterations:**
+  - Prod web app calls prod API correctly (unlike beta web which calls prod API due to baked NEXT_PUBLIC_API_URL)
+  - The prod web app has correct API URL because it was built with prod config
+  - Creating test users via FirebaseUI on one site and trying to use on another site shows "email already exists without any means of sign-in" — use fresh emails per site
+  - Both beta and prod share the same Firebase project (patelr3-site) and Firestore
+---
