@@ -90,3 +90,17 @@ Started: 2026-03-15
   - Creating test users via FirebaseUI on one site and trying to use on another site shows "email already exists without any means of sign-in" — use fresh emails per site
   - Both beta and prod share the same Firebase project (patelr3-site) and Firestore
 ---
+
+## 2026-03-15T02:30Z - US-005
+- **What was implemented**: Verified test fixture image (already committed in US-002)
+- **Files changed**: tests/fixtures/test-avatar.jpg (committed in US-002)
+- **Verification**:
+  - File: tests/fixtures/test-avatar.jpg — 3812 bytes (3.7 KB) ✅
+  - Format: JPEG (JFIF standard 1.01), 256x256 px, RGB ✅
+  - MIME type: image/jpeg ✅
+  - Successfully uploaded to beta API (US-002) and prod API + browser (US-004) ✅
+  - Typecheck passes ✅
+- **Learnings for future iterations:**
+  - Test fixture was created with Python Pillow (PIL) — no external image files needed
+  - The 256x256 size matches the API's resize target, so the output is essentially the same
+---

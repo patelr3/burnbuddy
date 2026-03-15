@@ -79,8 +79,8 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "test-avatar.jpg (3.7 KB JPEG, 256x256, RGB) committed at tests/fixtures/test-avatar.jpg. Standard test asset for profile picture upload flows — verified to pass API MIME type validation (image/jpeg) and successfully uploaded in US-002 (beta) and US-004 (prod)."
     }
   ]
 }
