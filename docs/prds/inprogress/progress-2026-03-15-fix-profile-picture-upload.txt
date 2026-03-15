@@ -1,3 +1,27 @@
 # Ralph Progress Log — Fix Profile Picture Upload
 Started: 2026-03-15
 ---
+
+## Codebase Patterns
+- Root `yarn typecheck` fails on pre-existing mobile errors. Use `cd apps/web && yarn typecheck` and `cd services/api && yarn typecheck` separately.
+- Must run `cd packages/shared && yarn build` before API/web typecheck (API resolves @burnbuddy/shared from compiled dist/).
+- Beta storage: `burnbuddybetasa` in RG `buddyburn-beta`. Prod storage: `burnbuddyprodsa` in RG `buddyburn-prod`.
+- Beta API identity principalId: `71e4c958-eb58-4611-9c2f-6cb7d10502e6`. Prod API identity: `98741ca4-30cd-4148-8995-52deab36564f`.
+- Bicep what-if on beta shows destructive changes to custom domains if full deploy is run — storage was already deployed separately.
+
+## 2026-03-15T02:05Z - US-001
+- **What was implemented**: Verified beta storage infrastructure already deployed
+- **Files changed**: None (infrastructure-only story)
+- **Verification**:
+  - `az storage account show -n burnbuddybetasa -g buddyburn-beta` — StorageV2, eastus ✅
+  - `az storage container list --account-name burnbuddybetasa` — `uploads` container with blob public access ✅
+  - RBAC `Storage Blob Data Contributor` assigned to API identity `71e4c958-eb58-4611-9c2f-6cb7d10502e6` ✅
+  - `az deployment group create --what-if` confirmed no new resources needed ✅
+  - Web typecheck passes ✅
+  - API typecheck passes ✅
+  - All 443 API tests pass ✅
+- **Learnings for future iterations:**
+  - Storage account was already deployed — no az deployment needed
+  - Running full Bicep deploy would remove custom domains from container apps (Bicep doesn't define them)
+  - what-if shows env var reordering as "modifications" — these are cosmetic, not real changes
+---
