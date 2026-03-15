@@ -16,3 +16,15 @@ Started: 2026-03-15
   - Shared package build is fast (~0.3s) — always rebuild after type changes
   - API typecheck passes cleanly once deps installed
 ---
+
+## 2026-03-15 - US-002
+- Created `services/api/src/services/monthly-points.ts` with `awardGroupWorkoutPoints()` and `getCurrentMonth()`
+- Integrated point awarding into `group-workout-detection.ts` — fires after each GroupWorkout creation
+- Created `services/api/src/services/monthly-points.test.ts` with 8 tests
+- Files changed: `services/monthly-points.ts`, `services/monthly-points.test.ts`, `services/group-workout-detection.ts`
+- **Learnings for future iterations:**
+  - `FieldValue.increment(1)` needs mock from `firebase-admin/firestore` in tests
+  - The group-workout-detection test mocks `../lib/firestore` with collection routing — new collections need to be added to the mock router
+  - Fire-and-forget pattern: call `.catch()` on the promise and log the error, never re-throw
+  - Existing group-workout-detection tests still pass because `awardGroupWorkoutPoints` import resolves to undefined (no mock needed) — the `.catch()` swallows errors
+---
