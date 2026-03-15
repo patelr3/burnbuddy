@@ -51,3 +51,14 @@ Started: 2026-03-15
   - Cannot browser-test locally without Firebase auth session — login redirect is expected
   - Tailwind v4 color classes like `text-primary`, `bg-surface` are defined in globals.css `@theme` block
 ---
+
+## 2026-03-15 - US-005
+- Added `pruneOldMonthlyPoints()` and `getCutoffMonth()` to `services/api/src/services/monthly-points.ts`
+- Pruning integrated into `awardGroupWorkoutPoints()` as fire-and-forget after point award
+- Added 7 new tests to `services/api/src/services/monthly-points.test.ts` (total now 15)
+- Files changed: `services/monthly-points.ts`, `services/monthly-points.test.ts`
+- **Learnings for future iterations:**
+  - YYYY-MM string comparison works for month ordering (lexicographic sort matches chronological)
+  - Date constructor `new Date(year, month - 12, 1)` handles negative months correctly (wraps to previous year)
+  - Fire-and-forget pruning: outer `.catch()` on the function call + inner try/catch for the query
+---
