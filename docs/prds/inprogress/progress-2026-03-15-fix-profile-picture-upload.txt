@@ -53,3 +53,20 @@ Started: 2026-03-15
   - Test user creation approach: Firebase REST API → create profile via PUT /users/me → upload via POST
   - Azure Key Vault secret names use `firebase-web-` prefix (not just `firebase-`)
 ---
+
+## 2026-03-15T02:20Z - US-003
+- **What was implemented**: Deployed storage infrastructure to prod
+- **Files changed**: None (infrastructure-only story)
+- **Deployment**: Used targeted module deployment (`infra/modules/storage-account.bicep`) instead of full `main.bicep` to avoid removing custom domains and changing image tags
+- **Verification**:
+  - `az storage account show -n burnbuddyprodsa -g buddyburn-prod` — StorageV2, eastus ✅
+  - `az storage container list --account-name burnbuddyprodsa` — `uploads` container with blob public access ✅
+  - RBAC `Storage Blob Data Contributor` assigned to prod API identity `98741ca4-30cd-4148-8995-52deab36564f` ✅
+  - Prod API already has `AZURE_STORAGE_ACCOUNT_URL=https://burnbuddyprodsa.blob.core.windows.net` ✅
+  - Web + API typecheck pass ✅
+- **Learnings for future iterations:**
+  - Full Bicep deployment (main.bicep) would remove custom domain bindings — use targeted module deployments for incremental changes
+  - Prod API already had AZURE_STORAGE_ACCOUNT_URL configured (env var existed before storage account)
+  - Prod container apps use specific commit-hash image tags (e.g., f5abc3c0), not `latest`
+  - Prod uses smaller resources (0.25 CPU, 0.5Gi) vs Bicep template (0.5 CPU, 1Gi)
+---

@@ -49,8 +49,8 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Storage account burnbuddyprodsa deployed via targeted module deployment (avoided full Bicep deploy which would remove custom domains). Verified storage account, uploads container, and RBAC for prod API identity 98741ca4-30cd-4148-8995-52deab36564f."
     },
     {
       "id": "US-004",
