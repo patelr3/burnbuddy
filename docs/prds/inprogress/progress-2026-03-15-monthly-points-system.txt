@@ -39,3 +39,15 @@ Started: 2026-03-15
   - The `cacheControl(30)` middleware is used for endpoints that don't change frequently
   - Firestore queries with `.where('uid', '==', uid)` followed by in-memory filtering is the standard pattern
 ---
+
+## 2026-03-15 - US-004
+- Created `apps/web/src/components/MonthlyPointsCard.tsx` with fire emoji, bar chart, and empty state
+- Added `useMonthlyPoints` hook and `MonthlyPointsData` type to `apps/web/src/lib/queries.ts`
+- Integrated into dashboard page `apps/web/src/app/(main)/page.tsx`
+- Files changed: `MonthlyPointsCard.tsx`, `queries.ts`, `page.tsx`
+- **Learnings for future iterations:**
+  - Dashboard page is at `apps/web/src/app/(main)/page.tsx` — this is the user's home view
+  - React Query hooks follow pattern: `useXxx()` → `useQuery({ queryKey, queryFn })`
+  - Cannot browser-test locally without Firebase auth session — login redirect is expected
+  - Tailwind v4 color classes like `text-primary`, `bg-surface` are defined in globals.css `@theme` block
+---
