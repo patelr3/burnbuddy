@@ -130,3 +130,32 @@ Started: 2026-03-17
   - Existing mutation pattern: hooks are defined centrally, used inline in components via `useMutation` from tanstack
   - Web typecheck: `cd apps/web && npx tsc --noEmit` — passes cleanly
 ---
+
+## 2026-03-17T06:22 - US-010
+- What was implemented: Nutrition dashboard page at `/nutrition` with date picker, target nutrients display, daily summary progress bars, meal list, quick action buttons, and goals prompt
+- Files changed:
+  - `apps/web/src/app/(main)/nutrition/page.tsx` (new) — Full dashboard with date navigation, target nutrient cards (🔥 icon for earned points), daily summary with color-coded progress bars (green ≥100%, yellow 50-99%, red <50%), meal cards, and quick action links to meals/recipes/goals
+- **Learnings for future iterations:**
+  - lucide-react icons (ChevronLeft, ChevronRight, UtensilsCrossed, BookOpen, Target) are available in the project
+  - SUPPORTED_NUTRIENTS from @burnbuddy/shared provides the full nutrient info map (name, unit, dailyRecommended)
+  - DailyNutritionSummary has `pointsEarned` field for showing points banner
+  - NutritionGoals has `targetNutrients: NutrientId[]` — up to 3 nutrients the user tracks for points
+  - Pattern: split summary nutrients into target vs other for prominent display
+  - Date picker: use ISO date string (YYYY-MM-DD) for API queries, disable forward past today
+---
+
+## 2026-03-17T06:38 - US-011
+- What was implemented: Meal logging page at `/nutrition/log` with meal type selector, date picker, recipe dropdown, USDA food search, servings adjuster, nutrient preview, and submit with success feedback
+- Files changed:
+  - `apps/web/src/app/(main)/nutrition/log/page.tsx` (new) — Full meal logging form with two source modes (saved recipes + USDA food search), debounced search, scaled nutrient preview, loading/success states
+  - `apps/web/src/app/(main)/nutrition/page.tsx` — Updated "Log a Meal" links from `/nutrition/meals` to `/nutrition/log`
+- **Learnings for future iterations:**
+  - Meal logging path is `/nutrition/log` (not `/nutrition/meals`) — dashboard links updated accordingly
+  - `useRecipe(id)` returns `RecipeWithNutrients` which includes `nutrientsPerServing` field for nutrient preview
+  - `useFoodSearch(query)` needs debounce in UI layer (300ms setTimeout pattern)
+  - Servings adjuster scales nutrients via `Math.round(amount * factor * 100) / 100` for clean decimals
+  - Source mode toggle (recipe vs food search) clears the other mode's selection
+  - Success feedback: show checkmark for 800ms then `router.push('/nutrition')`
+  - Browser headless environment had font-loading timeouts preventing screenshots, but navigation worked (redirected to /login as expected for unauthenticated users)
+  - Web typecheck passes, all 590 API tests pass
+---
