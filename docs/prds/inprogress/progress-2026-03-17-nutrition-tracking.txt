@@ -50,3 +50,31 @@ Started: 2026-03-17
   - Firestore mock pattern: hoisted mockDocSnap with mutable `.exists`, mockDocRef with `.get()` and `.set()`, mockGetDb returning chain
   - Full test suite now has 503 tests across 24 files
 ---
+
+## 2026-03-17T05:59 - US-004
+- What was implemented: Recipe CRUD API routes (POST, GET list, GET by ID, PUT, DELETE) in `services/api/src/routes/nutrition.ts`
+- Files changed:
+  - `services/api/src/routes/nutrition.ts` (new) — Express router with 5 recipe endpoints, `calculateNutrientsPerServing` helper
+  - `services/api/src/routes/nutrition.test.ts` (new) — 32 unit tests covering all CRUD operations, auth, ownership validation, nutrient calculation
+- **Learnings for future iterations:**
+  - Recipe ownership checks return 404 (not 403) to avoid leaking recipe existence to non-owners
+  - `directNutrients` takes precedence over ingredient-calculated nutrients in GET /:id (nutrientsPerServing field)
+  - `calculateNutrientsPerServing` exported for potential reuse in meal logging
+  - DELETE returns 204 with empty body via `res.status(204).send()`
+  - Full test suite now has 535 tests across 25 files
+---
+
+## 2026-03-17T06:04 - US-005
+- What was implemented: Meal logging API routes (POST, GET by date, DELETE) in existing nutrition router
+- Files changed:
+  - `services/api/src/routes/nutrition.ts` — Added 3 meal endpoints, `resolveMealNutrients` helper, `evaluateNutritionPoints` stub
+  - `services/api/src/routes/nutrition.test.ts` — Added 20 meal logging tests (auth, validation, CRUD, recipe nutrient resolution)
+- **Learnings for future iterations:**
+  - Meal routes share the same router as recipe routes (`/nutrition/meals` and `/nutrition/recipes`)
+  - `resolveMealNutrients` fetches recipe when recipeId is provided, scales nutrients by servingsConsumed
+  - Fire-and-forget pattern: `evaluateNutritionPoints(uid, date).catch(err => logger.error(...))`
+  - `evaluateNutritionPoints` is a stub returning Promise.resolve() — US-007 will implement the real logic
+  - Collection `mealEntries` uses compound query `uid == X AND date == Y` with `orderBy('createdAt', 'asc')`
+  - Test mock pattern: separate hoisted mocks for each Firestore collection (mockMealsDocGet vs mockRecipesDocGet)
+  - Full test suite now has 555 tests across 25 files
+---

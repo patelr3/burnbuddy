@@ -12,6 +12,13 @@ const {
   mockRecipesQueryGet,
   mockRecipesQueryChain,
   mockRecipesCollectionWhere,
+  mockMealsDocGet,
+  mockMealsDocSet,
+  mockMealsDocDelete,
+  mockMealsDocRef,
+  mockMealsQueryGet,
+  mockMealsQueryChain,
+  mockMealsCollectionWhere,
 } = vi.hoisted(() => {
   const mockVerifyIdToken = vi.fn();
   const mockRecipesDocGet = vi.fn();
@@ -31,6 +38,23 @@ const {
   };
   const mockRecipesCollectionWhere = vi.fn(() => mockRecipesQueryChain);
 
+  const mockMealsDocGet = vi.fn();
+  const mockMealsDocSet = vi.fn();
+  const mockMealsDocDelete = vi.fn();
+  const mockMealsDocRef = vi.fn(() => ({
+    get: mockMealsDocGet,
+    set: mockMealsDocSet,
+    delete: mockMealsDocDelete,
+  }));
+
+  const mockMealsQueryGet = vi.fn();
+  const mockMealsQueryChain = {
+    where: vi.fn(),
+    orderBy: vi.fn(),
+    get: mockMealsQueryGet,
+  };
+  const mockMealsCollectionWhere = vi.fn(() => mockMealsQueryChain);
+
   return {
     mockVerifyIdToken,
     mockRecipesDocGet,
@@ -40,6 +64,13 @@ const {
     mockRecipesQueryGet,
     mockRecipesQueryChain,
     mockRecipesCollectionWhere,
+    mockMealsDocGet,
+    mockMealsDocSet,
+    mockMealsDocDelete,
+    mockMealsDocRef,
+    mockMealsQueryGet,
+    mockMealsQueryChain,
+    mockMealsCollectionWhere,
   };
 });
 
@@ -60,9 +91,24 @@ vi.mock('../lib/firestore', () => ({
           where: mockRecipesCollectionWhere,
         };
       }
+      if (name === 'mealEntries') {
+        return {
+          doc: mockMealsDocRef,
+          where: mockMealsCollectionWhere,
+        };
+      }
       return {};
     },
   }),
+}));
+
+vi.mock('../lib/logger', () => ({
+  logger: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
 }));
 
 // ── Import route AFTER mocks ──────────────────────────────────────
@@ -122,7 +168,7 @@ beforeEach(() => {
 
   mockVerifyIdToken.mockResolvedValue({ uid: TEST_UID });
 
-  // Re-wire query chain after reset
+  // Re-wire recipes query chain after reset
   mockRecipesCollectionWhere.mockReturnValue(mockRecipesQueryChain);
   mockRecipesQueryChain.where.mockReturnThis();
   mockRecipesQueryChain.orderBy.mockReturnThis();
@@ -131,6 +177,17 @@ beforeEach(() => {
     get: mockRecipesDocGet,
     set: mockRecipesDocSet,
     delete: mockRecipesDocDelete,
+  }));
+
+  // Re-wire meals query chain after reset
+  mockMealsCollectionWhere.mockReturnValue(mockMealsQueryChain);
+  mockMealsQueryChain.where.mockReturnThis();
+  mockMealsQueryChain.orderBy.mockReturnThis();
+
+  mockMealsDocRef.mockImplementation(() => ({
+    get: mockMealsDocGet,
+    set: mockMealsDocSet,
+    delete: mockMealsDocDelete,
   }));
 });
 
@@ -587,5 +644,315 @@ describe('DELETE /nutrition/recipes/:id', () => {
     expect(res.status).toBe(204);
     expect(res.body).toEqual({});
     expect(mockRecipesDocDelete).toHaveBeenCalledOnce();
+  });
+});
+
+// ── Meal logging tests ────────────────────────────────────────────
+
+const MEAL_ID = 'meal-id-001';
+
+function makeMeal(overrides: Record<string, unknown> = {}) {
+  return {
+    id: MEAL_ID,
+    uid: TEST_UID,
+    date: '2026-03-15',
+    mealType: 'lunch',
+    recipeName: 'Chicken Salad',
+    servingsConsumed: 1,
+    nutrients: [{ nutrientId: 'iron', amount: 1.5 }],
+    createdAt: '2026-03-15T12:00:00.000Z',
+    ...overrides,
+  };
+}
+
+describe('POST /nutrition/meals', () => {
+  it('returns 401 without auth', async () => {
+    const res = await request(buildApp())
+      .post('/nutrition/meals')
+      .send({ date: '2026-03-15', mealType: 'lunch', recipeName: 'Test', servingsConsumed: 1 });
+
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 400 when date is missing', async () => {
+    const res = await request(buildApp())
+      .post('/nutrition/meals')
+      .set('Authorization', VALID_TOKEN)
+      .send({ mealType: 'lunch', recipeName: 'Test', servingsConsumed: 1 });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: expect.stringContaining('date') });
+  });
+
+  it('returns 400 when date format is invalid', async () => {
+    const res = await request(buildApp())
+      .post('/nutrition/meals')
+      .set('Authorization', VALID_TOKEN)
+      .send({ date: '03-15-2026', mealType: 'lunch', recipeName: 'Test', servingsConsumed: 1 });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: expect.stringContaining('YYYY-MM-DD') });
+  });
+
+  it('returns 400 when mealType is invalid', async () => {
+    const res = await request(buildApp())
+      .post('/nutrition/meals')
+      .set('Authorization', VALID_TOKEN)
+      .send({ date: '2026-03-15', mealType: 'brunch', recipeName: 'Test', servingsConsumed: 1 });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: expect.stringContaining('mealType') });
+  });
+
+  it('returns 400 when recipeName is missing', async () => {
+    const res = await request(buildApp())
+      .post('/nutrition/meals')
+      .set('Authorization', VALID_TOKEN)
+      .send({ date: '2026-03-15', mealType: 'lunch', servingsConsumed: 1 });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: expect.stringContaining('recipeName') });
+  });
+
+  it('returns 400 when servingsConsumed is missing', async () => {
+    const res = await request(buildApp())
+      .post('/nutrition/meals')
+      .set('Authorization', VALID_TOKEN)
+      .send({ date: '2026-03-15', mealType: 'lunch', recipeName: 'Test' });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: expect.stringContaining('servingsConsumed') });
+  });
+
+  it('returns 400 when servingsConsumed is zero', async () => {
+    const res = await request(buildApp())
+      .post('/nutrition/meals')
+      .set('Authorization', VALID_TOKEN)
+      .send({ date: '2026-03-15', mealType: 'lunch', recipeName: 'Test', servingsConsumed: 0 });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: expect.stringContaining('servingsConsumed') });
+  });
+
+  it('logs a meal without recipe (direct nutrients) and returns 201', async () => {
+    mockMealsDocSet.mockResolvedValueOnce(undefined);
+
+    const body = {
+      date: '2026-03-15',
+      mealType: 'breakfast',
+      recipeName: 'Quick Oats',
+      servingsConsumed: 1,
+      nutrients: [
+        { nutrientId: 'iron', amount: 3 },
+        { nutrientId: 'calcium', amount: 50 },
+      ],
+    };
+
+    const res = await request(buildApp())
+      .post('/nutrition/meals')
+      .set('Authorization', VALID_TOKEN)
+      .send(body);
+
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({
+      uid: TEST_UID,
+      date: '2026-03-15',
+      mealType: 'breakfast',
+      recipeName: 'Quick Oats',
+      servingsConsumed: 1,
+    });
+    expect(res.body.nutrients).toEqual([
+      { nutrientId: 'iron', amount: 3 },
+      { nutrientId: 'calcium', amount: 50 },
+    ]);
+    expect(res.body.id).toBeDefined();
+    expect(res.body.createdAt).toBeDefined();
+    expect(mockMealsDocSet).toHaveBeenCalledOnce();
+  });
+
+  it('logs a meal with recipe and resolves nutrients from recipe', async () => {
+    mockMealsDocSet.mockResolvedValueOnce(undefined);
+
+    // Mock the recipe lookup (happens via getDb().collection('recipes').doc(recipeId).get())
+    mockRecipesDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => makeRecipe({ servings: 2 }),
+    });
+
+    const body = {
+      date: '2026-03-15',
+      mealType: 'dinner',
+      recipeId: RECIPE_ID,
+      recipeName: 'Chicken Salad',
+      servingsConsumed: 3,
+    };
+
+    const res = await request(buildApp())
+      .post('/nutrition/meals')
+      .set('Authorization', VALID_TOKEN)
+      .send(body);
+
+    expect(res.status).toBe(201);
+    expect(res.body.recipeId).toBe(RECIPE_ID);
+    // Recipe has: iron=(2+1)/2=1.5, zinc=4/2=2, vitaminC=10/2=5 per serving
+    // servingsConsumed=3, so: iron=4.5, zinc=6, vitaminC=15
+    expect(res.body.nutrients).toEqual(
+      expect.arrayContaining([
+        { nutrientId: 'iron', amount: 4.5 },
+        { nutrientId: 'zinc', amount: 6 },
+        { nutrientId: 'vitaminC', amount: 15 },
+      ]),
+    );
+  });
+
+  it('uses direct nutrients when recipe is not found', async () => {
+    mockMealsDocSet.mockResolvedValueOnce(undefined);
+    mockRecipesDocGet.mockResolvedValueOnce({ exists: false });
+
+    const body = {
+      date: '2026-03-15',
+      mealType: 'snack',
+      recipeId: 'nonexistent-recipe',
+      recipeName: 'Mystery Food',
+      servingsConsumed: 1,
+      nutrients: [{ nutrientId: 'vitaminC', amount: 20 }],
+    };
+
+    const res = await request(buildApp())
+      .post('/nutrition/meals')
+      .set('Authorization', VALID_TOKEN)
+      .send(body);
+
+    expect(res.status).toBe(201);
+    expect(res.body.nutrients).toEqual([{ nutrientId: 'vitaminC', amount: 20 }]);
+  });
+
+  it('logs meal with empty nutrients when no recipe and no direct nutrients', async () => {
+    mockMealsDocSet.mockResolvedValueOnce(undefined);
+
+    const body = {
+      date: '2026-03-15',
+      mealType: 'snack',
+      recipeName: 'Unknown Snack',
+      servingsConsumed: 1,
+    };
+
+    const res = await request(buildApp())
+      .post('/nutrition/meals')
+      .set('Authorization', VALID_TOKEN)
+      .send(body);
+
+    expect(res.status).toBe(201);
+    expect(res.body.nutrients).toEqual([]);
+  });
+});
+
+describe('GET /nutrition/meals', () => {
+  it('returns 401 without auth', async () => {
+    const res = await request(buildApp()).get('/nutrition/meals');
+    expect(res.status).toBe(401);
+  });
+
+  it('returns meals for a specific date', async () => {
+    const meal1 = makeMeal({ id: 'm1', mealType: 'breakfast', createdAt: '2026-03-15T08:00:00.000Z' });
+    const meal2 = makeMeal({ id: 'm2', mealType: 'lunch', createdAt: '2026-03-15T12:00:00.000Z' });
+
+    mockMealsQueryGet.mockResolvedValueOnce({
+      docs: [{ data: () => meal1 }, { data: () => meal2 }],
+    });
+
+    const res = await request(buildApp())
+      .get('/nutrition/meals?date=2026-03-15')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(2);
+    expect(res.body[0].id).toBe('m1');
+    expect(res.body[1].id).toBe('m2');
+
+    expect(mockMealsCollectionWhere).toHaveBeenCalledWith('uid', '==', TEST_UID);
+    expect(mockMealsQueryChain.where).toHaveBeenCalledWith('date', '==', '2026-03-15');
+    expect(mockMealsQueryChain.orderBy).toHaveBeenCalledWith('createdAt', 'asc');
+  });
+
+  it('returns empty array when no meals on date', async () => {
+    mockMealsQueryGet.mockResolvedValueOnce({ docs: [] });
+
+    const res = await request(buildApp())
+      .get('/nutrition/meals?date=2026-03-15')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+
+  it('defaults to today when date is not provided', async () => {
+    mockMealsQueryGet.mockResolvedValueOnce({ docs: [] });
+
+    const today = new Date().toISOString().split('T')[0];
+
+    const res = await request(buildApp())
+      .get('/nutrition/meals')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(mockMealsQueryChain.where).toHaveBeenCalledWith('date', '==', today);
+  });
+
+  it('returns 400 when date format is invalid', async () => {
+    const res = await request(buildApp())
+      .get('/nutrition/meals?date=not-a-date')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: expect.stringContaining('YYYY-MM-DD') });
+  });
+});
+
+describe('DELETE /nutrition/meals/:id', () => {
+  it('returns 401 without auth', async () => {
+    const res = await request(buildApp()).delete(`/nutrition/meals/${MEAL_ID}`);
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 when meal does not exist', async () => {
+    mockMealsDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .delete(`/nutrition/meals/${MEAL_ID}`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(404);
+    expect(res.body).toMatchObject({ error: 'Meal entry not found' });
+  });
+
+  it('returns 404 when meal belongs to another user', async () => {
+    mockMealsDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => makeMeal({ uid: OTHER_UID }),
+    });
+
+    const res = await request(buildApp())
+      .delete(`/nutrition/meals/${MEAL_ID}`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(404);
+    expect(res.body).toMatchObject({ error: 'Meal entry not found' });
+  });
+
+  it('deletes meal and returns 204', async () => {
+    mockMealsDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => makeMeal(),
+    });
+    mockMealsDocDelete.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .delete(`/nutrition/meals/${MEAL_ID}`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(204);
+    expect(res.body).toEqual({});
+    expect(mockMealsDocDelete).toHaveBeenCalledOnce();
   });
 });
