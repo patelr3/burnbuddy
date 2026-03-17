@@ -28,6 +28,17 @@ Started: 2026-03-17
   - `yarn install` needed first in fresh worktrees; `packages/shared` must be built before API tests
 ---
 
+## 2026-03-17T17:03 - US-003
+- Changed TIMEOUT_MS from 30_000 to 60_000 in replicate-cartoon-service.ts
+- Updated timeout test: advances timers by 61_000ms, expects error message with '60 seconds'
+- Files changed:
+  - services/api/src/services/replicate-cartoon-service.ts
+  - services/api/src/services/cartoon-service.test.ts
+- **Learnings for future iterations:**
+  - The timeout error message is dynamically derived from `TIMEOUT_MS / 1000` so changing the constant is sufficient
+  - Test uses `vi.advanceTimersByTimeAsync` with fake timers — must advance past the full timeout + 1s
+---
+
 ## 2026-03-17T17:02 - US-002
 - Added `PassthroughCartoonService` class in `replicate-cartoon-service.ts` — returns `null` to signal skip
 - Updated `CartoonService` interface return type to `Promise<Buffer | null>`
