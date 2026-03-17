@@ -65,6 +65,11 @@ resource apiApp 'Microsoft.App/containerApps@2023-05-01' = {
           keyVaultUrl: '${keyVaultUri}/secrets/otel-collector-endpoint'
           identity: 'system'
         }
+        {
+          name: 'replicate-api-token'
+          keyVaultUrl: '${keyVaultUri}/secrets/replicate-api-token'
+          identity: 'system'
+        }
       ]
     }
     template: {
@@ -100,6 +105,10 @@ resource apiApp 'Microsoft.App/containerApps@2023-05-01' = {
             {
               name: 'OTEL_EXPORTER_OTLP_ENDPOINT'
               secretRef: 'otel-collector-endpoint'
+            }
+            {
+              name: 'REPLICATE_API_TOKEN'
+              secretRef: 'replicate-api-token'
             }
           ]
         }

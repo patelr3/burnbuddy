@@ -502,7 +502,7 @@ export default function AccountPage() {
                   </div>
                   <div className="text-sm text-gray-400">{user?.email ?? profile?.email ?? '—'}</div>
                   {uploadPictureMutation.isPending && (
-                    <p className="mt-1 text-xs font-medium text-gray-400">Uploading photo…</p>
+                    <p className="mt-1 text-xs font-medium text-gray-400">Creating your cartoon avatar…</p>
                   )}
                   {uploadError && (
                     <p className="mt-1 text-xs text-danger">{uploadError}</p>

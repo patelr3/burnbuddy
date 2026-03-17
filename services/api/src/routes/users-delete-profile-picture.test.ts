@@ -80,6 +80,13 @@ vi.mock('../services/streak-calculator', () => ({
   calculateHighestStreakEver: vi.fn(() => ({ value: 0 })),
 }));
 
+// Mock cartoon service — prevents real Replicate API calls and missing API token errors
+vi.mock('../services/replicate-cartoon-service', () => ({
+  ReplicateCartoonService: class MockReplicateCartoonService {
+    cartoonize = vi.fn().mockResolvedValue(Buffer.from('cartoon-image-data'));
+  },
+}));
+
 import usersRouter from './users';
 
 function buildApp() {
@@ -129,9 +136,10 @@ describe('DELETE /users/me/profile-picture', () => {
     expect(res.status).toBe(204);
     expect(res.body).toEqual({});
 
-    // Verify blob delete was called with correct path
+    // Verify both blobs deleted: original.webp and avatar.webp
+    expect(mockGetBlockBlobClient).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/original.webp`);
     expect(mockGetBlockBlobClient).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/avatar.webp`);
-    expect(mockDeleteIfExists).toHaveBeenCalledOnce();
+    expect(mockDeleteIfExists).toHaveBeenCalledTimes(2);
 
     // Verify Firestore field was deleted
     expect(mockUsersDocRef).toHaveBeenCalledWith(TEST_UID);

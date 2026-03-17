@@ -15,6 +15,7 @@ const {
   mockLoggerInfo,
   mockLoggerWarn,
   mockLoggerError,
+  mockCartoonize,
 } = vi.hoisted(() => {
   const mockVerifyIdToken = vi.fn();
 
@@ -39,6 +40,8 @@ const {
   const mockLoggerWarn = vi.fn();
   const mockLoggerError = vi.fn();
 
+  const mockCartoonize = vi.fn();
+
   return {
     mockVerifyIdToken,
     mockUsersDocUpdate,
@@ -52,6 +55,7 @@ const {
     mockLoggerInfo,
     mockLoggerWarn,
     mockLoggerError,
+    mockCartoonize,
   };
 });
 
@@ -95,6 +99,13 @@ vi.mock('../services/streak-calculator', () => ({
   calculateHighestStreakEver: vi.fn(() => ({ value: 0 })),
 }));
 
+// Mock cartoon service — use a class so constructor survives resetAllMocks()
+vi.mock('../services/replicate-cartoon-service', () => ({
+  ReplicateCartoonService: class MockReplicateCartoonService {
+    cartoonize = mockCartoonize;
+  },
+}));
+
 vi.mock('../lib/logger', () => ({
   logger: {
     info: mockLoggerInfo,
@@ -128,6 +139,7 @@ beforeEach(() => {
 
   mockVerifyIdToken.mockResolvedValue({ uid: TEST_UID });
   mockSharpToBuffer.mockResolvedValue(Buffer.from('optimized-image-data'));
+  mockCartoonize.mockResolvedValue(Buffer.from('cartoon-image-data'));
   const sharpChain = {
     rotate: vi.fn().mockReturnThis(),
     resize: vi.fn().mockReturnThis(),
@@ -174,20 +186,18 @@ describe('POST /users/me/profile-picture', () => {
     expect(mockSharpConstructor).toHaveBeenCalledOnce();
     expect(mockSharpToBuffer).toHaveBeenCalledOnce();
 
-    // Verify Azure Blob Storage upload
-    expect(mockGetBlockBlobClient).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/avatar.webp`);
-    expect(mockUpload).toHaveBeenCalledWith(
-      Buffer.from('optimized-image-data'),
-      Buffer.from('optimized-image-data').length,
-      expect.objectContaining({
-        blobHTTPHeaders: expect.objectContaining({
-          blobContentType: 'image/webp',
-          blobCacheControl: 'public, max-age=86400',
-        }),
-      }),
-    );
+    // Verify original uploaded first, then cartoon avatar
+    expect(mockGetBlockBlobClient).toHaveBeenCalledTimes(2);
+    expect(mockGetBlockBlobClient).toHaveBeenNthCalledWith(1, `profile-pictures/${TEST_UID}/original.webp`);
+    expect(mockGetBlockBlobClient).toHaveBeenNthCalledWith(2, `profile-pictures/${TEST_UID}/avatar.webp`);
 
-    // Verify getBlobUrl was called
+    // Verify cartoon service was called with optimized buffer
+    expect(mockCartoonize).toHaveBeenCalledWith(Buffer.from('optimized-image-data'), 'image/webp');
+
+    // Verify both uploads
+    expect(mockUpload).toHaveBeenCalledTimes(2);
+
+    // Verify getBlobUrl was called for the avatar path
     expect(mockGetBlobUrl).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/avatar.webp`);
 
     // Verify Firestore update includes cache-busting param
@@ -315,10 +325,12 @@ describe('POST /users/me/profile-picture', () => {
     expect(res.body.error).toMatch(/storage service unavailable/i);
   });
 
-  it('stores only the optimized buffer, not the original', async () => {
+  it('stores original as backup and cartoon as avatar', async () => {
     const originalBuffer = Buffer.alloc(200, 0xab);
     const optimizedBuffer = Buffer.from('converted-optimized-data');
+    const cartoonBuffer = Buffer.from('cartoon-converted-data');
     mockSharpToBuffer.mockResolvedValueOnce(optimizedBuffer);
+    mockCartoonize.mockResolvedValueOnce(cartoonBuffer);
 
     const res = await request(buildApp())
       .post('/users/me/profile-picture')
@@ -327,9 +339,14 @@ describe('POST /users/me/profile-picture', () => {
 
     expect(res.status).toBe(200);
 
-    // Only one storage upload — with the optimized buffer, not the original
-    expect(mockUpload).toHaveBeenCalledOnce();
-    expect(mockUpload).toHaveBeenCalledWith(
+    // Two storage uploads: original.webp (optimized buffer) and avatar.webp (cartoon buffer)
+    expect(mockUpload).toHaveBeenCalledTimes(2);
+    expect(mockGetBlockBlobClient).toHaveBeenNthCalledWith(1, `profile-pictures/${TEST_UID}/original.webp`);
+    expect(mockGetBlockBlobClient).toHaveBeenNthCalledWith(2, `profile-pictures/${TEST_UID}/avatar.webp`);
+
+    // First upload: original backup with optimized buffer
+    expect(mockUpload).toHaveBeenNthCalledWith(
+      1,
       optimizedBuffer,
       optimizedBuffer.length,
       expect.objectContaining({
@@ -339,6 +356,52 @@ describe('POST /users/me/profile-picture', () => {
         }),
       }),
     );
+
+    // Second upload: avatar with cartoon buffer
+    expect(mockUpload).toHaveBeenNthCalledWith(
+      2,
+      cartoonBuffer,
+      cartoonBuffer.length,
+      expect.objectContaining({
+        blobHTTPHeaders: expect.objectContaining({
+          blobContentType: 'image/webp',
+          blobCacheControl: 'public, max-age=86400',
+        }),
+      }),
+    );
+  });
+
+  it('returns 500 when cartoon conversion fails', async () => {
+    mockCartoonize.mockRejectedValueOnce(new Error('Replicate API timeout'));
+
+    const imageBuffer = Buffer.alloc(100, 0xff);
+    const res = await request(buildApp())
+      .post('/users/me/profile-picture')
+      .set('Authorization', VALID_TOKEN)
+      .attach('picture', imageBuffer, { filename: 'photo.jpg', contentType: 'image/jpeg' });
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Failed to create cartoon avatar. Please try again.');
+
+    // Original was uploaded (before cartoon conversion)
+    expect(mockGetBlockBlobClient).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/original.webp`);
+
+    // Firestore should NOT be updated on cartoon failure
+    expect(mockUsersDocUpdate).not.toHaveBeenCalled();
+  });
+
+  it('does not update Firestore profilePictureUrl on cartoon conversion failure', async () => {
+    mockCartoonize.mockRejectedValueOnce(new Error('model unavailable'));
+
+    const imageBuffer = Buffer.alloc(100, 0xff);
+    const res = await request(buildApp())
+      .post('/users/me/profile-picture')
+      .set('Authorization', VALID_TOKEN)
+      .attach('picture', imageBuffer, { filename: 'photo.jpg', contentType: 'image/jpeg' });
+
+    expect(res.status).toBe(500);
+    expect(mockUsersDocUpdate).not.toHaveBeenCalled();
+    expect(mockGetBlobUrl).not.toHaveBeenCalled();
   });
 
   it('accepts HEIC file when browser reports application/octet-stream (extension fallback)', async () => {
