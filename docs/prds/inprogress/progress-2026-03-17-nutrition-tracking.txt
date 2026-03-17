@@ -78,3 +78,32 @@ Started: 2026-03-17
   - Test mock pattern: separate hoisted mocks for each Firestore collection (mockMealsDocGet vs mockRecipesDocGet)
   - Full test suite now has 555 tests across 25 files
 ---
+
+## 2026-03-17T06:08 - US-006
+- What was implemented: Goals, summary, and food search API routes in existing nutrition router
+- Files changed:
+  - `services/api/src/routes/nutrition.ts` — Added GET/PUT /goals, GET /summary, GET /foods/search endpoints
+  - `services/api/src/routes/nutrition.test.ts` — Added 21 new tests (goals CRUD, validation, summary calculation, food search proxy)
+- **Learnings for future iterations:**
+  - Goals stored in `nutritionGoals` collection with doc ID = uid (single doc per user, upsert via `.set()`)
+  - Summary aggregates all meals for a date across all SUPPORTED_NUTRIENTS, calculates percentComplete with Math.round
+  - Points earned count comes from `nutritionPoints` collection (will be populated by US-007)
+  - Food search proxies through `cachedSearchFoods` from food-search-cache service
+  - Mock pattern for new collections: add hoisted mocks for doc/query, add collection routing in `getDb` mock, re-wire in beforeEach
+  - Full test suite now has 576 tests across 25 files
+---
+
+## 2026-03-17T06:13 - US-007
+- What was implemented: Nutrition points awarding service — evaluates daily nutrient intake against goals, awards/revokes points
+- Files changed:
+  - `services/api/src/services/nutrition-points.ts` (new) — `evaluateNutritionPoints()` function with Firestore award tracking + monthlyPoints increment/decrement
+  - `services/api/src/services/nutrition-points.test.ts` (new) — 14 unit tests covering award, revoke, no-double-award, error handling, multi-nutrient, sum-across-meals
+  - `services/api/src/routes/nutrition.ts` — Replaced stub with import of real `evaluateNutritionPoints` from service
+  - `services/api/src/routes/nutrition.test.ts` — Added hoisted mock for `../services/nutrition-points` to prevent .catch() error after resetAllMocks
+- **Learnings for future iterations:**
+  - When extracting a fire-and-forget function from route into separate service, the route test needs a hoisted mock (not inline `vi.fn()`) because `resetAllMocks()` clears inline mock implementations, causing `.catch()` to fail on undefined
+  - `nutritionPointsAwarded` collection uses doc ID `${uid}_${date}_${nutrientId}` for idempotent award tracking
+  - `FieldValue.increment(-1)` works for decrementing points — same pattern as increment
+  - Award tracking doc contains `{ uid, date, nutrientId, awardedAt }` — minimal for lookups
+  - Full test suite now has 590 tests across 26 files
+---

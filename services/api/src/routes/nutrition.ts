@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth';
 import { getDb } from '../lib/firestore';
 import { logger } from '../lib/logger';
 import { cachedSearchFoods } from '../services/food-search-cache';
+import { evaluateNutritionPoints } from '../services/nutrition-points';
 import type { Recipe, MealEntry, NutrientAmount, NutritionGoals, NutrientId, DailyNutritionSummary } from '@burnbuddy/shared';
 import { SUPPORTED_NUTRIENTS } from '@burnbuddy/shared';
 
@@ -237,15 +238,6 @@ async function resolveMealNutrients(
     nutrientId: n.nutrientId,
     amount: n.amount * servingsConsumed,
   }));
-}
-
-/**
- * Placeholder for nutrition points evaluation.
- * Will be implemented in US-007.
- */
-function evaluateNutritionPoints(uid: string, date: string): Promise<void> {
-  logger.debug({ uid, date }, 'Nutrition points evaluation triggered (stub)');
-  return Promise.resolve();
 }
 
 // POST /nutrition/meals — Log a meal

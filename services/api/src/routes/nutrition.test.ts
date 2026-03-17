@@ -26,6 +26,7 @@ const {
   mockPointsQueryChain,
   mockPointsCollectionWhere,
   mockCachedSearchFoods,
+  mockEvaluateNutritionPoints,
 } = vi.hoisted(() => {
   const mockVerifyIdToken = vi.fn();
   const mockRecipesDocGet = vi.fn();
@@ -77,6 +78,7 @@ const {
   const mockPointsCollectionWhere = vi.fn(() => mockPointsQueryChain);
 
   const mockCachedSearchFoods = vi.fn();
+  const mockEvaluateNutritionPoints = vi.fn();
 
   return {
     mockVerifyIdToken,
@@ -101,6 +103,7 @@ const {
     mockPointsQueryChain,
     mockPointsCollectionWhere,
     mockCachedSearchFoods,
+    mockEvaluateNutritionPoints,
   };
 });
 
@@ -153,6 +156,10 @@ vi.mock('../lib/logger', () => ({
 
 vi.mock('../services/food-search-cache', () => ({
   cachedSearchFoods: mockCachedSearchFoods,
+}));
+
+vi.mock('../services/nutrition-points', () => ({
+  evaluateNutritionPoints: mockEvaluateNutritionPoints,
 }));
 
 // ── Import route AFTER mocks ──────────────────────────────────────
@@ -243,6 +250,9 @@ beforeEach(() => {
   // Re-wire points query chain after reset
   mockPointsCollectionWhere.mockReturnValue(mockPointsQueryChain);
   mockPointsQueryChain.where.mockReturnThis();
+
+  // Re-wire nutrition points evaluation mock after reset
+  mockEvaluateNutritionPoints.mockResolvedValue(undefined);
 });
 
 // ── Tests ──────────────────────────────────────────────────────────
