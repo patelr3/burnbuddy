@@ -10,6 +10,7 @@ import {
 import { useAuth } from '../lib/auth-context';
 import LogMealScreen from './LogMealScreen';
 import RecipesScreen from './RecipesScreen';
+import NutritionGoalsScreen from './NutritionGoalsScreen';
 import { apiGet } from '../lib/api';
 import type {
   NutrientId,
@@ -155,7 +156,10 @@ export default function NutritionScreen({ view, onChangeView }: NutritionScreenP
     return <RecipesScreen onBack={() => onChangeView({ type: 'dashboard' })} />;
   }
 
-  // Only render the dashboard view; other sub-screens will be handled by future stories
+  if (view.type === 'goals') {
+    return <NutritionGoalsScreen onBack={() => onChangeView({ type: 'dashboard' })} />;
+  }
+
   if (view.type !== 'dashboard') return null;
 
   return (
