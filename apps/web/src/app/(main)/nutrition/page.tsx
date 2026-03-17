@@ -325,7 +325,7 @@ export default function NutritionPage() {
           <section className="mb-6">
             <div className="grid grid-cols-3 gap-2">
               <Link
-                href="/nutrition/meals"
+                href="/nutrition/log"
                 className="flex flex-col items-center gap-1.5 rounded-lg border border-gray-700 bg-surface p-3 no-underline hover:bg-surface-elevated"
               >
                 <UtensilsCrossed className="h-5 w-5 text-primary" />
@@ -357,7 +357,7 @@ export default function NutritionPage() {
               <div className="rounded-lg border border-gray-700 bg-surface p-4 text-center">
                 <div className="text-sm text-gray-400">No meals logged</div>
                 <Link
-                  href="/nutrition/meals"
+                  href="/nutrition/log"
                   className="mt-2 inline-block text-xs font-medium text-primary no-underline hover:underline"
                 >
                   Log your first meal →
