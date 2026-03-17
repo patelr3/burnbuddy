@@ -118,3 +118,15 @@ Started: 2026-03-17
   - Bicep secrets use `keyVaultUrl` + `identity: 'system'`, env vars reference them via `secretRef`
   - All 590 tests still passing after route registration
 ---
+
+## 2026-03-17T06:16 - US-009
+- What was implemented: React Query hooks for all nutrition API endpoints in `apps/web/src/lib/nutrition-queries.ts`
+- Files changed:
+  - `apps/web/src/lib/nutrition-queries.ts` (new) — Query keys, 6 query hooks (useNutritionSummary, useNutritionMeals, useRecipes, useRecipe, useNutritionGoals, useFoodSearch), 6 mutation hooks (useLogMeal, useDeleteMeal, useCreateRecipe, useUpdateRecipe, useDeleteRecipe, useUpdateNutritionGoals)
+- **Learnings for future iterations:**
+  - React Query v5 uses `placeholderData: (prev) => prev` instead of `keepPreviousData` for search-as-you-type
+  - Mutations that affect dated data (meals, summary) invalidate using partial key matching `['nutrition-meals']` for broad invalidation
+  - `useFoodSearch` uses `enabled: query.trim().length > 0` to skip empty queries; debounce lives in UI layer
+  - Existing mutation pattern: hooks are defined centrally, used inline in components via `useMutation` from tanstack
+  - Web typecheck: `cd apps/web && npx tsc --noEmit` — passes cleanly
+---
