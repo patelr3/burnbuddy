@@ -3,7 +3,9 @@ import { randomUUID } from 'crypto';
 import { requireAuth } from '../middleware/auth';
 import { getDb } from '../lib/firestore';
 import { logger } from '../lib/logger';
-import type { Recipe, MealEntry, NutrientAmount } from '@burnbuddy/shared';
+import { cachedSearchFoods } from '../services/food-search-cache';
+import type { Recipe, MealEntry, NutrientAmount, NutritionGoals, NutrientId, DailyNutritionSummary } from '@burnbuddy/shared';
+import { SUPPORTED_NUTRIENTS } from '@burnbuddy/shared';
 
 const router = Router();
 
@@ -364,6 +366,143 @@ router.delete('/meals/:id', requireAuth, async (req: Request, res: Response): Pr
   });
 
   res.status(204).send();
+});
+
+// ── Goals routes ──────────────────────────────────────────────────
+
+// GET /nutrition/goals — Get the user's nutrition goals
+router.get('/goals', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const uid = req.user!.uid;
+  const db = getDb();
+
+  const doc = await db.collection('nutritionGoals').doc(uid).get();
+
+  if (!doc.exists) {
+    const defaults: NutritionGoals = {
+      uid,
+      targetNutrients: [],
+      updatedAt: new Date().toISOString(),
+    };
+    res.json(defaults);
+    return;
+  }
+
+  res.json(doc.data() as NutritionGoals);
+});
+
+// PUT /nutrition/goals — Set/update target nutrients
+router.put('/goals', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const uid = req.user!.uid;
+  const { targetNutrients } = req.body as { targetNutrients?: unknown };
+
+  if (!Array.isArray(targetNutrients)) {
+    res.status(400).json({ error: 'targetNutrients must be an array' });
+    return;
+  }
+
+  if (targetNutrients.length > 3) {
+    res.status(400).json({ error: 'Maximum 3 target nutrients allowed' });
+    return;
+  }
+
+  const validIds = new Set(SUPPORTED_NUTRIENTS.map((n) => n.id));
+  for (const id of targetNutrients) {
+    if (typeof id !== 'string' || !validIds.has(id as NutrientId)) {
+      res.status(400).json({ error: `Invalid nutrient ID: ${id}` });
+      return;
+    }
+  }
+
+  const goals: NutritionGoals = {
+    uid,
+    targetNutrients: targetNutrients as NutrientId[],
+    updatedAt: new Date().toISOString(),
+  };
+
+  const db = getDb();
+  await db.collection('nutritionGoals').doc(uid).set(goals);
+
+  res.json(goals);
+});
+
+// ── Summary route ─────────────────────────────────────────────────
+
+// GET /nutrition/summary?date=YYYY-MM-DD — Daily nutrition summary
+router.get('/summary', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const uid = req.user!.uid;
+  let date = req.query['date'] as string | undefined;
+
+  if (!date) {
+    date = new Date().toISOString().split('T')[0]!;
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    res.status(400).json({ error: 'date must be in YYYY-MM-DD format' });
+    return;
+  }
+
+  const db = getDb();
+
+  // Fetch all meals for this date
+  const mealsSnap = await db
+    .collection('mealEntries')
+    .where('uid', '==', uid)
+    .where('date', '==', date)
+    .get();
+
+  const meals = mealsSnap.docs.map((doc) => doc.data() as MealEntry);
+
+  // Sum consumed amounts per nutrient
+  const consumedMap = new Map<NutrientId, number>();
+  for (const meal of meals) {
+    for (const n of meal.nutrients) {
+      consumedMap.set(n.nutrientId, (consumedMap.get(n.nutrientId) ?? 0) + n.amount);
+    }
+  }
+
+  // Build summary for all supported nutrients
+  const nutrients = SUPPORTED_NUTRIENTS.map((info) => {
+    const consumed = consumedMap.get(info.id) ?? 0;
+    const recommended = info.dailyRecommended;
+    return {
+      nutrientId: info.id,
+      consumed,
+      recommended,
+      percentComplete: recommended > 0 ? Math.round((consumed / recommended) * 100) : 0,
+    };
+  });
+
+  // Count points earned for this date
+  const pointsSnap = await db
+    .collection('nutritionPoints')
+    .where('uid', '==', uid)
+    .where('date', '==', date)
+    .get();
+
+  const pointsEarned = pointsSnap.docs.length;
+
+  const summary: DailyNutritionSummary = {
+    date,
+    nutrients,
+    pointsEarned,
+  };
+
+  res.json(summary);
+});
+
+// ── Food search route ─────────────────────────────────────────────
+
+// GET /nutrition/foods/search?q=... — Search foods via USDA
+router.get('/foods/search', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const q = req.query['q'] as string | undefined;
+
+  if (!q || typeof q !== 'string' || q.trim().length === 0) {
+    res.status(400).json({ error: 'q query parameter is required' });
+    return;
+  }
+
+  const results = await cachedSearchFoods(q.trim());
+  res.json(results);
 });
 
 export { calculateNutrientsPerServing };

@@ -19,6 +19,13 @@ const {
   mockMealsQueryGet,
   mockMealsQueryChain,
   mockMealsCollectionWhere,
+  mockGoalsDocGet,
+  mockGoalsDocSet,
+  mockGoalsDocRef,
+  mockPointsQueryGet,
+  mockPointsQueryChain,
+  mockPointsCollectionWhere,
+  mockCachedSearchFoods,
 } = vi.hoisted(() => {
   const mockVerifyIdToken = vi.fn();
   const mockRecipesDocGet = vi.fn();
@@ -55,6 +62,22 @@ const {
   };
   const mockMealsCollectionWhere = vi.fn(() => mockMealsQueryChain);
 
+  const mockGoalsDocGet = vi.fn();
+  const mockGoalsDocSet = vi.fn();
+  const mockGoalsDocRef = vi.fn(() => ({
+    get: mockGoalsDocGet,
+    set: mockGoalsDocSet,
+  }));
+
+  const mockPointsQueryGet = vi.fn();
+  const mockPointsQueryChain = {
+    where: vi.fn(),
+    get: mockPointsQueryGet,
+  };
+  const mockPointsCollectionWhere = vi.fn(() => mockPointsQueryChain);
+
+  const mockCachedSearchFoods = vi.fn();
+
   return {
     mockVerifyIdToken,
     mockRecipesDocGet,
@@ -71,6 +94,13 @@ const {
     mockMealsQueryGet,
     mockMealsQueryChain,
     mockMealsCollectionWhere,
+    mockGoalsDocGet,
+    mockGoalsDocSet,
+    mockGoalsDocRef,
+    mockPointsQueryGet,
+    mockPointsQueryChain,
+    mockPointsCollectionWhere,
+    mockCachedSearchFoods,
   };
 });
 
@@ -97,6 +127,16 @@ vi.mock('../lib/firestore', () => ({
           where: mockMealsCollectionWhere,
         };
       }
+      if (name === 'nutritionGoals') {
+        return {
+          doc: mockGoalsDocRef,
+        };
+      }
+      if (name === 'nutritionPoints') {
+        return {
+          where: mockPointsCollectionWhere,
+        };
+      }
       return {};
     },
   }),
@@ -109,6 +149,10 @@ vi.mock('../lib/logger', () => ({
     warn: vi.fn(),
     error: vi.fn(),
   },
+}));
+
+vi.mock('../services/food-search-cache', () => ({
+  cachedSearchFoods: mockCachedSearchFoods,
 }));
 
 // ── Import route AFTER mocks ──────────────────────────────────────
@@ -189,6 +233,16 @@ beforeEach(() => {
     set: mockMealsDocSet,
     delete: mockMealsDocDelete,
   }));
+
+  // Re-wire goals doc after reset
+  mockGoalsDocRef.mockImplementation(() => ({
+    get: mockGoalsDocGet,
+    set: mockGoalsDocSet,
+  }));
+
+  // Re-wire points query chain after reset
+  mockPointsCollectionWhere.mockReturnValue(mockPointsQueryChain);
+  mockPointsQueryChain.where.mockReturnThis();
 });
 
 // ── Tests ──────────────────────────────────────────────────────────
@@ -954,5 +1008,312 @@ describe('DELETE /nutrition/meals/:id', () => {
     expect(res.status).toBe(204);
     expect(res.body).toEqual({});
     expect(mockMealsDocDelete).toHaveBeenCalledOnce();
+  });
+});
+
+// ── Goals tests ──────────────────────────────────────────────────
+
+describe('GET /nutrition/goals', () => {
+  it('returns 401 without auth', async () => {
+    mockVerifyIdToken.mockRejectedValueOnce(new Error('Unauthorized'));
+
+    const res = await request(buildApp()).get('/nutrition/goals');
+
+    expect(res.status).toBe(401);
+  });
+
+  it('returns default goals when none are set', async () => {
+    mockGoalsDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .get('/nutrition/goals')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.uid).toBe(TEST_UID);
+    expect(res.body.targetNutrients).toEqual([]);
+    expect(res.body.updatedAt).toBeDefined();
+  });
+
+  it('returns saved goals when they exist', async () => {
+    const goals = {
+      uid: TEST_UID,
+      targetNutrients: ['iron', 'calcium'],
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    mockGoalsDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => goals,
+    });
+
+    const res = await request(buildApp())
+      .get('/nutrition/goals')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(goals);
+  });
+});
+
+describe('PUT /nutrition/goals', () => {
+  it('returns 401 without auth', async () => {
+    mockVerifyIdToken.mockRejectedValueOnce(new Error('Unauthorized'));
+
+    const res = await request(buildApp())
+      .put('/nutrition/goals')
+      .send({ targetNutrients: ['iron'] });
+
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects non-array targetNutrients', async () => {
+    const res = await request(buildApp())
+      .put('/nutrition/goals')
+      .set('Authorization', VALID_TOKEN)
+      .send({ targetNutrients: 'iron' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/must be an array/);
+  });
+
+  it('rejects more than 3 target nutrients', async () => {
+    const res = await request(buildApp())
+      .put('/nutrition/goals')
+      .set('Authorization', VALID_TOKEN)
+      .send({ targetNutrients: ['iron', 'calcium', 'zinc', 'folate'] });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/Maximum 3/);
+  });
+
+  it('rejects invalid nutrient IDs', async () => {
+    const res = await request(buildApp())
+      .put('/nutrition/goals')
+      .set('Authorization', VALID_TOKEN)
+      .send({ targetNutrients: ['iron', 'invalidNutrient'] });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/Invalid nutrient ID/);
+  });
+
+  it('saves valid goals and returns them', async () => {
+    mockGoalsDocSet.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .put('/nutrition/goals')
+      .set('Authorization', VALID_TOKEN)
+      .send({ targetNutrients: ['iron', 'calcium', 'vitaminC'] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.uid).toBe(TEST_UID);
+    expect(res.body.targetNutrients).toEqual(['iron', 'calcium', 'vitaminC']);
+    expect(res.body.updatedAt).toBeDefined();
+    expect(mockGoalsDocSet).toHaveBeenCalledOnce();
+  });
+
+  it('accepts empty targetNutrients array', async () => {
+    mockGoalsDocSet.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .put('/nutrition/goals')
+      .set('Authorization', VALID_TOKEN)
+      .send({ targetNutrients: [] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.targetNutrients).toEqual([]);
+  });
+});
+
+// ── Summary tests ────────────────────────────────────────────────
+
+describe('GET /nutrition/summary', () => {
+  it('returns 401 without auth', async () => {
+    mockVerifyIdToken.mockRejectedValueOnce(new Error('Unauthorized'));
+
+    const res = await request(buildApp()).get('/nutrition/summary?date=2026-03-15');
+
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects invalid date format', async () => {
+    const res = await request(buildApp())
+      .get('/nutrition/summary?date=not-a-date')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/YYYY-MM-DD/);
+  });
+
+  it('returns summary with zero consumed when no meals', async () => {
+    mockMealsCollectionWhere.mockReturnValue(mockMealsQueryChain);
+    mockMealsQueryChain.where.mockReturnThis();
+    mockMealsQueryChain.get.mockResolvedValueOnce({ docs: [] });
+    mockPointsCollectionWhere.mockReturnValue(mockPointsQueryChain);
+    mockPointsQueryChain.where.mockReturnThis();
+    mockPointsQueryChain.get.mockResolvedValueOnce({ docs: [] });
+
+    const res = await request(buildApp())
+      .get('/nutrition/summary?date=2026-03-15')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.date).toBe('2026-03-15');
+    expect(res.body.pointsEarned).toBe(0);
+    for (const n of res.body.nutrients) {
+      expect(n.consumed).toBe(0);
+      expect(n.percentComplete).toBe(0);
+      expect(n.recommended).toBeGreaterThan(0);
+    }
+  });
+
+  it('sums nutrients across multiple meals', async () => {
+    const meal1 = {
+      nutrients: [
+        { nutrientId: 'iron', amount: 5 },
+        { nutrientId: 'calcium', amount: 200 },
+      ],
+    };
+    const meal2 = {
+      nutrients: [
+        { nutrientId: 'iron', amount: 3 },
+        { nutrientId: 'vitaminC', amount: 45 },
+      ],
+    };
+
+    mockMealsCollectionWhere.mockReturnValue(mockMealsQueryChain);
+    mockMealsQueryChain.where.mockReturnThis();
+    mockMealsQueryChain.get.mockResolvedValueOnce({
+      docs: [
+        { data: () => meal1 },
+        { data: () => meal2 },
+      ],
+    });
+    mockPointsCollectionWhere.mockReturnValue(mockPointsQueryChain);
+    mockPointsQueryChain.where.mockReturnThis();
+    mockPointsQueryChain.get.mockResolvedValueOnce({ docs: [] });
+
+    const res = await request(buildApp())
+      .get('/nutrition/summary?date=2026-03-15')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    const ironNutrient = res.body.nutrients.find((n: any) => n.nutrientId === 'iron');
+    expect(ironNutrient.consumed).toBe(8);
+    expect(ironNutrient.percentComplete).toBe(44);
+
+    const calciumNutrient = res.body.nutrients.find((n: any) => n.nutrientId === 'calcium');
+    expect(calciumNutrient.consumed).toBe(200);
+    expect(calciumNutrient.percentComplete).toBe(20);
+
+    const vitCNutrient = res.body.nutrients.find((n: any) => n.nutrientId === 'vitaminC');
+    expect(vitCNutrient.consumed).toBe(45);
+    expect(vitCNutrient.percentComplete).toBe(50);
+  });
+
+  it('includes points earned count', async () => {
+    mockMealsCollectionWhere.mockReturnValue(mockMealsQueryChain);
+    mockMealsQueryChain.where.mockReturnThis();
+    mockMealsQueryChain.get.mockResolvedValueOnce({ docs: [] });
+    mockPointsCollectionWhere.mockReturnValue(mockPointsQueryChain);
+    mockPointsQueryChain.where.mockReturnThis();
+    mockPointsQueryChain.get.mockResolvedValueOnce({
+      docs: [{ data: () => ({}) }, { data: () => ({}) }, { data: () => ({}) }],
+    });
+
+    const res = await request(buildApp())
+      .get('/nutrition/summary?date=2026-03-15')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.pointsEarned).toBe(3);
+  });
+
+  it('returns all 10 supported nutrients in summary', async () => {
+    mockMealsCollectionWhere.mockReturnValue(mockMealsQueryChain);
+    mockMealsQueryChain.where.mockReturnThis();
+    mockMealsQueryChain.get.mockResolvedValueOnce({ docs: [] });
+    mockPointsCollectionWhere.mockReturnValue(mockPointsQueryChain);
+    mockPointsQueryChain.where.mockReturnThis();
+    mockPointsQueryChain.get.mockResolvedValueOnce({ docs: [] });
+
+    const res = await request(buildApp())
+      .get('/nutrition/summary?date=2026-03-15')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.nutrients).toHaveLength(10);
+    const ids = res.body.nutrients.map((n: any) => n.nutrientId);
+    expect(ids).toContain('iron');
+    expect(ids).toContain('vitaminD');
+    expect(ids).toContain('calcium');
+    expect(ids).toContain('omega3');
+  });
+});
+
+// ── Food search tests ────────────────────────────────────────────
+
+describe('GET /nutrition/foods/search', () => {
+  it('returns 401 without auth', async () => {
+    mockVerifyIdToken.mockRejectedValueOnce(new Error('Unauthorized'));
+
+    const res = await request(buildApp()).get('/nutrition/foods/search?q=chicken');
+
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects empty query', async () => {
+    const res = await request(buildApp())
+      .get('/nutrition/foods/search?q=')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/q query parameter is required/);
+  });
+
+  it('rejects missing query', async () => {
+    const res = await request(buildApp())
+      .get('/nutrition/foods/search')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/q query parameter is required/);
+  });
+
+  it('returns food search results from cache', async () => {
+    const mockResults = [
+      { fdcId: '123', description: 'Chicken Breast', nutrients: [{ nutrientId: 'iron', amount: 1.5 }] },
+      { fdcId: '456', description: 'Chicken Thigh', nutrients: [{ nutrientId: 'iron', amount: 2.0 }] },
+    ];
+    mockCachedSearchFoods.mockResolvedValueOnce(mockResults);
+
+    const res = await request(buildApp())
+      .get('/nutrition/foods/search?q=chicken')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(mockResults);
+    expect(mockCachedSearchFoods).toHaveBeenCalledWith('chicken');
+  });
+
+  it('trims whitespace from query', async () => {
+    mockCachedSearchFoods.mockResolvedValueOnce([]);
+
+    const res = await request(buildApp())
+      .get('/nutrition/foods/search?q=%20chicken%20')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(mockCachedSearchFoods).toHaveBeenCalledWith('chicken');
+  });
+
+  it('returns empty array when no results found', async () => {
+    mockCachedSearchFoods.mockResolvedValueOnce([]);
+
+    const res = await request(buildApp())
+      .get('/nutrition/foods/search?q=xyznonexistent')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
   });
 });
