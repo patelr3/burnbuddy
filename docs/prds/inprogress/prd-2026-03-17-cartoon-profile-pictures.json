@@ -71,7 +71,7 @@
         "Tests pass"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "The delete handler is in services/api/src/routes/users.ts at DELETE /users/me/profile-picture (lines 365-379). Currently only deletes avatar.webp. Add a second deleteIfExists() call for original.webp using the same getContainerClient('uploads').getBlockBlobClient() pattern."
     },
     {
@@ -93,7 +93,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Use the same Firestore and Azure Blob Storage initialization patterns from the API service (services/api/src/lib/). The script should use ts-node or tsx to run. Parse CLI args with process.argv or a simple arg parser. Follow existing script patterns in scripts/ directory."
     },
     {
@@ -110,7 +110,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Web timeout is in apps/web/src/lib/api.ts (timeoutMs = 45_000). Mobile timeout is in apps/mobile/src/lib/api.ts (timeoutMs = 45_000). Search for 'Uploading' or similar loading text in profile picture upload components on both platforms to find where to update the message."
     }
   ]
