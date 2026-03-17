@@ -1,3 +1,47 @@
 # Ralph Progress Log — Fix Cartoon Conversion
 Started: 2026-03-17
+
+## Codebase Patterns
+- CartoonService interface accepts a URL string, not a buffer — Replicate fetches the image from a public blob URL
+- `getBlobUrl()` from `lib/storage.ts` constructs publicly accessible Azure Blob URLs
+- Tests use `vi.hoisted` + `vi.mock` pattern — mock class constructors survive `resetAllMocks()`
+- Build `packages/shared` before running API tests: `cd packages/shared && yarn build`
+- When testing env-var-gated behavior, set the env var in global `beforeEach` and delete/restore in nested `beforeEach`/`afterEach`
+
+---
+
+## 2026-03-17T17:00 - US-001
+- Changed CartoonService interface: `cartoonize(imageUrl: string)` instead of `(imageBuffer, mimeType)`
+- ReplicateCartoonService now sends URL directly to Replicate API (no base64 encoding)
+- Upload endpoint constructs blob URL via `getBlobUrl(originalBlobPath)` after uploading original.webp
+- Migration script constructs blob URL after backup upload and passes to cartoonize()
+- Files changed:
+  - services/api/src/services/cartoon-service.ts
+  - services/api/src/services/replicate-cartoon-service.ts
+  - services/api/src/routes/users.ts
+  - scripts/migrate-cartoon-pictures.ts
+  - services/api/src/services/cartoon-service.test.ts
+  - services/api/src/routes/users-profile-picture.test.ts
+- **Learnings for future iterations:**
+  - `mockGetBlobUrl` in profile-picture tests needs to handle both original.webp and avatar.webp paths — use `mockImplementation` with path-based logic
+  - The "cartoon conversion failure" test now expects `getBlobUrl` to be called once (for original.webp before cartoonize), not zero times
+  - `yarn install` needed first in fresh worktrees; `packages/shared` must be built before API tests
+---
+
+## 2026-03-17T17:02 - US-002
+- Added `PassthroughCartoonService` class in `replicate-cartoon-service.ts` — returns `null` to signal skip
+- Updated `CartoonService` interface return type to `Promise<Buffer | null>`
+- `createCartoonService()` factory checks `process.env.REPLICATE_API_TOKEN`: returns `ReplicateCartoonService` if set, `PassthroughCartoonService` if not
+- Logs `logger.warn()` when passthrough service is created
+- Upload endpoint detects `null` return and uses `optimizedBuffer` as avatar.webp
+- Added 5 unit tests for passthrough behavior (200 response, both uploads use same buffer, warning logged, no Replicate call, Firestore updated)
+- Files changed:
+  - services/api/src/services/cartoon-service.ts (interface return type)
+  - services/api/src/services/replicate-cartoon-service.ts (added PassthroughCartoonService)
+  - services/api/src/routes/users.ts (createCartoonService factory + null handling)
+  - services/api/src/routes/users-profile-picture.test.ts (5 new tests, mock updates)
+- **Learnings for future iterations:**
+  - Must import `afterEach` from vitest if using it in nested describe blocks
+  - Set `process.env.REPLICATE_API_TOKEN` in global `beforeEach` so existing tests that expect cartoon conversion still work
+  - The `vi.mock` factory for PassthroughCartoonService needs a fresh `vi.fn()` (not the shared mockCartoonize) to keep assertions isolated
 ---

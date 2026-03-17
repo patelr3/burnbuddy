@@ -1,6 +1,16 @@
 import { logger } from '../lib/logger';
 import type { CartoonService } from './cartoon-service';
 
+/**
+ * No-op cartoon service used when REPLICATE_API_TOKEN is not configured.
+ * Returns null to signal that cartoon conversion should be skipped.
+ */
+export class PassthroughCartoonService implements CartoonService {
+  async cartoonize(_imageUrl: string): Promise<null> {
+    return null;
+  }
+}
+
 const REPLICATE_API_BASE = 'https://api.replicate.com';
 const MODEL_VERSION =
   '3f91ee385785d4eb3dd6c14d2c80dcfd82d2b607fde4bdd610092c8fee8d81bb';

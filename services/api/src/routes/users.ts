@@ -19,10 +19,15 @@ import { generateUniqueUsername, validateUsername } from '../lib/username';
 import sharp from 'sharp';
 import { calculateStreaks, calculateHighestStreakEver } from '../services/streak-calculator';
 import { logger } from '../lib/logger';
-import { ReplicateCartoonService } from '../services/replicate-cartoon-service';
+import { ReplicateCartoonService, PassthroughCartoonService } from '../services/replicate-cartoon-service';
 
-// Creates a new cartoon service instance per request for clean testability
+// Creates a new cartoon service instance per request for clean testability.
+// Falls back to PassthroughCartoonService when no Replicate token is configured.
 function createCartoonService() {
+  if (!process.env.REPLICATE_API_TOKEN) {
+    logger.warn('REPLICATE_API_TOKEN not set — cartoon conversion disabled, using original image as avatar');
+    return new PassthroughCartoonService();
+  }
   return new ReplicateCartoonService();
 }
 
@@ -357,21 +362,27 @@ router.post(
 
     // Convert to cartoon style using the publicly accessible blob URL
     const originalBlobUrl = getBlobUrl(originalBlobPath);
-    let cartoonBuffer: Buffer;
+    let avatarBuffer: Buffer;
     try {
-      cartoonBuffer = await createCartoonService().cartoonize(originalBlobUrl);
+      const cartoonResult = await createCartoonService().cartoonize(originalBlobUrl);
+      if (cartoonResult === null) {
+        // Cartoon conversion skipped (no token) — use original as avatar
+        avatarBuffer = optimizedBuffer;
+      } else {
+        avatarBuffer = cartoonResult;
+      }
     } catch (err) {
       logger.error({ err, uid }, 'Cartoon conversion failed');
       res.status(500).json({ error: 'Failed to create cartoon avatar. Please try again.' });
       return;
     }
 
-    // Upload cartoon version as the displayed avatar
+    // Upload avatar (cartoon version or original fallback)
     const avatarBlobPath = `profile-pictures/${uid}/avatar.webp`;
     const avatarBlobClient = containerClient.getBlockBlobClient(avatarBlobPath);
 
     try {
-      await avatarBlobClient.upload(cartoonBuffer, cartoonBuffer.length, {
+      await avatarBlobClient.upload(avatarBuffer, avatarBuffer.length, {
         blobHTTPHeaders: {
           blobContentType: 'image/webp',
           blobCacheControl: 'public, max-age=86400',
