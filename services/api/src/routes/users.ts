@@ -19,6 +19,12 @@ import { generateUniqueUsername, validateUsername } from '../lib/username';
 import sharp from 'sharp';
 import { calculateStreaks, calculateHighestStreakEver } from '../services/streak-calculator';
 import { logger } from '../lib/logger';
+import { ReplicateCartoonService } from '../services/replicate-cartoon-service';
+
+// Creates a new cartoon service instance per request for clean testability
+function createCartoonService() {
+  return new ReplicateCartoonService();
+}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -330,24 +336,53 @@ router.post(
       return;
     }
 
-    const blobPath = `profile-pictures/${uid}/avatar.webp`;
     const containerClient = getContainerClient('uploads');
-    const blockBlobClient = containerClient.getBlockBlobClient(blobPath);
+
+    // Upload original backup before cartoon conversion
+    const originalBlobPath = `profile-pictures/${uid}/original.webp`;
+    const originalBlobClient = containerClient.getBlockBlobClient(originalBlobPath);
 
     try {
-      await blockBlobClient.upload(optimizedBuffer, optimizedBuffer.length, {
+      await originalBlobClient.upload(optimizedBuffer, optimizedBuffer.length, {
         blobHTTPHeaders: {
           blobContentType: 'image/webp',
           blobCacheControl: 'public, max-age=86400',
         },
       });
     } catch (err) {
-      logger.error({ err, uid }, 'Azure Blob Storage upload failed');
+      logger.error({ err, uid }, 'Azure Blob Storage upload of original failed');
       res.status(503).json({ error: 'Storage service unavailable. Please try again.' });
       return;
     }
 
-    const profilePictureUrl = `${getBlobUrl(blobPath)}?v=${Date.now()}`;
+    // Convert to cartoon style
+    let cartoonBuffer: Buffer;
+    try {
+      cartoonBuffer = await createCartoonService().cartoonize(optimizedBuffer, 'image/webp');
+    } catch (err) {
+      logger.error({ err, uid }, 'Cartoon conversion failed');
+      res.status(500).json({ error: 'Failed to create cartoon avatar. Please try again.' });
+      return;
+    }
+
+    // Upload cartoon version as the displayed avatar
+    const avatarBlobPath = `profile-pictures/${uid}/avatar.webp`;
+    const avatarBlobClient = containerClient.getBlockBlobClient(avatarBlobPath);
+
+    try {
+      await avatarBlobClient.upload(cartoonBuffer, cartoonBuffer.length, {
+        blobHTTPHeaders: {
+          blobContentType: 'image/webp',
+          blobCacheControl: 'public, max-age=86400',
+        },
+      });
+    } catch (err) {
+      logger.error({ err, uid }, 'Azure Blob Storage upload of cartoon avatar failed');
+      res.status(503).json({ error: 'Storage service unavailable. Please try again.' });
+      return;
+    }
+
+    const profilePictureUrl = `${getBlobUrl(avatarBlobPath)}?v=${Date.now()}`;
 
     const db = getDb();
     await db.collection('users').doc(uid).update({ profilePictureUrl });

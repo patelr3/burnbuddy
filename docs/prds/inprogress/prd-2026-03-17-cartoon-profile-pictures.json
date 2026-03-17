@@ -34,7 +34,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "The Key Vault secret must be manually created before deployment (documented in PRD). Follow the exact pattern of existing secrets in the Bicep file: secrets array entry with keyVaultUrl and identity:'system', plus env array entry with secretRef."
     },
     {

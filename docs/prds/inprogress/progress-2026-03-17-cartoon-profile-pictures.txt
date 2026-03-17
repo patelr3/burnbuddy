@@ -23,3 +23,13 @@ Started: 2026-03-17
   - No axios in this codebase — use native `fetch` for external HTTP calls
   - Pre-existing typecheck errors exist (implicit any, missing @burnbuddy/shared) — must build shared package first
 ---
+
+## 2026-03-17T05:56 - US-002
+- Added REPLICATE_API_TOKEN secret and env var to infra/modules/api-container-app.bicep
+- Files changed:
+  - `infra/modules/api-container-app.bicep` — Added secret entry referencing KV secret 'replicate-api-token' and env var mapping
+- **Learnings for future iterations:**
+  - Bicep secrets follow pattern: secrets array entry with name/keyVaultUrl/identity:'system', plus env array entry with name/secretRef
+  - Key Vault secret name uses kebab-case, env var uses SCREAMING_SNAKE_CASE
+  - No Bicep CLI validation available in this environment — typecheck validates TS only
+---
