@@ -5,7 +5,9 @@ Started: 2026-03-17
 ## Codebase Patterns
 - Shared package types go in individual files under `packages/shared/src/` and are re-exported from `index.ts`
 - After changing shared package, run `cd packages/shared && yarn build` before API/web typecheck
-- API tests: 464 tests across 22 files, all passing at baseline
+- API tests: 483 tests across 23 files, all passing after US-002
+- Node 24 has native `fetch` — use vi.stubGlobal('fetch', mockFn) to mock it in tests
+- USDA nutrient mapping is in `services/api/src/services/usda-food-search.ts` — USDA_NUTRIENT_MAP constant
 - Need `yarn install` in worktree before typecheck works (node_modules may not be present)
 
 ## 2026-03-17T05:50 - US-001
@@ -17,4 +19,19 @@ Started: 2026-03-17
   - Shared package compiles to `dist/` via `tsc`; web/API resolve from compiled output
   - Pre-existing API typecheck fails without `yarn install` (missing @types/node, express types)
   - All 464 API tests pass at baseline — use as regression check
+---
+
+## 2026-03-17T05:53 - US-002
+- What was implemented: USDA FoodData Central integration service with searchFoods() and getFoodDetails() functions
+- Files changed:
+  - `services/api/src/services/usda-food-search.ts` (new) — Service with USDA API integration, nutrient ID mapping, search and detail endpoints
+  - `services/api/src/services/usda-food-search.test.ts` (new) — 19 unit tests covering nutrient mapping, search, details, error handling
+- **Learnings for future iterations:**
+  - Node 24 has native `fetch` — no need for node-fetch or axios dependencies
+  - USDA FoodData Central search endpoint: `/v1/foods/search?query=...&api_key=...`
+  - USDA food detail endpoint: `/v1/food/{fdcId}?api_key=...`
+  - Omega-3 is split across 3 USDA nutrient IDs (ALA=1404, EPA=1278, DHA=1272) — must sum them
+  - Search results have `foodNutrients[].nutrientId` + `.value`; detail results have `foodNutrients[].nutrient.id` + `.amount` — two different extraction functions needed
+  - vi.stubGlobal('fetch', mockFn) works cleanly for mocking native fetch in vitest
+  - Full test suite now has 483 tests across 23 files
 ---
