@@ -26,6 +26,15 @@ function FriendsIcon({ active }: { active: boolean }) {
   );
 }
 
+function NutritionIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? '#FF2D55' : '#9CA3AF'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 20A7 7 0 0 1 9.8 6.9C15.5 4.9 17 3.5 17 3.5s1.5 2.5 1.5 6c0 3-1.5 5.5-4 7" />
+      <path d="M12 20c0-4.5-2.5-8-2.5-8" />
+    </svg>
+  );
+}
+
 function AccountIcon({ active }: { active: boolean }) {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? '#FF2D55' : '#9CA3AF'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -38,6 +47,7 @@ function AccountIcon({ active }: { active: boolean }) {
 const navItems = [
   { href: '/', label: 'Home', Icon: HomeIcon },
   { href: '/friends', label: 'Friends', Icon: FriendsIcon },
+  { href: '/nutrition', label: 'Nutrition', Icon: NutritionIcon },
   { href: '/account', label: 'Account', Icon: AccountIcon },
 ] as const;
 
