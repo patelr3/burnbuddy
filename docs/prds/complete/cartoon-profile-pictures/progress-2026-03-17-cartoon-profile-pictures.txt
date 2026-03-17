@@ -1,0 +1,98 @@
+# Ralph Progress Log — Cartoon Profile Pictures
+Started: 2026-03-17
+
+## Codebase Patterns
+- Use `yarn test` (not `npx vitest`) to run API tests — local vitest binary is in node_modules/.bin
+- Build shared package (`cd packages/shared && yarn build`) before API typecheck — API resolves @burnbuddy/shared from compiled dist/
+- Fake timer tests: attach `expect().rejects` BEFORE `vi.advanceTimersByTimeAsync()` to avoid unhandled rejections
+- All test files importing users.ts must mock `../services/replicate-cartoon-service` (class-based mock pattern)
+- Mock `fetch` with `vi.stubGlobal('fetch', fetchMock)` and clean up with `vi.unstubAllGlobals()` in afterEach
+- Services use native `fetch` for HTTP calls (no axios dependency in the API package)
+- Use real classes (not `vi.fn().mockImplementation`) in `vi.mock` factories for constructors — `resetAllMocks()` clears vi.fn implementations but classes survive
+- `users-profile-picture.test.ts` and `users-delete-profile-picture.test.ts` are separate from `users.test.ts` — all import users router and need matching mocks for new dependencies
+
+---
+
+## 2026-03-17T05:56 - US-001
+- Implemented CartoonService interface and ReplicateCartoonService
+- Files created:
+  - `services/api/src/services/cartoon-service.ts` — Interface with `cartoonize(imageBuffer, mimeType)` method
+  - `services/api/src/services/replicate-cartoon-service.ts` — Replicate implementation using zf-kbot/photo-to-anime model
+  - `services/api/src/services/cartoon-service.test.ts` — 10 unit tests (success, polling, timeout, API errors, download errors)
+- **Learnings for future iterations:**
+  - Need `yarn install` before first test run in worktree (node_modules may not be linked)
+  - `vi.useFakeTimers()` mocks both `Date.now()` and `setTimeout` — use `vi.advanceTimersByTimeAsync()` for async polling loops
+  - Attach rejection handler before advancing timers to avoid vitest "unhandled rejection" errors
+  - No axios in this codebase — use native `fetch` for external HTTP calls
+  - Pre-existing typecheck errors exist (implicit any, missing @burnbuddy/shared) — must build shared package first
+---
+
+## 2026-03-17T05:56 - US-002
+- Added REPLICATE_API_TOKEN secret and env var to infra/modules/api-container-app.bicep
+- Files changed:
+  - `infra/modules/api-container-app.bicep` — Added secret entry referencing KV secret 'replicate-api-token' and env var mapping
+- **Learnings for future iterations:**
+  - Bicep secrets follow pattern: secrets array entry with name/keyVaultUrl/identity:'system', plus env array entry with name/secretRef
+  - Key Vault secret name uses kebab-case, env var uses SCREAMING_SNAKE_CASE
+  - No Bicep CLI validation available in this environment — typecheck validates TS only
+---
+
+## 2026-03-17T06:06 - US-003
+- Modified POST /users/me/profile-picture to save original.webp backup and cartoon avatar
+- Flow: sharp resize → upload original.webp → cartoonize → upload cartoon to avatar.webp → update Firestore
+- Returns HTTP 500 with descriptive error if cartoon conversion fails (Firestore not updated)
+- Updated users-profile-picture.test.ts with cartoon mock and new assertions (17 tests)
+- Added cartoon service mock to users.test.ts (48 existing tests still pass)
+- Files changed:
+  - `services/api/src/routes/users.ts` — Added cartoon conversion step to upload handler
+  - `services/api/src/routes/users-profile-picture.test.ts` — Updated upload test assertions, added cartoon failure tests
+  - `services/api/src/routes/users.test.ts` — Added cartoon service mock
+- **Learnings for future iterations:**
+  - Use a real class (not `vi.fn().mockImplementation(...)`) in `vi.mock` factories for constructors — `resetAllMocks()` clears mock implementations but classes survive
+  - Don't use lazy singletons in route files when mocks need resetting between tests — use per-call instantiation with `createService()` factory pattern
+  - `users-profile-picture.test.ts` is a separate test file from `users.test.ts` — both import the same users router and need matching mocks
+---
+
+## 2026-03-17T06:08 - US-004
+- Modified DELETE /users/me/profile-picture to delete both original.webp and avatar.webp
+- Added cartoon service mock to delete test file (required since users.ts now imports ReplicateCartoonService)
+- Updated test assertions to verify both blobs are deleted (2 deleteIfExists calls)
+- Files changed:
+  - `services/api/src/routes/users.ts` — Added original.webp deletion before avatar.webp deletion
+  - `services/api/src/routes/users-delete-profile-picture.test.ts` — Updated assertions, added cartoon service mock
+- **Learnings for future iterations:**
+  - Any new test file importing `users.ts` must mock `../services/replicate-cartoon-service` (class-based pattern) to avoid import errors
+  - The delete handler uses `getContainerClient('uploads')` stored in a local variable to avoid re-calling for each blob
+---
+
+## 2026-03-17T06:12 - US-005
+- Created standalone migration script at scripts/migrate-cartoon-pictures.ts
+- Script queries Firestore for all users with profilePictureUrl set
+- For each user: downloads avatar.webp → backs up as original.webp → cartoonizes → uploads cartoon as avatar.webp → updates Firestore URL
+- Idempotent: skips users whose original.webp already exists in blob storage
+- Supports --limit N and --dry-run flags
+- Processes users sequentially (respects Replicate rate limits)
+- Logs progress and summary to stdout
+- Files created:
+  - `scripts/migrate-cartoon-pictures.ts` — Self-contained migration script using tsx
+- **Learnings for future iterations:**
+  - Dependencies are hoisted to root node_modules via yarn workspaces — scripts at root can import @azure/storage-blob, firebase-admin, etc.
+  - The script imports ReplicateCartoonService directly from services/api/src via relative path — works with tsx but not compiled tsc
+  - No existing TypeScript scripts in scripts/ — all existing scripts are shell scripts
+  - Script duplicates firebase and storage init (doesn't import from services/api/src/lib) to stay self-contained except for the CartoonService
+---
+
+## 2026-03-17T06:17 - US-006
+- Increased apiUploadFile timeout from 45_000 to 60_000 ms in both web and mobile api.ts
+- Updated upload loading text to "Creating your cartoon avatar…" in both web and mobile
+- Files changed:
+  - `apps/web/src/lib/api.ts` — timeout 45_000 → 60_000
+  - `apps/mobile/src/lib/api.ts` — timeout 45_000 → 60_000
+  - `apps/web/src/app/(main)/account/page.tsx` — "Uploading photo…" → "Creating your cartoon avatar…"
+  - `apps/mobile/src/screens/AccountScreen.tsx` — "Uploading…" → "Creating your cartoon avatar…"
+- **Learnings for future iterations:**
+  - Web upload loading text is in apps/web/src/app/(main)/account/page.tsx (conditional on `uploadPictureMutation.isPending`)
+  - Mobile upload loading text is in apps/mobile/src/screens/AccountScreen.tsx (conditional on `uploading` state)
+  - Next.js dev server must be started from apps/web/ directory (not project root)
+  - Loading text is in a React client component — won't appear in SSR HTML, only in JS chunks
+---

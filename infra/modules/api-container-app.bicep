@@ -70,6 +70,11 @@ resource apiApp 'Microsoft.App/containerApps@2023-05-01' = {
           keyVaultUrl: '${keyVaultUri}/secrets/usda-foodcentral-api-key'
           identity: 'system'
         }
+        {
+          name: 'replicate-api-token'
+          keyVaultUrl: '${keyVaultUri}/secrets/replicate-api-token'
+          identity: 'system'
+        }
       ]
     }
     template: {
@@ -109,6 +114,10 @@ resource apiApp 'Microsoft.App/containerApps@2023-05-01' = {
             {
               name: 'USDA_API_KEY'
               secretRef: 'usda-foodcentral-api-key'
+            }
+            {
+              name: 'REPLICATE_API_TOKEN'
+              secretRef: 'replicate-api-token'
             }
           ]
         }

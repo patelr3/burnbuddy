@@ -43,6 +43,13 @@ vi.mock('../lib/username', () => ({
   validateUsername: mockValidateUsername,
 }));
 
+// Mock cartoon service — prevents real Replicate API calls and missing API token errors
+vi.mock('../services/replicate-cartoon-service', () => ({
+  ReplicateCartoonService: vi.fn().mockImplementation(() => ({
+    cartoonize: vi.fn().mockResolvedValue(Buffer.from('cartoon-image-data')),
+  })),
+}));
+
 import usersRouter from './users';
 
 function buildApp() {

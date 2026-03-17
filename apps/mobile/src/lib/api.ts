@@ -75,7 +75,7 @@ export async function apiUploadFile<T>(
   } as unknown as Blob);
 
   const controller = new AbortController();
-  const timeoutMs = 45_000;
+  const timeoutMs = 60_000;
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   // If the caller provides an external signal, forward its abort

@@ -202,7 +202,7 @@ export default function AccountScreen() {
           </View>
           {uploading && (
             <View style={styles.uploadFeedback}>
-              <Text style={styles.uploadingText}>Uploading…</Text>
+              <Text style={styles.uploadingText}>Creating your cartoon avatar…</Text>
               <TouchableOpacity
                 onPress={handleCancelUpload}
                 style={styles.cancelButton}
