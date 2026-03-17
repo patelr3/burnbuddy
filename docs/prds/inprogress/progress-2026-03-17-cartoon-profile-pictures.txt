@@ -1,3 +1,25 @@
 # Ralph Progress Log — Cartoon Profile Pictures
 Started: 2026-03-17
+
+## Codebase Patterns
+- Use `yarn test` (not `npx vitest`) to run API tests — local vitest binary is in node_modules/.bin
+- Build shared package (`cd packages/shared && yarn build`) before API typecheck — API resolves @burnbuddy/shared from compiled dist/
+- Fake timer tests: attach `expect().rejects` BEFORE `vi.advanceTimersByTimeAsync()` to avoid unhandled rejections
+- Mock `fetch` with `vi.stubGlobal('fetch', fetchMock)` and clean up with `vi.unstubAllGlobals()` in afterEach
+- Services use native `fetch` for HTTP calls (no axios dependency in the API package)
+
+---
+
+## 2026-03-17T05:56 - US-001
+- Implemented CartoonService interface and ReplicateCartoonService
+- Files created:
+  - `services/api/src/services/cartoon-service.ts` — Interface with `cartoonize(imageBuffer, mimeType)` method
+  - `services/api/src/services/replicate-cartoon-service.ts` — Replicate implementation using zf-kbot/photo-to-anime model
+  - `services/api/src/services/cartoon-service.test.ts` — 10 unit tests (success, polling, timeout, API errors, download errors)
+- **Learnings for future iterations:**
+  - Need `yarn install` before first test run in worktree (node_modules may not be linked)
+  - `vi.useFakeTimers()` mocks both `Date.now()` and `setTimeout` — use `vi.advanceTimersByTimeAsync()` for async polling loops
+  - Attach rejection handler before advancing timers to avoid vitest "unhandled rejection" errors
+  - No axios in this codebase — use native `fetch` for external HTTP calls
+  - Pre-existing typecheck errors exist (implicit any, missing @burnbuddy/shared) — must build shared package first
 ---

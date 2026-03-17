@@ -21,7 +21,7 @@
         "Tests pass"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "Follow existing service patterns in services/api/src/services/ (e.g., streak-calculator.ts). Use native fetch or axios for HTTP calls. The Replicate API base URL is https://api.replicate.com. Input image should be passed as a base64 data URI since our 256x256 WebP images are small."
     },
     {
