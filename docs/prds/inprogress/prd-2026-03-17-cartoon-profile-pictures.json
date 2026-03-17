@@ -1,0 +1,117 @@
+{
+  "project": "BurnBuddy",
+  "branchName": "ralph/cartoon-profile-pictures",
+  "description": "Cartoon Profile Pictures — automatically convert all profile pictures into a bold cartoon/comic-book style using the Replicate zf-kbot/photo-to-anime AI model, preserving originals as backups",
+  "dependsOn": [],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create CartoonService interface and ReplicateCartoonService implementation",
+      "description": "As a developer, I need an abstracted CartoonService so the cartoon conversion provider can be swapped later, with a concrete Replicate implementation using the zf-kbot/photo-to-anime model.",
+      "acceptanceCriteria": [
+        "Create services/api/src/services/cartoon-service.ts exporting a CartoonService interface with method: cartoonize(imageBuffer: Buffer, mimeType: string): Promise<Buffer>",
+        "Create services/api/src/services/replicate-cartoon-service.ts implementing CartoonService using the zf-kbot/photo-to-anime model (version 3f91ee385785d4eb3dd6c14d2c80dcfd82d2b607fde4bdd610092c8fee8d81bb) with strength: 0.7 and num_outputs: 1",
+        "ReplicateCartoonService handles Replicate async prediction flow: POST /v1/predictions to start, poll GET /v1/predictions/{id} until succeeded or failed",
+        "Authentication uses Authorization: Token <REPLICATE_API_TOKEN> header (note: Token not Bearer)",
+        "Reads REPLICATE_API_TOKEN from process.env",
+        "Conversion times out after 30 seconds with a descriptive error",
+        "Output downloads the first image URL from the prediction output array and returns it as a Buffer",
+        "Create services/api/src/services/cartoon-service.test.ts with unit tests that mock the Replicate HTTP calls and verify: successful conversion returns a buffer, timeout throws error, API error throws error",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Follow existing service patterns in services/api/src/services/ (e.g., streak-calculator.ts). Use native fetch or axios for HTTP calls. The Replicate API base URL is https://api.replicate.com. Input image should be passed as a base64 data URI since our 256x256 WebP images are small."
+    },
+    {
+      "id": "US-002",
+      "title": "Add REPLICATE_API_TOKEN to API container app infrastructure",
+      "description": "As a developer, I need the Replicate API token available as an environment variable in the API container app so the CartoonService can authenticate with Replicate.",
+      "acceptanceCriteria": [
+        "Add a new secret entry in infra/modules/api-container-app.bicep referencing Key Vault secret 'replicate-api-token' with identity: 'system' (following the existing pattern for firebase-service-account-json)",
+        "Add a new env entry mapping REPLICATE_API_TOKEN to the secretRef 'replicate-api-token' (following the existing pattern for FIREBASE_SERVICE_ACCOUNT_JSON)",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "The Key Vault secret must be manually created before deployment (documented in PRD). Follow the exact pattern of existing secrets in the Bicep file: secrets array entry with keyVaultUrl and identity:'system', plus env array entry with secretRef."
+    },
+    {
+      "id": "US-003",
+      "title": "Modify upload endpoint to save original and cartoon version",
+      "description": "As a user, when I upload a new profile picture, the system saves my original photo as a backup and converts it to a cartoon/comic-book style that becomes my displayed avatar.",
+      "acceptanceCriteria": [
+        "POST /users/me/profile-picture uploads the resized WebP buffer to profile-pictures/{uid}/original.webp BEFORE cartoon conversion (new step after sharp processing)",
+        "POST /users/me/profile-picture calls CartoonService.cartoonize() with the resized buffer",
+        "The cartoon result buffer is uploaded to profile-pictures/{uid}/avatar.webp (replacing the previous direct upload of the resized original)",
+        "Firestore profilePictureUrl is updated to point to avatar.webp with cache-bust param (existing behavior, path unchanged)",
+        "If CartoonService.cartoonize() throws an error, the endpoint returns HTTP 500 with body { error: 'Failed to create cartoon avatar. Please try again.' }",
+        "On cartoon conversion failure, Firestore profilePictureUrl is NOT updated",
+        "The original photo URL (original.webp) is never returned in any API response",
+        "Import and instantiate ReplicateCartoonService in the users route file",
+        "Existing unit tests still pass (update mocks if needed)",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "The upload handler is in services/api/src/routes/users.ts at POST /users/me/profile-picture (lines 283-357). The existing flow is: sharp resize → upload to avatar.webp → update Firestore. New flow: sharp resize → upload to original.webp → cartoonize → upload cartoon to avatar.webp → update Firestore. Use getContainerClient('uploads').getBlockBlobClient() for blob operations (existing pattern)."
+    },
+    {
+      "id": "US-004",
+      "title": "Delete endpoint removes both original and cartoon blobs",
+      "description": "As a user, when I remove my profile picture, both the original backup and cartoon version are deleted from storage.",
+      "acceptanceCriteria": [
+        "DELETE /users/me/profile-picture deletes profile-pictures/{uid}/original.webp using deleteIfExists() (idempotent)",
+        "DELETE /users/me/profile-picture deletes profile-pictures/{uid}/avatar.webp using deleteIfExists() (existing behavior, already present)",
+        "Both deletions complete before Firestore profilePictureUrl is removed",
+        "Endpoint still returns 204 No Content",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "The delete handler is in services/api/src/routes/users.ts at DELETE /users/me/profile-picture (lines 365-379). Currently only deletes avatar.webp. Add a second deleteIfExists() call for original.webp using the same getContainerClient('uploads').getBlockBlobClient() pattern."
+    },
+    {
+      "id": "US-005",
+      "title": "Create migration script for existing users' profile pictures",
+      "description": "As an admin, I can run a one-time migration script to convert all existing users' profile pictures to cartoon versions.",
+      "acceptanceCriteria": [
+        "Create scripts/migrate-cartoon-pictures.ts as a standalone Node.js/TypeScript script",
+        "Script queries Firestore for all users with profilePictureUrl set",
+        "For each user, downloads current avatar.webp and backs it up as original.webp in blob storage",
+        "Sends the image through ReplicateCartoonService for cartoon conversion",
+        "Uploads cartoon result as avatar.webp replacing the original",
+        "Updates Firestore profilePictureUrl with a new cache-bust timestamp",
+        "Script is idempotent: skips users whose original.webp already exists in blob storage",
+        "Supports --limit N flag to process only N users (for testing)",
+        "Supports --dry-run flag to preview actions without making changes",
+        "Logs progress and errors to stdout",
+        "Processes users sequentially (to respect Replicate rate limits)",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Use the same Firestore and Azure Blob Storage initialization patterns from the API service (services/api/src/lib/). The script should use ts-node or tsx to run. Parse CLI args with process.argv or a simple arg parser. Follow existing script patterns in scripts/ directory."
+    },
+    {
+      "id": "US-006",
+      "title": "Update upload timeout and loading UX for cartoon processing",
+      "description": "As a user, I see clear feedback during the longer upload process that my cartoon avatar is being created, and the upload doesn't prematurely time out.",
+      "acceptanceCriteria": [
+        "In apps/web/src/lib/api.ts, increase apiUploadFile timeout from 45_000 to 60_000 ms",
+        "In apps/mobile/src/lib/api.ts, increase apiUploadFile timeout from 45_000 to 60_000 ms",
+        "On web, update the profile picture upload loading text to 'Creating your cartoon avatar...' (find the upload UI in the profile/settings page)",
+        "On mobile, update the profile picture upload loading text to 'Creating your cartoon avatar...' (find the upload UI in the profile/settings screen)",
+        "User can still cancel the upload (existing AbortController behavior preserved)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Web timeout is in apps/web/src/lib/api.ts (timeoutMs = 45_000). Mobile timeout is in apps/mobile/src/lib/api.ts (timeoutMs = 45_000). Search for 'Uploading' or similar loading text in profile picture upload components on both platforms to find where to update the message."
+    }
+  ]
+}
