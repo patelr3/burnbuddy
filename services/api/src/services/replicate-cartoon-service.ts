@@ -27,11 +27,8 @@ export class ReplicateCartoonService implements CartoonService {
     this.apiToken = token;
   }
 
-  async cartoonize(imageBuffer: Buffer, mimeType: string): Promise<Buffer> {
-    const base64 = imageBuffer.toString('base64');
-    const dataUri = `data:${mimeType};base64,${base64}`;
-
-    const prediction = await this.createPrediction(dataUri);
+  async cartoonize(imageUrl: string): Promise<Buffer> {
+    const prediction = await this.createPrediction(imageUrl);
     const completed = await this.pollPrediction(prediction.id);
 
     if (!completed.output || completed.output.length === 0) {
@@ -42,7 +39,7 @@ export class ReplicateCartoonService implements CartoonService {
     return this.downloadOutput(outputUrl);
   }
 
-  private async createPrediction(imageDataUri: string): Promise<ReplicatePrediction> {
+  private async createPrediction(imageUrl: string): Promise<ReplicatePrediction> {
     const response = await fetch(`${REPLICATE_API_BASE}/v1/predictions`, {
       method: 'POST',
       headers: {
@@ -52,7 +49,7 @@ export class ReplicateCartoonService implements CartoonService {
       body: JSON.stringify({
         version: MODEL_VERSION,
         input: {
-          image: imageDataUri,
+          image: imageUrl,
           strength: 0.7,
           num_outputs: 1,
         },

@@ -14,8 +14,8 @@ const TEST_API_TOKEN = 'test-replicate-token';
 const TEST_PREDICTION_ID = 'pred-abc123';
 const TEST_OUTPUT_URL = 'https://replicate.delivery/output/test-image.webp';
 
-// Fake image buffers
-const inputBuffer = Buffer.from('fake-input-image');
+// Fake image URL
+const inputUrl = 'https://burnbuddybetasa.blob.core.windows.net/uploads/profile-pictures/user1/original.webp';
 const outputBuffer = Buffer.from('fake-cartoon-output');
 
 import { ReplicateCartoonService } from './replicate-cartoon-service';
@@ -93,7 +93,7 @@ describe('ReplicateCartoonService', () => {
         )),
       });
 
-      const result = await service.cartoonize(inputBuffer, 'image/webp');
+      const result = await service.cartoonize(inputUrl);
 
       expect(result).toBeInstanceOf(Buffer);
       expect(Buffer.from(result).toString()).toBe(outputBuffer.toString());
@@ -110,10 +110,10 @@ describe('ReplicateCartoonService', () => {
         }),
       );
 
-      // Verify the request body contains base64 data URI
+      // Verify the request body contains the image URL directly
       const createCall = fetchMock.mock.calls[0];
       const body = JSON.parse(createCall[1].body);
-      expect(body.input.image).toMatch(/^data:image\/webp;base64,/);
+      expect(body.input.image).toBe(inputUrl);
       expect(body.input.strength).toBe(0.7);
       expect(body.input.num_outputs).toBe(1);
       expect(body.version).toBe(
@@ -169,7 +169,7 @@ describe('ReplicateCartoonService', () => {
         )),
       });
 
-      const cartoonizePromise = service.cartoonize(inputBuffer, 'image/webp');
+      const cartoonizePromise = service.cartoonize(inputUrl);
 
       // Advance past the first poll interval
       await vi.advanceTimersByTimeAsync(1_000);
@@ -201,7 +201,7 @@ describe('ReplicateCartoonService', () => {
       });
 
       await expect(
-        service.cartoonize(inputBuffer, 'image/webp'),
+        service.cartoonize(inputUrl),
       ).rejects.toThrow('Cartoon conversion failed: Model inference error');
     });
 
@@ -213,7 +213,7 @@ describe('ReplicateCartoonService', () => {
       });
 
       await expect(
-        service.cartoonize(inputBuffer, 'image/webp'),
+        service.cartoonize(inputUrl),
       ).rejects.toThrow('Replicate API error (422): Invalid input');
     });
 
@@ -233,7 +233,7 @@ describe('ReplicateCartoonService', () => {
       });
 
       await expect(
-        service.cartoonize(inputBuffer, 'image/webp'),
+        service.cartoonize(inputUrl),
       ).rejects.toThrow('Replicate poll error (500): Internal server error');
     });
 
@@ -252,7 +252,7 @@ describe('ReplicateCartoonService', () => {
           Promise.resolve({ id: TEST_PREDICTION_ID, status: 'processing' }),
       });
 
-      const cartoonizePromise = service.cartoonize(inputBuffer, 'image/webp');
+      const cartoonizePromise = service.cartoonize(inputUrl);
 
       // Attach rejection handler BEFORE advancing timers to avoid unhandled rejection
       const assertionPromise = expect(cartoonizePromise).rejects.toThrow(
@@ -285,7 +285,7 @@ describe('ReplicateCartoonService', () => {
       });
 
       await expect(
-        service.cartoonize(inputBuffer, 'image/webp'),
+        service.cartoonize(inputUrl),
       ).rejects.toThrow('Cartoon conversion returned no output');
     });
 
@@ -315,7 +315,7 @@ describe('ReplicateCartoonService', () => {
       });
 
       await expect(
-        service.cartoonize(inputBuffer, 'image/webp'),
+        service.cartoonize(inputUrl),
       ).rejects.toThrow('Failed to download cartoon output (404)');
     });
   });

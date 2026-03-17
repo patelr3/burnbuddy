@@ -355,10 +355,11 @@ router.post(
       return;
     }
 
-    // Convert to cartoon style
+    // Convert to cartoon style using the publicly accessible blob URL
+    const originalBlobUrl = getBlobUrl(originalBlobPath);
     let cartoonBuffer: Buffer;
     try {
-      cartoonBuffer = await createCartoonService().cartoonize(optimizedBuffer, 'image/webp');
+      cartoonBuffer = await createCartoonService().cartoonize(originalBlobUrl);
     } catch (err) {
       logger.error({ err, uid }, 'Cartoon conversion failed');
       res.status(500).json({ error: 'Failed to create cartoon avatar. Please try again.' });

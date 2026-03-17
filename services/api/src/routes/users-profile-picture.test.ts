@@ -133,6 +133,7 @@ function buildApp() {
 const VALID_TOKEN = 'Bearer valid.token';
 const TEST_UID = 'test-uid-001';
 const TEST_BLOB_URL = 'https://burnbuddybetasa.blob.core.windows.net/uploads/profile-pictures/test-uid-001/avatar.webp';
+const TEST_ORIGINAL_BLOB_URL = 'https://burnbuddybetasa.blob.core.windows.net/uploads/profile-pictures/test-uid-001/original.webp';
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -148,7 +149,10 @@ beforeEach(() => {
   };
   mockSharpConstructor.mockReturnValue(sharpChain);
   mockUpload.mockResolvedValue(undefined);
-  mockGetBlobUrl.mockReturnValue(TEST_BLOB_URL);
+  mockGetBlobUrl.mockImplementation((path: string) => {
+    if (path.includes('original.webp')) return TEST_ORIGINAL_BLOB_URL;
+    return TEST_BLOB_URL;
+  });
   mockUsersDocUpdate.mockResolvedValue(undefined);
 
   mockUsersDocRef.mockImplementation(() => ({
@@ -191,8 +195,8 @@ describe('POST /users/me/profile-picture', () => {
     expect(mockGetBlockBlobClient).toHaveBeenNthCalledWith(1, `profile-pictures/${TEST_UID}/original.webp`);
     expect(mockGetBlockBlobClient).toHaveBeenNthCalledWith(2, `profile-pictures/${TEST_UID}/avatar.webp`);
 
-    // Verify cartoon service was called with optimized buffer
-    expect(mockCartoonize).toHaveBeenCalledWith(Buffer.from('optimized-image-data'), 'image/webp');
+    // Verify cartoon service was called with blob URL of the original
+    expect(mockCartoonize).toHaveBeenCalledWith(TEST_ORIGINAL_BLOB_URL);
 
     // Verify both uploads
     expect(mockUpload).toHaveBeenCalledTimes(2);
@@ -401,7 +405,9 @@ describe('POST /users/me/profile-picture', () => {
 
     expect(res.status).toBe(500);
     expect(mockUsersDocUpdate).not.toHaveBeenCalled();
-    expect(mockGetBlobUrl).not.toHaveBeenCalled();
+    // getBlobUrl is called once for original.webp (passed to cartoonize), but NOT for avatar.webp
+    expect(mockGetBlobUrl).toHaveBeenCalledTimes(1);
+    expect(mockGetBlobUrl).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/original.webp`);
   });
 
   it('accepts HEIC file when browser reports application/octet-stream (extension fallback)', async () => {
