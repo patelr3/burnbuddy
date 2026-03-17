@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 
@@ -104,6 +104,9 @@ vi.mock('../services/replicate-cartoon-service', () => ({
   ReplicateCartoonService: class MockReplicateCartoonService {
     cartoonize = mockCartoonize;
   },
+  PassthroughCartoonService: class MockPassthroughCartoonService {
+    cartoonize = vi.fn().mockResolvedValue(null);
+  },
 }));
 
 vi.mock('../lib/logger', () => ({
@@ -133,9 +136,13 @@ function buildApp() {
 const VALID_TOKEN = 'Bearer valid.token';
 const TEST_UID = 'test-uid-001';
 const TEST_BLOB_URL = 'https://burnbuddybetasa.blob.core.windows.net/uploads/profile-pictures/test-uid-001/avatar.webp';
+const TEST_ORIGINAL_BLOB_URL = 'https://burnbuddybetasa.blob.core.windows.net/uploads/profile-pictures/test-uid-001/original.webp';
 
 beforeEach(() => {
   vi.resetAllMocks();
+
+  // Ensure cartoon conversion is enabled by default for existing tests
+  process.env.REPLICATE_API_TOKEN = 'test-replicate-token';
 
   mockVerifyIdToken.mockResolvedValue({ uid: TEST_UID });
   mockSharpToBuffer.mockResolvedValue(Buffer.from('optimized-image-data'));
@@ -148,7 +155,10 @@ beforeEach(() => {
   };
   mockSharpConstructor.mockReturnValue(sharpChain);
   mockUpload.mockResolvedValue(undefined);
-  mockGetBlobUrl.mockReturnValue(TEST_BLOB_URL);
+  mockGetBlobUrl.mockImplementation((path: string) => {
+    if (path.includes('original.webp')) return TEST_ORIGINAL_BLOB_URL;
+    return TEST_BLOB_URL;
+  });
   mockUsersDocUpdate.mockResolvedValue(undefined);
 
   mockUsersDocRef.mockImplementation(() => ({
@@ -191,8 +201,8 @@ describe('POST /users/me/profile-picture', () => {
     expect(mockGetBlockBlobClient).toHaveBeenNthCalledWith(1, `profile-pictures/${TEST_UID}/original.webp`);
     expect(mockGetBlockBlobClient).toHaveBeenNthCalledWith(2, `profile-pictures/${TEST_UID}/avatar.webp`);
 
-    // Verify cartoon service was called with optimized buffer
-    expect(mockCartoonize).toHaveBeenCalledWith(Buffer.from('optimized-image-data'), 'image/webp');
+    // Verify cartoon service was called with blob URL of the original
+    expect(mockCartoonize).toHaveBeenCalledWith(TEST_ORIGINAL_BLOB_URL);
 
     // Verify both uploads
     expect(mockUpload).toHaveBeenCalledTimes(2);
@@ -401,7 +411,9 @@ describe('POST /users/me/profile-picture', () => {
 
     expect(res.status).toBe(500);
     expect(mockUsersDocUpdate).not.toHaveBeenCalled();
-    expect(mockGetBlobUrl).not.toHaveBeenCalled();
+    // getBlobUrl is called once for original.webp (passed to cartoonize), but NOT for avatar.webp
+    expect(mockGetBlobUrl).toHaveBeenCalledTimes(1);
+    expect(mockGetBlobUrl).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/original.webp`);
   });
 
   it('accepts HEIC file when browser reports application/octet-stream (extension fallback)', async () => {
@@ -452,5 +464,109 @@ describe('POST /users/me/profile-picture', () => {
       expect.objectContaining({ mimetype: 'application/octet-stream', originalname: 'file.bmp' }),
       'Profile picture rejected: unsupported file type',
     );
+  });
+
+  describe('passthrough when REPLICATE_API_TOKEN is missing', () => {
+    let originalToken: string | undefined;
+
+    beforeEach(() => {
+      originalToken = process.env.REPLICATE_API_TOKEN;
+      delete process.env.REPLICATE_API_TOKEN;
+    });
+
+    afterEach(() => {
+      if (originalToken !== undefined) {
+        process.env.REPLICATE_API_TOKEN = originalToken;
+      } else {
+        delete process.env.REPLICATE_API_TOKEN;
+      }
+    });
+
+    it('returns 200 and uses original image as avatar when token is missing', async () => {
+      const optimizedBuffer = Buffer.from('optimized-image-data');
+      mockSharpToBuffer.mockResolvedValueOnce(optimizedBuffer);
+
+      const imageBuffer = Buffer.alloc(100, 0xff);
+      const res = await request(buildApp())
+        .post('/users/me/profile-picture')
+        .set('Authorization', VALID_TOKEN)
+        .attach('picture', imageBuffer, { filename: 'photo.jpg', contentType: 'image/jpeg' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.profilePictureUrl).toContain(TEST_BLOB_URL);
+      expect(res.body.profilePictureUrl).toMatch(/\?v=\d+/);
+    });
+
+    it('uploads optimizedBuffer as both original.webp and avatar.webp', async () => {
+      const optimizedBuffer = Buffer.from('optimized-image-data');
+      mockSharpToBuffer.mockResolvedValueOnce(optimizedBuffer);
+
+      const imageBuffer = Buffer.alloc(100, 0xff);
+      await request(buildApp())
+        .post('/users/me/profile-picture')
+        .set('Authorization', VALID_TOKEN)
+        .attach('picture', imageBuffer, { filename: 'photo.jpg', contentType: 'image/jpeg' });
+
+      // Both original.webp and avatar.webp are uploaded
+      expect(mockGetBlockBlobClient).toHaveBeenCalledTimes(2);
+      expect(mockGetBlockBlobClient).toHaveBeenNthCalledWith(1, `profile-pictures/${TEST_UID}/original.webp`);
+      expect(mockGetBlockBlobClient).toHaveBeenNthCalledWith(2, `profile-pictures/${TEST_UID}/avatar.webp`);
+
+      // Both uploads use the same optimizedBuffer
+      expect(mockUpload).toHaveBeenCalledTimes(2);
+      expect(mockUpload).toHaveBeenNthCalledWith(
+        1,
+        optimizedBuffer,
+        optimizedBuffer.length,
+        expect.objectContaining({
+          blobHTTPHeaders: expect.objectContaining({ blobContentType: 'image/webp' }),
+        }),
+      );
+      expect(mockUpload).toHaveBeenNthCalledWith(
+        2,
+        optimizedBuffer,
+        optimizedBuffer.length,
+        expect.objectContaining({
+          blobHTTPHeaders: expect.objectContaining({ blobContentType: 'image/webp' }),
+        }),
+      );
+    });
+
+    it('logs a warning that cartoon conversion is disabled', async () => {
+      const imageBuffer = Buffer.alloc(100, 0xff);
+      await request(buildApp())
+        .post('/users/me/profile-picture')
+        .set('Authorization', VALID_TOKEN)
+        .attach('picture', imageBuffer, { filename: 'photo.jpg', contentType: 'image/jpeg' });
+
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        'REPLICATE_API_TOKEN not set — cartoon conversion disabled, using original image as avatar',
+      );
+    });
+
+    it('does not call ReplicateCartoonService.cartoonize', async () => {
+      const imageBuffer = Buffer.alloc(100, 0xff);
+      await request(buildApp())
+        .post('/users/me/profile-picture')
+        .set('Authorization', VALID_TOKEN)
+        .attach('picture', imageBuffer, { filename: 'photo.jpg', contentType: 'image/jpeg' });
+
+      // The mockCartoonize from ReplicateCartoonService should NOT be called
+      expect(mockCartoonize).not.toHaveBeenCalled();
+    });
+
+    it('updates Firestore with profilePictureUrl', async () => {
+      const imageBuffer = Buffer.alloc(100, 0xff);
+      const res = await request(buildApp())
+        .post('/users/me/profile-picture')
+        .set('Authorization', VALID_TOKEN)
+        .attach('picture', imageBuffer, { filename: 'photo.jpg', contentType: 'image/jpeg' });
+
+      expect(res.status).toBe(200);
+      expect(mockUsersDocRef).toHaveBeenCalledWith(TEST_UID);
+      expect(mockUsersDocUpdate).toHaveBeenCalledOnce();
+      const updateArg = mockUsersDocUpdate.mock.calls[0][0];
+      expect(updateArg.profilePictureUrl).toContain(TEST_BLOB_URL);
+    });
   });
 });

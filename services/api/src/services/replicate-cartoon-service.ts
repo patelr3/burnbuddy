@@ -1,10 +1,20 @@
 import { logger } from '../lib/logger';
 import type { CartoonService } from './cartoon-service';
 
+/**
+ * No-op cartoon service used when REPLICATE_API_TOKEN is not configured.
+ * Returns null to signal that cartoon conversion should be skipped.
+ */
+export class PassthroughCartoonService implements CartoonService {
+  async cartoonize(_imageUrl: string): Promise<null> {
+    return null;
+  }
+}
+
 const REPLICATE_API_BASE = 'https://api.replicate.com';
 const MODEL_VERSION =
   '3f91ee385785d4eb3dd6c14d2c80dcfd82d2b607fde4bdd610092c8fee8d81bb';
-const TIMEOUT_MS = 30_000;
+const TIMEOUT_MS = 60_000;
 const POLL_INTERVAL_MS = 1_000;
 
 interface ReplicatePrediction {
@@ -27,11 +37,8 @@ export class ReplicateCartoonService implements CartoonService {
     this.apiToken = token;
   }
 
-  async cartoonize(imageBuffer: Buffer, mimeType: string): Promise<Buffer> {
-    const base64 = imageBuffer.toString('base64');
-    const dataUri = `data:${mimeType};base64,${base64}`;
-
-    const prediction = await this.createPrediction(dataUri);
+  async cartoonize(imageUrl: string): Promise<Buffer> {
+    const prediction = await this.createPrediction(imageUrl);
     const completed = await this.pollPrediction(prediction.id);
 
     if (!completed.output || completed.output.length === 0) {
@@ -42,7 +49,7 @@ export class ReplicateCartoonService implements CartoonService {
     return this.downloadOutput(outputUrl);
   }
 
-  private async createPrediction(imageDataUri: string): Promise<ReplicatePrediction> {
+  private async createPrediction(imageUrl: string): Promise<ReplicatePrediction> {
     const response = await fetch(`${REPLICATE_API_BASE}/v1/predictions`, {
       method: 'POST',
       headers: {
@@ -52,7 +59,7 @@ export class ReplicateCartoonService implements CartoonService {
       body: JSON.stringify({
         version: MODEL_VERSION,
         input: {
-          image: imageDataUri,
+          image: imageUrl,
           strength: 0.7,
           num_outputs: 1,
         },

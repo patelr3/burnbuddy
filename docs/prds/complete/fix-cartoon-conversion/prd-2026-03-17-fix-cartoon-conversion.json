@@ -1,0 +1,60 @@
+{
+  "project": "BurnBuddy",
+  "branchName": "ralph/fix-cartoon-conversion",
+  "description": "Fix Cartoon Profile Picture Conversion — make cartoon conversion work by switching from base64 to blob URLs, adding fallback when token is missing, and increasing timeout",
+  "dependsOn": [],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Use blob URL instead of base64 for cartoon conversion",
+      "description": "As a user uploading a profile picture, I need the cartoon conversion to use the publicly accessible Azure Blob Storage URL instead of base64 data URIs so the Replicate API can reliably fetch and process the image.",
+      "acceptanceCriteria": [
+        "CartoonService interface in services/api/src/services/cartoon-service.ts updated: cartoonize method signature changed from (imageBuffer: Buffer, mimeType: string) to (imageUrl: string) returning Promise<Buffer>",
+        "ReplicateCartoonService.cartoonize() in services/api/src/services/replicate-cartoon-service.ts sends the image URL string directly in the Replicate prediction input.image field — no base64 encoding",
+        "ReplicateCartoonService no longer imports or uses Buffer.toString('base64') or constructs data URIs",
+        "Upload endpoint in services/api/src/routes/users.ts constructs the blob URL via getBlobUrl() after uploading original.webp and passes it to cartoonize(blobUrl)",
+        "Migration script scripts/migrate-cartoon-pictures.ts constructs blob URLs and passes them to cartoonize() instead of passing buffers",
+        "All existing cartoon-service.test.ts tests updated to call cartoonize(url) with a URL string instead of (buffer, mimeType)",
+        "All existing users-profile-picture.test.ts tests updated: mockCartoonize called with a URL string, assertions updated accordingly",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Add graceful fallback when Replicate token is missing",
+      "description": "As a developer working without a Replicate API token, I need profile picture uploads to still succeed by skipping cartoon conversion and using the original image as the avatar.",
+      "acceptanceCriteria": [
+        "New PassthroughCartoonService class in services/api/src/services/replicate-cartoon-service.ts (or its own file) implements CartoonService interface and returns null from cartoonize() to signal skip",
+        "createCartoonService() factory in services/api/src/routes/users.ts checks process.env.REPLICATE_API_TOKEN: returns ReplicateCartoonService if set, PassthroughCartoonService if not",
+        "A warning is logged via logger.warn() when PassthroughCartoonService is created, indicating cartoon conversion is disabled",
+        "Upload endpoint detects null return from cartoonize() and uses the optimizedBuffer directly as avatar.webp (uploads same buffer to both original.webp and avatar.webp paths)",
+        "Profile picture upload returns 200 with profilePictureUrl even when token is missing",
+        "Unit tests in users-profile-picture.test.ts verify passthrough behavior: mock returns null, avatar.webp gets original buffer",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Increase Replicate API timeout to 60 seconds",
+      "description": "As a user uploading a profile picture, I need the Replicate API timeout increased from 30s to 60s so cartoon conversion succeeds even during model cold starts.",
+      "acceptanceCriteria": [
+        "TIMEOUT_MS constant in services/api/src/services/replicate-cartoon-service.ts changed from 30_000 to 60_000",
+        "Timeout error message updated to say '60 seconds' instead of '30 seconds'",
+        "Timeout test in cartoon-service.test.ts updated: advances timers by 61_000ms and expects error message with '60 seconds'",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}

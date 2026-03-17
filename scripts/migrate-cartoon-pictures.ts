@@ -206,9 +206,10 @@ async function migrateUser(
   console.log(`  Backing up as original.webp...`);
   await uploadBlob(containerClient, originalPath, avatarBuffer, 'image/webp');
 
-  // Cartoonize
+  // Cartoonize using blob URL
+  const originalBlobUrl = getBlobUrl(originalPath);
   console.log(`  Converting to cartoon style...`);
-  const cartoonBuffer = await cartoonService.cartoonize(avatarBuffer, 'image/webp');
+  const cartoonBuffer = await cartoonService.cartoonize(originalBlobUrl);
 
   // Upload cartoon as avatar.webp
   console.log(`  Uploading cartoon avatar...`);
