@@ -1,7 +1,7 @@
 {
   "project": "BurnBuddy",
   "branchName": "ralph/nutrition-tracking",
-  "description": "Nutrition Tracking \u2014 Add a nutrition tracking system that lets users monitor daily micronutrient intake, save recipes/meals, integrate with USDA FoodData Central, and earn points for hitting daily intake targets.",
+  "description": "Nutrition Tracking — Add a nutrition tracking system that lets users monitor daily micronutrient intake, save recipes/meals, integrate with USDA FoodData Central, and earn points for hitting daily intake targets.",
   "dependsOn": [
     "ralph/monthly-points-system"
   ],
@@ -11,7 +11,7 @@
       "title": "Add nutrition domain types to shared package",
       "description": "As a developer, I need shared TypeScript types for nutrition data so that the API, web, and mobile apps all use consistent interfaces.",
       "acceptanceCriteria": [
-        "Add NutrientId type \u2014 string literal union of supported nutrient identifiers ('iron', 'vitaminD', 'calcium', 'vitaminB12', 'vitaminC', 'zinc', 'magnesium', 'folate', 'potassium', 'omega3')",
+        "Add NutrientId type — string literal union of supported nutrient identifiers ('iron', 'vitaminD', 'calcium', 'vitaminB12', 'vitaminC', 'zinc', 'magnesium', 'folate', 'potassium', 'omega3')",
         "Add NutrientInfo interface: { id: NutrientId, name: string, unit: string, dailyRecommended: number }",
         "Add NutrientAmount interface: { nutrientId: NutrientId, amount: number }",
         "Add Ingredient interface: { id: string, name: string, quantity: number, unit: string, nutrients: NutrientAmount[], fdcId?: string }",
@@ -34,11 +34,11 @@
       "description": "As a user, I want to search for foods and see their nutrient data so I don't have to manually look up every value.",
       "acceptanceCriteria": [
         "Create services/api/src/services/usda-food-search.ts",
-        "Implement searchFoods(query: string): Promise<FoodSearchResult[]> \u2014 calls USDA FoodData Central /v1/foods/search endpoint with query and API key",
-        "Implement getFoodDetails(fdcId: string): Promise<FoodSearchResult> \u2014 calls /v1/food/{fdcId} for detailed nutrient breakdown",
+        "Implement searchFoods(query: string): Promise<FoodSearchResult[]> — calls USDA FoodData Central /v1/foods/search endpoint with query and API key",
+        "Implement getFoodDetails(fdcId: string): Promise<FoodSearchResult> — calls /v1/food/{fdcId} for detailed nutrient breakdown",
         "API key read from USDA_API_KEY environment variable",
-        "Create a mapping from USDA numeric nutrient IDs to our NutrientId strings (e.g., USDA 1089 \u2192 'iron', USDA 1114 \u2192 'vitaminD')",
-        "Only extract nutrients that are in our SUPPORTED_NUTRIENTS list \u2014 ignore the rest",
+        "Create a mapping from USDA numeric nutrient IDs to our NutrientId strings (e.g., USDA 1089 → 'iron', USDA 1114 → 'vitaminD')",
+        "Only extract nutrients that are in our SUPPORTED_NUTRIENTS list — ignore the rest",
         "Handle USDA API errors gracefully (return empty results, log error)",
         "Write unit tests: mock fetch calls, test nutrient mapping from USDA format to our format, test error handling when USDA API is down",
         "Typecheck passes"
@@ -66,15 +66,15 @@
     },
     {
       "id": "US-004",
-      "title": "Create nutrition API routes \u2014 recipe CRUD",
+      "title": "Create nutrition API routes — recipe CRUD",
       "description": "As a user, I want to create, view, edit, and delete recipes so I can save meals I regularly eat with their nutritional information.",
       "acceptanceCriteria": [
         "Create services/api/src/routes/nutrition.ts with Express router",
-        "POST /nutrition/recipes \u2014 Create a recipe. Request body: { name, description?, ingredients?, directNutrients?, servings }. Returns created recipe with ID",
-        "GET /nutrition/recipes \u2014 List all recipes for the authenticated user, sorted by most recently updated",
-        "GET /nutrition/recipes/:id \u2014 Get a single recipe by ID. Return 404 if not found or not owned by user",
-        "PUT /nutrition/recipes/:id \u2014 Update a recipe. Validates ownership. Returns updated recipe",
-        "DELETE /nutrition/recipes/:id \u2014 Delete a recipe. Validates ownership. Returns 204",
+        "POST /nutrition/recipes — Create a recipe. Request body: { name, description?, ingredients?, directNutrients?, servings }. Returns created recipe with ID",
+        "GET /nutrition/recipes — List all recipes for the authenticated user, sorted by most recently updated",
+        "GET /nutrition/recipes/:id — Get a single recipe by ID. Return 404 if not found or not owned by user",
+        "PUT /nutrition/recipes/:id — Update a recipe. Validates ownership. Returns updated recipe",
+        "DELETE /nutrition/recipes/:id — Delete a recipe. Validates ownership. Returns 204",
         "All endpoints require requireAuth middleware",
         "Recipes stored in Firestore collection recipes with auto-generated document IDs",
         "directNutrients takes precedence over ingredient-calculated nutrients when resolving total recipe nutrition",
@@ -88,12 +88,12 @@
     },
     {
       "id": "US-005",
-      "title": "Create nutrition API routes \u2014 meal logging",
+      "title": "Create nutrition API routes — meal logging",
       "description": "As a user, I want to log meals I've eaten so I can track my daily nutrient intake.",
       "acceptanceCriteria": [
-        "POST /nutrition/meals \u2014 Log a meal. Request body: { date (YYYY-MM-DD), mealType, recipeId?, recipeName, servingsConsumed, nutrients? }. If recipeId is provided, resolve nutrients from the recipe and multiply by servingsConsumed / recipe.servings. Store denormalized nutrients on the MealEntry document",
-        "GET /nutrition/meals?date=YYYY-MM-DD \u2014 Get all meals for the authenticated user on a given date. If no date provided, default to today",
-        "DELETE /nutrition/meals/:id \u2014 Delete a meal entry. Validates ownership. Returns 204",
+        "POST /nutrition/meals — Log a meal. Request body: { date (YYYY-MM-DD), mealType, recipeId?, recipeName, servingsConsumed, nutrients? }. If recipeId is provided, resolve nutrients from the recipe and multiply by servingsConsumed / recipe.servings. Store denormalized nutrients on the MealEntry document",
+        "GET /nutrition/meals?date=YYYY-MM-DD — Get all meals for the authenticated user on a given date. If no date provided, default to today",
+        "DELETE /nutrition/meals/:id — Delete a meal entry. Validates ownership. Returns 204",
         "Meals stored in Firestore collection mealEntries with auto-generated document IDs",
         "After logging a meal, trigger nutrition points evaluation as a fire-and-forget background task",
         "After deleting a meal, trigger nutrition points re-evaluation as a fire-and-forget background task",
@@ -106,13 +106,13 @@
     },
     {
       "id": "US-006",
-      "title": "Create nutrition API routes \u2014 goals and summary",
+      "title": "Create nutrition API routes — goals and summary",
       "description": "As a user, I want to set my target nutrients and view a daily summary of my progress toward recommended intake.",
       "acceptanceCriteria": [
-        "GET /nutrition/goals \u2014 Get the user's nutrition goals. Returns NutritionGoals or default (empty targets) if not set",
-        "PUT /nutrition/goals \u2014 Set/update target nutrients. Request body: { targetNutrients: NutrientId[] }. Server-side validation: max 3 nutrients, each must be a valid NutrientId from SUPPORTED_NUTRIENTS. Stored in Firestore collection nutritionGoals with document ID = uid",
-        "GET /nutrition/summary?date=YYYY-MM-DD \u2014 Return daily nutrition summary: for each nutrient in SUPPORTED_NUTRIENTS, calculate total consumed (sum of all meals that day), recommended amount, and percent complete. Also return pointsEarned count for that date",
-        "GET /nutrition/foods/search?q=chicken+breast \u2014 Proxy to USDA food search service. Returns FoodSearchResult[]. Requires non-empty query string",
+        "GET /nutrition/goals — Get the user's nutrition goals. Returns NutritionGoals or default (empty targets) if not set",
+        "PUT /nutrition/goals — Set/update target nutrients. Request body: { targetNutrients: NutrientId[] }. Server-side validation: max 3 nutrients, each must be a valid NutrientId from SUPPORTED_NUTRIENTS. Stored in Firestore collection nutritionGoals with document ID = uid",
+        "GET /nutrition/summary?date=YYYY-MM-DD — Return daily nutrition summary: for each nutrient in SUPPORTED_NUTRIENTS, calculate total consumed (sum of all meals that day), recommended amount, and percent complete. Also return pointsEarned count for that date",
+        "GET /nutrition/foods/search?q=chicken+breast — Proxy to USDA food search service. Returns FoodSearchResult[]. Requires non-empty query string",
         "Write unit tests: set goals, validate max 3, get summary with/without meals, food search proxy",
         "Typecheck passes"
       ],
@@ -127,8 +127,8 @@
       "acceptanceCriteria": [
         "Create services/api/src/services/nutrition-points.ts",
         "When a meal is logged or deleted, evaluate the user's daily nutrition for that date: fetch all meals for user on that date, fetch user's target nutrients from nutritionGoals, for each target nutrient sum consumed amounts and compare against dailyRecommended from SUPPORTED_NUTRIENTS",
-        "For each target nutrient at \u2265100%: check if a point was already awarded for that nutrient+date \u2014 if not, award 1 point to monthlyPoints using existing FieldValue.increment(1) pattern and create an award tracking document",
-        "For each target nutrient below 100%: check if a point was previously awarded \u2014 if so, decrement monthlyPoints by 1 and delete the award tracking document",
+        "For each target nutrient at ≥100%: check if a point was already awarded for that nutrient+date — if not, award 1 point to monthlyPoints using existing FieldValue.increment(1) pattern and create an award tracking document",
+        "For each target nutrient below 100%: check if a point was previously awarded — if so, decrement monthlyPoints by 1 and delete the award tracking document",
         "Create Firestore collection nutritionPointsAwarded with document ID ${uid}_${date}_${nutrientId} to track which points were awarded",
         "Points go into the existing monthlyPoints collection using the same awardGroupWorkoutPoints pattern with FieldValue.increment(1) and set({ merge: true })",
         "Points evaluation runs as fire-and-forget (errors logged, don't fail the meal request)",
@@ -152,7 +152,7 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -161,13 +161,13 @@
       "description": "As a web developer, I need React Query hooks for fetching and mutating nutrition data so the web UI can interact with the API.",
       "acceptanceCriteria": [
         "Add nutrition query keys to apps/web/src/lib/queries.ts or create apps/web/src/lib/nutrition-queries.ts: nutritionSummary(date), nutritionMeals(date), recipes, recipe(id), nutritionGoals, foodSearch(query)",
-        "useNutritionSummary(date: string) \u2014 fetches GET /nutrition/summary?date=...",
-        "useNutritionMeals(date: string) \u2014 fetches GET /nutrition/meals?date=...",
-        "useRecipes() \u2014 fetches GET /nutrition/recipes",
-        "useRecipe(id: string) \u2014 fetches GET /nutrition/recipes/:id",
-        "useNutritionGoals() \u2014 fetches GET /nutrition/goals",
-        "useFoodSearch(query: string) \u2014 fetches GET /nutrition/foods/search?q=... with debounced query (only fires after 300ms of no typing). Disabled when query is empty",
-        "Mutation hooks: useLogMeal(), useDeleteMeal(), useCreateRecipe(), useUpdateRecipe(), useDeleteRecipe(), useUpdateNutritionGoals() \u2014 all invalidate relevant queries on success",
+        "useNutritionSummary(date: string) — fetches GET /nutrition/summary?date=...",
+        "useNutritionMeals(date: string) — fetches GET /nutrition/meals?date=...",
+        "useRecipes() — fetches GET /nutrition/recipes",
+        "useRecipe(id: string) — fetches GET /nutrition/recipes/:id",
+        "useNutritionGoals() — fetches GET /nutrition/goals",
+        "useFoodSearch(query: string) — fetches GET /nutrition/foods/search?q=... with debounced query (only fires after 300ms of no typing). Disabled when query is empty",
+        "Mutation hooks: useLogMeal(), useDeleteMeal(), useCreateRecipe(), useUpdateRecipe(), useDeleteRecipe(), useUpdateNutritionGoals() — all invalidate relevant queries on success",
         "Typecheck passes"
       ],
       "priority": 9,
@@ -181,8 +181,8 @@
       "acceptanceCriteria": [
         "Create apps/web/src/app/(main)/nutrition/page.tsx",
         "Show a date picker at the top (defaults to today) that lets users browse past days",
-        "Display a daily summary card showing each tracked nutrient with: name, consumed amount, recommended amount, and a progress bar (colored green at \u2265100%, yellow at 50-99%, red at <50%)",
-        "Show target nutrients (up to 3) prominently at the top with a \ud83d\udd25 icon next to ones that earned a point",
+        "Display a daily summary card showing each tracked nutrient with: name, consumed amount, recommended amount, and a progress bar (colored green at ≥100%, yellow at 50-99%, red at <50%)",
+        "Show target nutrients (up to 3) prominently at the top with a 🔥 icon next to ones that earned a point",
         "Display a Today's Meals section listing each logged meal (name, meal type, time, key nutrients)",
         "Show quick action buttons: Log a Meal, My Recipes, Nutrition Goals",
         "If user has no goals set, show a prompt: Choose up to 3 nutrients to track for points!",
@@ -234,7 +234,7 @@
     },
     {
       "id": "US-013",
-      "title": "Create recipe form \u2014 create and edit (web)",
+      "title": "Create recipe form — create and edit (web)",
       "description": "As a user, I want to create or edit a recipe by adding ingredients (with USDA search) or directly entering nutrient values.",
       "acceptanceCriteria": [
         "Create apps/web/src/app/(main)/nutrition/recipes/new/page.tsx for creating",
@@ -296,7 +296,7 @@
         "Create apps/mobile/screens/NutritionScreen.tsx",
         "Show date selector (today by default) to browse daily nutrition",
         "Display daily nutrient progress: target nutrients with progress bars, non-target nutrients below",
-        "Show \ud83d\udd25 icon next to nutrients that hit 100% and earned a point",
+        "Show 🔥 icon next to nutrients that hit 100% and earned a point",
         "List today's logged meals with name, meal type, and key nutrients",
         "Log Meal button navigates to LogMealScreen",
         "Recipes button navigates to RecipesScreen",
@@ -349,7 +349,7 @@
       "acceptanceCriteria": [
         "Create apps/mobile/screens/NutritionGoalsScreen.tsx",
         "Display all supported nutrients with checkboxes",
-        "Max 3 selections \u2014 disable remaining when 3 are checked",
+        "Max 3 selections — disable remaining when 3 are checked",
         "Show daily recommended amount for each nutrient",
         "Save button persists goals and returns to NutritionScreen",
         "Typecheck passes"
@@ -363,7 +363,7 @@
       "title": "Add Nutrition tab to mobile navigation",
       "description": "As a mobile user, I want a Nutrition tab so I can access the feature from the main navigation.",
       "acceptanceCriteria": [
-        "Add a 4th tab '\ud83c\udf4e Nutrition' to the TabBar component in apps/mobile/App.tsx",
+        "Add a 4th tab '🍎 Nutrition' to the TabBar component in apps/mobile/App.tsx",
         "Tab positioned between Friends and Account",
         "Add 'nutrition' to the AppTab type",
         "Wire NutritionScreen as the default view for the nutrition tab",

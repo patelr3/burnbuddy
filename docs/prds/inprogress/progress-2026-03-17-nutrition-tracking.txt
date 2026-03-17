@@ -107,3 +107,14 @@ Started: 2026-03-17
   - Award tracking doc contains `{ uid, date, nutrientId, awardedAt }` — minimal for lookups
   - Full test suite now has 590 tests across 26 files
 ---
+
+## 2026-03-17T06:15 - US-008
+- What was implemented: Registered nutrition router in API entry point and added USDA API key to Bicep infrastructure
+- Files changed:
+  - `services/api/src/index.ts` — Added import of nutritionRouter and mounted at `/nutrition`
+  - `infra/modules/api-container-app.bicep` — Added `usda-foodcentral-api-key` secret from Key Vault and mapped to `USDA_API_KEY` env var
+- **Learnings for future iterations:**
+  - Route registration follows simple pattern: import default export, `app.use('/path', router)`
+  - Bicep secrets use `keyVaultUrl` + `identity: 'system'`, env vars reference them via `secretRef`
+  - All 590 tests still passing after route registration
+---
