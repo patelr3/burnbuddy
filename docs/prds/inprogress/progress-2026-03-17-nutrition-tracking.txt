@@ -212,3 +212,31 @@ Started: 2026-03-17
   - `isActive` uses `pathname.startsWith(href)` so `/nutrition/*` sub-routes all highlight the Nutrition tab
   - Web typecheck passes, all 590 API tests pass
 ---
+
+## 2026-03-17T07:05 - US-016
+- What was implemented: Mobile nutrition dashboard screen at `apps/mobile/src/screens/NutritionScreen.tsx`
+- Files changed:
+  - `apps/mobile/src/screens/NutritionScreen.tsx` (new) — Full dashboard with date selector, target nutrient cards with progress bars and 🔥 earned icons, daily summary with other nutrients, points banner, quick action buttons (Log Meal, Recipes, Goals), meal list with type/time/nutrient chips, empty state, goals prompt
+- **Learnings for future iterations:**
+  - Mobile screens use `NutritionView` type union for internal view routing (dashboard, log-meal, recipes, goals) — same pattern as HomeScreen's `HomeView`
+  - Props pattern: `{ view: NutritionView; onChangeView: (view: NutritionView) => void }` — parent manages current view state
+  - `apiGet<T>` returns typed data directly (not wrapped in response object) — matches web pattern
+  - Goals endpoint may 404 for new users — use `.catch(() => null)` in Promise.all to handle gracefully
+  - Progress bars use inline percentage width via `{ width: \`${pct}%\` }` — React Native supports this
+  - Color scheme matches existing mobile app: `#E05A00` primary, `#333` headers, `#6b7280` secondary text, `#fafafa` cards
+  - Mobile typecheck passes, all 590 API tests pass
+---
+
+## 2026-03-17T07:10 - US-017
+- What was implemented: Mobile meal logging screen at `apps/mobile/src/screens/LogMealScreen.tsx`
+- Files changed:
+  - `apps/mobile/src/screens/LogMealScreen.tsx` (new) — Full meal logging form with meal type selector (breakfast/lunch/dinner/snack), date picker with navigation, source mode toggle (saved recipes list / USDA food search with debounce), servings adjuster (+/- buttons with numeric input), nutrient preview scaled by servings, submit with success feedback (checkmark + 800ms return)
+  - `apps/mobile/src/screens/NutritionScreen.tsx` — Added LogMealScreen import and view routing for `log-meal` view type
+- **Learnings for future iterations:**
+  - Mobile sub-screens follow `onBack` prop pattern — parent NutritionScreen routes via `view.type` conditional rendering
+  - Recipe detail API returns `RecipeWithNutrients` (Recipe + `nutrientsPerServing`) — need separate interface in mobile since not exported from shared
+  - USDA food search endpoint is `/nutrition/foods/search?q=...` (not `/search?query=...`)
+  - Mobile uses manual state management (useState/useEffect) not React Query — API calls in effects with cancelled flag for cleanup
+  - `nestedScrollEnabled` needed for ScrollView inside ScrollView (recipe list / food results inside main scroll)
+  - Mobile typecheck passes, all 590 API tests pass
+---

@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useAuth } from '../lib/auth-context';
+import LogMealScreen from './LogMealScreen';
 import { apiGet } from '../lib/api';
 import type {
   NutrientId,
@@ -144,7 +145,12 @@ export default function NutritionScreen({ view, onChangeView }: NutritionScreenP
     return set;
   }, [summary, targetNutrientIds]);
 
-  // Only render the dashboard view; sub-screens will be handled by future stories
+  // Route to sub-screens
+  if (view.type === 'log-meal') {
+    return <LogMealScreen onBack={() => onChangeView({ type: 'dashboard' })} />;
+  }
+
+  // Only render the dashboard view; other sub-screens will be handled by future stories
   if (view.type !== 'dashboard') return null;
 
   return (
