@@ -5,7 +5,9 @@ Started: 2026-03-17
 ## Codebase Patterns
 - Shared package types go in individual files under `packages/shared/src/` and are re-exported from `index.ts`
 - After changing shared package, run `cd packages/shared && yarn build` before API/web typecheck
-- API tests: 483 tests across 23 files, all passing after US-002
+- API tests: 503 tests across 24 files, all passing after US-003
+- Firestore mock pattern: hoisted mockDocSnap (mutable `.exists`), mockDocRef (`.get()`/`.set()`), mockGetDb chain
+- `food-search-cache.ts` wraps USDA calls with Firestore caching — use `cachedSearchFoods`/`cachedGetFoodDetails` in routes
 - Node 24 has native `fetch` — use vi.stubGlobal('fetch', mockFn) to mock it in tests
 - USDA nutrient mapping is in `services/api/src/services/usda-food-search.ts` — USDA_NUTRIENT_MAP constant
 - Need `yarn install` in worktree before typecheck works (node_modules may not be present)
@@ -34,4 +36,17 @@ Started: 2026-03-17
   - Search results have `foodNutrients[].nutrientId` + `.value`; detail results have `foodNutrients[].nutrient.id` + `.amount` — two different extraction functions needed
   - vi.stubGlobal('fetch', mockFn) works cleanly for mocking native fetch in vitest
   - Full test suite now has 483 tests across 23 files
+---
+
+## 2026-03-17T05:56 - US-003
+- What was implemented: Firestore food search cache wrapping USDA API calls with 30-day TTL
+- Files changed:
+  - `services/api/src/services/food-search-cache.ts` (new) — `cachedSearchFoods()` and `cachedGetFoodDetails()` functions with Firestore `foodCache` collection
+  - `services/api/src/services/food-search-cache.test.ts` (new) — 20 unit tests covering cache hit, miss, expired, error fallback, key normalization
+- **Learnings for future iterations:**
+  - Cache keys: normalized query (lowercase, trimmed, collapsed whitespace) for search, `fdc_{fdcId}` for details
+  - Empty USDA results are NOT cached (prevents caching transient failures)
+  - Cache read/write failures are non-fatal — always fall back to USDA API
+  - Firestore mock pattern: hoisted mockDocSnap with mutable `.exists`, mockDocRef with `.get()` and `.set()`, mockGetDb returning chain
+  - Full test suite now has 503 tests across 24 files
 ---
