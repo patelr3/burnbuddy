@@ -240,3 +240,29 @@ Started: 2026-03-17
   - `nestedScrollEnabled` needed for ScrollView inside ScrollView (recipe list / food results inside main scroll)
   - Mobile typecheck passes, all 590 API tests pass
 ---
+
+## 2026-03-17T07:17 - US-019
+- What was implemented: Mobile nutrition goals screen at `apps/mobile/src/screens/NutritionGoalsScreen.tsx` with nutrient selection, 3-target limit, points explanation, and save button
+- Files changed:
+  - `apps/mobile/src/screens/NutritionGoalsScreen.tsx` (new) — Full goals screen with checkbox-style nutrient selection (max 3), selected targets pills (removable), "How Points Work" info card, save with loading/success states, change detection for save button opacity
+  - `apps/mobile/src/screens/NutritionScreen.tsx` — Added NutritionGoalsScreen import and view routing for `goals` view type
+- **Learnings for future iterations:**
+  - Goals API: GET `/nutrition/goals` returns NutritionGoals (404 for new users), PUT `/nutrition/goals` with `{ targetNutrients: NutrientId[] }`
+  - `initialized` flag pattern prevents re-overwriting user selections when data is loaded (same as web pattern and recipe edit)
+  - `originalSelection` state tracks what was loaded from API for change detection (hasChanges computed)
+  - Mobile uses `apiPut` for goals update (matches web `useUpdateNutritionGoals` which uses PUT)
+  - Sub-screen integration: import + view type routing in NutritionScreen, `onBack` prop pattern
+  - Mobile typecheck passes, all 590 API tests pass
+---
+
+## 2026-03-17T07:20 - US-020
+- What was implemented: Added 4th Nutrition tab (🍎) to mobile TabBar between Friends and Account
+- Files changed:
+  - `apps/mobile/App.tsx` — Added `'nutrition'` to `AppTab` type, added Nutrition tab button to `TabBar`, added `NutritionView` state management in `AppNavigator`, wired `NutritionScreen` component with view/onChangeView props, added `handleTabPress` to reset nutrition view when switching away
+- **Learnings for future iterations:**
+  - NutritionScreen accepts `view` and `onChangeView` props (externally managed state), unlike HomeScreen which manages its own view state internally
+  - Tab press handler resets NutritionView to dashboard when switching away from nutrition tab
+  - Mobile typecheck: `npx tsc --noEmit -p apps/mobile/tsconfig.json` — runs clean
+  - Mobile has 36 tests across 6 files, all passing
+  - API has 590 tests across 26 files, all passing
+---
