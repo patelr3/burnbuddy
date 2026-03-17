@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../lib/auth-context';
 import LogMealScreen from './LogMealScreen';
+import RecipesScreen from './RecipesScreen';
 import { apiGet } from '../lib/api';
 import type {
   NutrientId,
@@ -148,6 +149,10 @@ export default function NutritionScreen({ view, onChangeView }: NutritionScreenP
   // Route to sub-screens
   if (view.type === 'log-meal') {
     return <LogMealScreen onBack={() => onChangeView({ type: 'dashboard' })} />;
+  }
+
+  if (view.type === 'recipes') {
+    return <RecipesScreen onBack={() => onChangeView({ type: 'dashboard' })} />;
   }
 
   // Only render the dashboard view; other sub-screens will be handled by future stories
