@@ -386,8 +386,8 @@
         "Note: API key already exists in both buddyburn-beta-kv and buddyburn-prod-kv Key Vaults"
       ],
       "priority": 21,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Already implemented in US-008 iteration; validated Bicep builds successfully"
     }
   ]
 }

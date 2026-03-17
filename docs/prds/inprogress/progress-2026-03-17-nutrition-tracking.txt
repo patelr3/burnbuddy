@@ -266,3 +266,13 @@ Started: 2026-03-17
   - Mobile has 36 tests across 6 files, all passing
   - API has 590 tests across 26 files, all passing
 ---
+
+## 2026-03-17T07:21 - US-021
+- What was implemented: Verified USDA API key infrastructure already in place from US-008. Validated Bicep template with `az bicep build`.
+- Files changed:
+  - `infra/modules/api-container-app.bicep` — Already contains `usda-foodcentral-api-key` secret (lines 69-72) and `USDA_API_KEY` env var mapping (lines 110-112), added during US-008
+- **Learnings for future iterations:**
+  - Bicep changes were bundled with US-008 (route registration) — US-021 was effectively a no-op
+  - `az bicep build --file <path> --stdout` validates template syntax without deploying
+  - All 590 API tests still passing
+---
