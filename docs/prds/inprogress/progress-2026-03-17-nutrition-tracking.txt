@@ -159,3 +159,31 @@ Started: 2026-03-17
   - Browser headless environment had font-loading timeouts preventing screenshots, but navigation worked (redirected to /login as expected for unauthenticated users)
   - Web typecheck passes, all 590 API tests pass
 ---
+
+## 2026-03-17T06:45 - US-012
+- What was implemented: Recipes management page at `/nutrition/recipes` with recipe cards, nutrient highlights, empty state, and navigation
+- Files changed:
+  - `apps/web/src/app/(main)/nutrition/recipes/page.tsx` (new) — Recipe list page with cards showing name, serving count, top 3 nutrient highlights (sorted by % DV), empty state with create prompt, "Create New Recipe" button linking to /nutrition/recipes/new
+  - `apps/web/src/app/(main)/nutrition/page.tsx` — Updated quick action links (already pointed to /nutrition/recipes)
+- **Learnings for future iterations:**
+  - `useRecipes()` returns `Recipe[]` (no nutrientsPerServing) — must calculate client-side from ingredients/directNutrients
+  - `getTopNutrients` sorts by % of daily recommended value (highest % DV first) for meaningful highlights
+  - Recipe cards use `<button>` with `router.push()` for accessibility (full-card click target)
+  - Amount formatting: < 10 uses `.toFixed(1)`, >= 10 uses `Math.round()` for cleaner display
+  - Web typecheck passes, all 590 API tests pass
+---
+
+## 2026-03-17T06:50 - US-013
+- What was implemented: Recipe create and edit form pages with USDA ingredient search, direct nutrient entry mode, and delete with confirmation
+- Files changed:
+  - `apps/web/src/app/(main)/nutrition/recipes/new/page.tsx` (new) — Create recipe form with ingredient mode (USDA food search, quantity/unit, add/remove rows), direct nutrient entry mode (toggle switch, per-nutrient inputs), nutrient summary preview, and success feedback
+  - `apps/web/src/app/(main)/nutrition/recipes/[id]/page.tsx` (new) — Edit recipe form pre-populated from useRecipe() data, same form as create plus Delete Recipe button with inline confirmation dialog
+- **Learnings for future iterations:**
+  - Edit page uses `useParams()` from `next/navigation` to get dynamic route `[id]` param
+  - Form initialization from API data needs an `initialized` flag to prevent re-overwriting user edits when query re-fetches
+  - `useRecipe(id)` returns `RecipeWithNutrients` which extends Recipe with `nutrientsPerServing` — edit form initializes from `directNutrients` (recipe field) not `nutrientsPerServing` (computed field)
+  - Direct mode toggle: when active, direct nutrient values take precedence; ingredients section is hidden
+  - Delete confirmation uses inline expand pattern (not modal) — simpler, no portal needed
+  - Both create and edit forms redirect to `/nutrition/recipes` after success (800ms delay for feedback)
+  - Web typecheck passes, all 590 API tests pass
+---
