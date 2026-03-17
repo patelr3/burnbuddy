@@ -187,3 +187,28 @@ Started: 2026-03-17
   - Both create and edit forms redirect to `/nutrition/recipes` after success (800ms delay for feedback)
   - Web typecheck passes, all 590 API tests pass
 ---
+
+## 2026-03-17T06:52 - US-014
+- What was implemented: Nutrition goals page at `/nutrition/goals` with selectable nutrient list, 3-target limit, points explanation, and save button
+- Files changed:
+  - `apps/web/src/app/(main)/nutrition/goals/page.tsx` (new) — Full goals page with checkbox-style nutrient selection (max 3), "Your Targets" pill display, "How Points Work" explanation card, Save Goals button with loading/success states, GoalsSkeleton loading state
+- **Learnings for future iterations:**
+  - React Query `isLoading` stays true until first successful/failed fetch — skeleton shows until query settles
+  - `initialized` flag pattern prevents re-overwriting user selections when query re-fetches (same pattern as recipe edit form)
+  - Disabled checkboxes use `opacity-50` + `cursor-not-allowed` for clear visual feedback
+  - Selected targets displayed as removable pills at top — clicking a pill deselects the nutrient
+  - Browser verification: page compiles and renders correctly, selection/deselection works, 3-limit enforced with disabled state on remaining items
+  - Web typecheck passes, all 590 API tests pass
+---
+
+## 2026-03-17T06:58 - US-015
+- What was implemented: Added Nutrition tab to web NavBar between Friends and Account
+- Files changed:
+  - `apps/web/src/components/NavBar.tsx` — Added NutritionIcon (leaf SVG, 24x24, stroke-based) and Nutrition nav item at `/nutrition`
+- **Learnings for future iterations:**
+  - NavBar only renders on `(main)` layout routes — unauthenticated users are redirected to /login before NavBar renders
+  - NavBar icon pattern: SVG 24x24, stroke-based with `active ? '#FF2D55' : '#9CA3AF'` color toggle
+  - `navItems` is typed as `const` array — new items must match the `{ href, label, Icon }` structure
+  - `isActive` uses `pathname.startsWith(href)` so `/nutrition/*` sub-routes all highlight the Nutrition tab
+  - Web typecheck passes, all 590 API tests pass
+---
