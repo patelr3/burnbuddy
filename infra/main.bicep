@@ -1,8 +1,11 @@
 /*
   buddyburn Azure Container Apps infrastructure
-  Deploys to an existing resource group (buddyburn-prod or buddyburn-dev).
+  Deploys to an existing resource group (buddyburn-beta or buddyburn-prod).
   The resource group must exist before running this template.
   Key Vault must already exist — this template references it, not creates it.
+
+  ACR (burnbuddyacr) is managed externally — expected tier is Basic.
+  To downgrade: az acr update --name burnbuddyacr --sku Basic
 
   Usage:
     az deployment group create \
@@ -19,7 +22,7 @@
 */
 
 @description('Environment name — used as a prefix for all resource names.')
-@allowed(['dev', 'beta', 'prod'])
+@allowed(['beta', 'prod'])
 param environment string
 
 @description('Azure region for all resources.')
