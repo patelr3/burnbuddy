@@ -400,7 +400,11 @@ router.post(
 router.delete('/me/profile-picture', requireAuth, async (req: Request, res: Response): Promise<void> => {
   const uid = req.user!.uid;
 
-  await getContainerClient('uploads')
+  const container = getContainerClient('uploads');
+  await container
+    .getBlockBlobClient(`profile-pictures/${uid}/original.webp`)
+    .deleteIfExists();
+  await container
     .getBlockBlobClient(`profile-pictures/${uid}/avatar.webp`)
     .deleteIfExists();
 

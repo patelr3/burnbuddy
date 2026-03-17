@@ -7,6 +7,8 @@ Started: 2026-03-17
 - Fake timer tests: attach `expect().rejects` BEFORE `vi.advanceTimersByTimeAsync()` to avoid unhandled rejections
 - Mock `fetch` with `vi.stubGlobal('fetch', fetchMock)` and clean up with `vi.unstubAllGlobals()` in afterEach
 - Services use native `fetch` for HTTP calls (no axios dependency in the API package)
+- Use real classes (not `vi.fn().mockImplementation`) in `vi.mock` factories for constructors — `resetAllMocks()` clears vi.fn implementations but classes survive
+- `users-profile-picture.test.ts` and `users-delete-profile-picture.test.ts` are separate from `users.test.ts` — all import users router and need matching mocks for new dependencies
 
 ---
 
@@ -32,4 +34,20 @@ Started: 2026-03-17
   - Bicep secrets follow pattern: secrets array entry with name/keyVaultUrl/identity:'system', plus env array entry with name/secretRef
   - Key Vault secret name uses kebab-case, env var uses SCREAMING_SNAKE_CASE
   - No Bicep CLI validation available in this environment — typecheck validates TS only
+---
+
+## 2026-03-17T06:06 - US-003
+- Modified POST /users/me/profile-picture to save original.webp backup and cartoon avatar
+- Flow: sharp resize → upload original.webp → cartoonize → upload cartoon to avatar.webp → update Firestore
+- Returns HTTP 500 with descriptive error if cartoon conversion fails (Firestore not updated)
+- Updated users-profile-picture.test.ts with cartoon mock and new assertions (17 tests)
+- Added cartoon service mock to users.test.ts (48 existing tests still pass)
+- Files changed:
+  - `services/api/src/routes/users.ts` — Added cartoon conversion step to upload handler
+  - `services/api/src/routes/users-profile-picture.test.ts` — Updated upload test assertions, added cartoon failure tests
+  - `services/api/src/routes/users.test.ts` — Added cartoon service mock
+- **Learnings for future iterations:**
+  - Use a real class (not `vi.fn().mockImplementation(...)`) in `vi.mock` factories for constructors — `resetAllMocks()` clears mock implementations but classes survive
+  - Don't use lazy singletons in route files when mocks need resetting between tests — use per-call instantiation with `createService()` factory pattern
+  - `users-profile-picture.test.ts` is a separate test file from `users.test.ts` — both import the same users router and need matching mocks
 ---

@@ -55,7 +55,7 @@
         "Tests pass"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "The upload handler is in services/api/src/routes/users.ts at POST /users/me/profile-picture (lines 283-357). The existing flow is: sharp resize → upload to avatar.webp → update Firestore. New flow: sharp resize → upload to original.webp → cartoonize → upload cartoon to avatar.webp → update Firestore. Use getContainerClient('uploads').getBlockBlobClient() for blob operations (existing pattern)."
     },
     {
