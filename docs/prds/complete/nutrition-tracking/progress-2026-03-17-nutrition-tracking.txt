@@ -1,0 +1,278 @@
+# Ralph Progress Log — Nutrition Tracking
+Started: 2026-03-17
+---
+
+## Codebase Patterns
+- Shared package types go in individual files under `packages/shared/src/` and are re-exported from `index.ts`
+- After changing shared package, run `cd packages/shared && yarn build` before API/web typecheck
+- API tests: 503 tests across 24 files, all passing after US-003
+- Firestore mock pattern: hoisted mockDocSnap (mutable `.exists`), mockDocRef (`.get()`/`.set()`), mockGetDb chain
+- `food-search-cache.ts` wraps USDA calls with Firestore caching — use `cachedSearchFoods`/`cachedGetFoodDetails` in routes
+- Node 24 has native `fetch` — use vi.stubGlobal('fetch', mockFn) to mock it in tests
+- USDA nutrient mapping is in `services/api/src/services/usda-food-search.ts` — USDA_NUTRIENT_MAP constant
+- Need `yarn install` in worktree before typecheck works (node_modules may not be present)
+
+## 2026-03-17T05:50 - US-001
+- What was implemented: Added nutrition domain types to `@burnbuddy/shared`
+- Files changed:
+  - `packages/shared/src/nutrition.ts` (new) — NutrientId, NutrientInfo, NutrientAmount, Ingredient, Recipe, MealEntry, NutritionGoals, DailyNutritionSummary, FoodSearchResult types + SUPPORTED_NUTRIENTS constant
+  - `packages/shared/src/index.ts` — added `export * from './nutrition'`
+- **Learnings for future iterations:**
+  - Shared package compiles to `dist/` via `tsc`; web/API resolve from compiled output
+  - Pre-existing API typecheck fails without `yarn install` (missing @types/node, express types)
+  - All 464 API tests pass at baseline — use as regression check
+---
+
+## 2026-03-17T05:53 - US-002
+- What was implemented: USDA FoodData Central integration service with searchFoods() and getFoodDetails() functions
+- Files changed:
+  - `services/api/src/services/usda-food-search.ts` (new) — Service with USDA API integration, nutrient ID mapping, search and detail endpoints
+  - `services/api/src/services/usda-food-search.test.ts` (new) — 19 unit tests covering nutrient mapping, search, details, error handling
+- **Learnings for future iterations:**
+  - Node 24 has native `fetch` — no need for node-fetch or axios dependencies
+  - USDA FoodData Central search endpoint: `/v1/foods/search?query=...&api_key=...`
+  - USDA food detail endpoint: `/v1/food/{fdcId}?api_key=...`
+  - Omega-3 is split across 3 USDA nutrient IDs (ALA=1404, EPA=1278, DHA=1272) — must sum them
+  - Search results have `foodNutrients[].nutrientId` + `.value`; detail results have `foodNutrients[].nutrient.id` + `.amount` — two different extraction functions needed
+  - vi.stubGlobal('fetch', mockFn) works cleanly for mocking native fetch in vitest
+  - Full test suite now has 483 tests across 23 files
+---
+
+## 2026-03-17T05:56 - US-003
+- What was implemented: Firestore food search cache wrapping USDA API calls with 30-day TTL
+- Files changed:
+  - `services/api/src/services/food-search-cache.ts` (new) — `cachedSearchFoods()` and `cachedGetFoodDetails()` functions with Firestore `foodCache` collection
+  - `services/api/src/services/food-search-cache.test.ts` (new) — 20 unit tests covering cache hit, miss, expired, error fallback, key normalization
+- **Learnings for future iterations:**
+  - Cache keys: normalized query (lowercase, trimmed, collapsed whitespace) for search, `fdc_{fdcId}` for details
+  - Empty USDA results are NOT cached (prevents caching transient failures)
+  - Cache read/write failures are non-fatal — always fall back to USDA API
+  - Firestore mock pattern: hoisted mockDocSnap with mutable `.exists`, mockDocRef with `.get()` and `.set()`, mockGetDb returning chain
+  - Full test suite now has 503 tests across 24 files
+---
+
+## 2026-03-17T05:59 - US-004
+- What was implemented: Recipe CRUD API routes (POST, GET list, GET by ID, PUT, DELETE) in `services/api/src/routes/nutrition.ts`
+- Files changed:
+  - `services/api/src/routes/nutrition.ts` (new) — Express router with 5 recipe endpoints, `calculateNutrientsPerServing` helper
+  - `services/api/src/routes/nutrition.test.ts` (new) — 32 unit tests covering all CRUD operations, auth, ownership validation, nutrient calculation
+- **Learnings for future iterations:**
+  - Recipe ownership checks return 404 (not 403) to avoid leaking recipe existence to non-owners
+  - `directNutrients` takes precedence over ingredient-calculated nutrients in GET /:id (nutrientsPerServing field)
+  - `calculateNutrientsPerServing` exported for potential reuse in meal logging
+  - DELETE returns 204 with empty body via `res.status(204).send()`
+  - Full test suite now has 535 tests across 25 files
+---
+
+## 2026-03-17T06:04 - US-005
+- What was implemented: Meal logging API routes (POST, GET by date, DELETE) in existing nutrition router
+- Files changed:
+  - `services/api/src/routes/nutrition.ts` — Added 3 meal endpoints, `resolveMealNutrients` helper, `evaluateNutritionPoints` stub
+  - `services/api/src/routes/nutrition.test.ts` — Added 20 meal logging tests (auth, validation, CRUD, recipe nutrient resolution)
+- **Learnings for future iterations:**
+  - Meal routes share the same router as recipe routes (`/nutrition/meals` and `/nutrition/recipes`)
+  - `resolveMealNutrients` fetches recipe when recipeId is provided, scales nutrients by servingsConsumed
+  - Fire-and-forget pattern: `evaluateNutritionPoints(uid, date).catch(err => logger.error(...))`
+  - `evaluateNutritionPoints` is a stub returning Promise.resolve() — US-007 will implement the real logic
+  - Collection `mealEntries` uses compound query `uid == X AND date == Y` with `orderBy('createdAt', 'asc')`
+  - Test mock pattern: separate hoisted mocks for each Firestore collection (mockMealsDocGet vs mockRecipesDocGet)
+  - Full test suite now has 555 tests across 25 files
+---
+
+## 2026-03-17T06:08 - US-006
+- What was implemented: Goals, summary, and food search API routes in existing nutrition router
+- Files changed:
+  - `services/api/src/routes/nutrition.ts` — Added GET/PUT /goals, GET /summary, GET /foods/search endpoints
+  - `services/api/src/routes/nutrition.test.ts` — Added 21 new tests (goals CRUD, validation, summary calculation, food search proxy)
+- **Learnings for future iterations:**
+  - Goals stored in `nutritionGoals` collection with doc ID = uid (single doc per user, upsert via `.set()`)
+  - Summary aggregates all meals for a date across all SUPPORTED_NUTRIENTS, calculates percentComplete with Math.round
+  - Points earned count comes from `nutritionPoints` collection (will be populated by US-007)
+  - Food search proxies through `cachedSearchFoods` from food-search-cache service
+  - Mock pattern for new collections: add hoisted mocks for doc/query, add collection routing in `getDb` mock, re-wire in beforeEach
+  - Full test suite now has 576 tests across 25 files
+---
+
+## 2026-03-17T06:13 - US-007
+- What was implemented: Nutrition points awarding service — evaluates daily nutrient intake against goals, awards/revokes points
+- Files changed:
+  - `services/api/src/services/nutrition-points.ts` (new) — `evaluateNutritionPoints()` function with Firestore award tracking + monthlyPoints increment/decrement
+  - `services/api/src/services/nutrition-points.test.ts` (new) — 14 unit tests covering award, revoke, no-double-award, error handling, multi-nutrient, sum-across-meals
+  - `services/api/src/routes/nutrition.ts` — Replaced stub with import of real `evaluateNutritionPoints` from service
+  - `services/api/src/routes/nutrition.test.ts` — Added hoisted mock for `../services/nutrition-points` to prevent .catch() error after resetAllMocks
+- **Learnings for future iterations:**
+  - When extracting a fire-and-forget function from route into separate service, the route test needs a hoisted mock (not inline `vi.fn()`) because `resetAllMocks()` clears inline mock implementations, causing `.catch()` to fail on undefined
+  - `nutritionPointsAwarded` collection uses doc ID `${uid}_${date}_${nutrientId}` for idempotent award tracking
+  - `FieldValue.increment(-1)` works for decrementing points — same pattern as increment
+  - Award tracking doc contains `{ uid, date, nutrientId, awardedAt }` — minimal for lookups
+  - Full test suite now has 590 tests across 26 files
+---
+
+## 2026-03-17T06:15 - US-008
+- What was implemented: Registered nutrition router in API entry point and added USDA API key to Bicep infrastructure
+- Files changed:
+  - `services/api/src/index.ts` — Added import of nutritionRouter and mounted at `/nutrition`
+  - `infra/modules/api-container-app.bicep` — Added `usda-foodcentral-api-key` secret from Key Vault and mapped to `USDA_API_KEY` env var
+- **Learnings for future iterations:**
+  - Route registration follows simple pattern: import default export, `app.use('/path', router)`
+  - Bicep secrets use `keyVaultUrl` + `identity: 'system'`, env vars reference them via `secretRef`
+  - All 590 tests still passing after route registration
+---
+
+## 2026-03-17T06:16 - US-009
+- What was implemented: React Query hooks for all nutrition API endpoints in `apps/web/src/lib/nutrition-queries.ts`
+- Files changed:
+  - `apps/web/src/lib/nutrition-queries.ts` (new) — Query keys, 6 query hooks (useNutritionSummary, useNutritionMeals, useRecipes, useRecipe, useNutritionGoals, useFoodSearch), 6 mutation hooks (useLogMeal, useDeleteMeal, useCreateRecipe, useUpdateRecipe, useDeleteRecipe, useUpdateNutritionGoals)
+- **Learnings for future iterations:**
+  - React Query v5 uses `placeholderData: (prev) => prev` instead of `keepPreviousData` for search-as-you-type
+  - Mutations that affect dated data (meals, summary) invalidate using partial key matching `['nutrition-meals']` for broad invalidation
+  - `useFoodSearch` uses `enabled: query.trim().length > 0` to skip empty queries; debounce lives in UI layer
+  - Existing mutation pattern: hooks are defined centrally, used inline in components via `useMutation` from tanstack
+  - Web typecheck: `cd apps/web && npx tsc --noEmit` — passes cleanly
+---
+
+## 2026-03-17T06:22 - US-010
+- What was implemented: Nutrition dashboard page at `/nutrition` with date picker, target nutrients display, daily summary progress bars, meal list, quick action buttons, and goals prompt
+- Files changed:
+  - `apps/web/src/app/(main)/nutrition/page.tsx` (new) — Full dashboard with date navigation, target nutrient cards (🔥 icon for earned points), daily summary with color-coded progress bars (green ≥100%, yellow 50-99%, red <50%), meal cards, and quick action links to meals/recipes/goals
+- **Learnings for future iterations:**
+  - lucide-react icons (ChevronLeft, ChevronRight, UtensilsCrossed, BookOpen, Target) are available in the project
+  - SUPPORTED_NUTRIENTS from @burnbuddy/shared provides the full nutrient info map (name, unit, dailyRecommended)
+  - DailyNutritionSummary has `pointsEarned` field for showing points banner
+  - NutritionGoals has `targetNutrients: NutrientId[]` — up to 3 nutrients the user tracks for points
+  - Pattern: split summary nutrients into target vs other for prominent display
+  - Date picker: use ISO date string (YYYY-MM-DD) for API queries, disable forward past today
+---
+
+## 2026-03-17T06:38 - US-011
+- What was implemented: Meal logging page at `/nutrition/log` with meal type selector, date picker, recipe dropdown, USDA food search, servings adjuster, nutrient preview, and submit with success feedback
+- Files changed:
+  - `apps/web/src/app/(main)/nutrition/log/page.tsx` (new) — Full meal logging form with two source modes (saved recipes + USDA food search), debounced search, scaled nutrient preview, loading/success states
+  - `apps/web/src/app/(main)/nutrition/page.tsx` — Updated "Log a Meal" links from `/nutrition/meals` to `/nutrition/log`
+- **Learnings for future iterations:**
+  - Meal logging path is `/nutrition/log` (not `/nutrition/meals`) — dashboard links updated accordingly
+  - `useRecipe(id)` returns `RecipeWithNutrients` which includes `nutrientsPerServing` field for nutrient preview
+  - `useFoodSearch(query)` needs debounce in UI layer (300ms setTimeout pattern)
+  - Servings adjuster scales nutrients via `Math.round(amount * factor * 100) / 100` for clean decimals
+  - Source mode toggle (recipe vs food search) clears the other mode's selection
+  - Success feedback: show checkmark for 800ms then `router.push('/nutrition')`
+  - Browser headless environment had font-loading timeouts preventing screenshots, but navigation worked (redirected to /login as expected for unauthenticated users)
+  - Web typecheck passes, all 590 API tests pass
+---
+
+## 2026-03-17T06:45 - US-012
+- What was implemented: Recipes management page at `/nutrition/recipes` with recipe cards, nutrient highlights, empty state, and navigation
+- Files changed:
+  - `apps/web/src/app/(main)/nutrition/recipes/page.tsx` (new) — Recipe list page with cards showing name, serving count, top 3 nutrient highlights (sorted by % DV), empty state with create prompt, "Create New Recipe" button linking to /nutrition/recipes/new
+  - `apps/web/src/app/(main)/nutrition/page.tsx` — Updated quick action links (already pointed to /nutrition/recipes)
+- **Learnings for future iterations:**
+  - `useRecipes()` returns `Recipe[]` (no nutrientsPerServing) — must calculate client-side from ingredients/directNutrients
+  - `getTopNutrients` sorts by % of daily recommended value (highest % DV first) for meaningful highlights
+  - Recipe cards use `<button>` with `router.push()` for accessibility (full-card click target)
+  - Amount formatting: < 10 uses `.toFixed(1)`, >= 10 uses `Math.round()` for cleaner display
+  - Web typecheck passes, all 590 API tests pass
+---
+
+## 2026-03-17T06:50 - US-013
+- What was implemented: Recipe create and edit form pages with USDA ingredient search, direct nutrient entry mode, and delete with confirmation
+- Files changed:
+  - `apps/web/src/app/(main)/nutrition/recipes/new/page.tsx` (new) — Create recipe form with ingredient mode (USDA food search, quantity/unit, add/remove rows), direct nutrient entry mode (toggle switch, per-nutrient inputs), nutrient summary preview, and success feedback
+  - `apps/web/src/app/(main)/nutrition/recipes/[id]/page.tsx` (new) — Edit recipe form pre-populated from useRecipe() data, same form as create plus Delete Recipe button with inline confirmation dialog
+- **Learnings for future iterations:**
+  - Edit page uses `useParams()` from `next/navigation` to get dynamic route `[id]` param
+  - Form initialization from API data needs an `initialized` flag to prevent re-overwriting user edits when query re-fetches
+  - `useRecipe(id)` returns `RecipeWithNutrients` which extends Recipe with `nutrientsPerServing` — edit form initializes from `directNutrients` (recipe field) not `nutrientsPerServing` (computed field)
+  - Direct mode toggle: when active, direct nutrient values take precedence; ingredients section is hidden
+  - Delete confirmation uses inline expand pattern (not modal) — simpler, no portal needed
+  - Both create and edit forms redirect to `/nutrition/recipes` after success (800ms delay for feedback)
+  - Web typecheck passes, all 590 API tests pass
+---
+
+## 2026-03-17T06:52 - US-014
+- What was implemented: Nutrition goals page at `/nutrition/goals` with selectable nutrient list, 3-target limit, points explanation, and save button
+- Files changed:
+  - `apps/web/src/app/(main)/nutrition/goals/page.tsx` (new) — Full goals page with checkbox-style nutrient selection (max 3), "Your Targets" pill display, "How Points Work" explanation card, Save Goals button with loading/success states, GoalsSkeleton loading state
+- **Learnings for future iterations:**
+  - React Query `isLoading` stays true until first successful/failed fetch — skeleton shows until query settles
+  - `initialized` flag pattern prevents re-overwriting user selections when query re-fetches (same pattern as recipe edit form)
+  - Disabled checkboxes use `opacity-50` + `cursor-not-allowed` for clear visual feedback
+  - Selected targets displayed as removable pills at top — clicking a pill deselects the nutrient
+  - Browser verification: page compiles and renders correctly, selection/deselection works, 3-limit enforced with disabled state on remaining items
+  - Web typecheck passes, all 590 API tests pass
+---
+
+## 2026-03-17T06:58 - US-015
+- What was implemented: Added Nutrition tab to web NavBar between Friends and Account
+- Files changed:
+  - `apps/web/src/components/NavBar.tsx` — Added NutritionIcon (leaf SVG, 24x24, stroke-based) and Nutrition nav item at `/nutrition`
+- **Learnings for future iterations:**
+  - NavBar only renders on `(main)` layout routes — unauthenticated users are redirected to /login before NavBar renders
+  - NavBar icon pattern: SVG 24x24, stroke-based with `active ? '#FF2D55' : '#9CA3AF'` color toggle
+  - `navItems` is typed as `const` array — new items must match the `{ href, label, Icon }` structure
+  - `isActive` uses `pathname.startsWith(href)` so `/nutrition/*` sub-routes all highlight the Nutrition tab
+  - Web typecheck passes, all 590 API tests pass
+---
+
+## 2026-03-17T07:05 - US-016
+- What was implemented: Mobile nutrition dashboard screen at `apps/mobile/src/screens/NutritionScreen.tsx`
+- Files changed:
+  - `apps/mobile/src/screens/NutritionScreen.tsx` (new) — Full dashboard with date selector, target nutrient cards with progress bars and 🔥 earned icons, daily summary with other nutrients, points banner, quick action buttons (Log Meal, Recipes, Goals), meal list with type/time/nutrient chips, empty state, goals prompt
+- **Learnings for future iterations:**
+  - Mobile screens use `NutritionView` type union for internal view routing (dashboard, log-meal, recipes, goals) — same pattern as HomeScreen's `HomeView`
+  - Props pattern: `{ view: NutritionView; onChangeView: (view: NutritionView) => void }` — parent manages current view state
+  - `apiGet<T>` returns typed data directly (not wrapped in response object) — matches web pattern
+  - Goals endpoint may 404 for new users — use `.catch(() => null)` in Promise.all to handle gracefully
+  - Progress bars use inline percentage width via `{ width: \`${pct}%\` }` — React Native supports this
+  - Color scheme matches existing mobile app: `#E05A00` primary, `#333` headers, `#6b7280` secondary text, `#fafafa` cards
+  - Mobile typecheck passes, all 590 API tests pass
+---
+
+## 2026-03-17T07:10 - US-017
+- What was implemented: Mobile meal logging screen at `apps/mobile/src/screens/LogMealScreen.tsx`
+- Files changed:
+  - `apps/mobile/src/screens/LogMealScreen.tsx` (new) — Full meal logging form with meal type selector (breakfast/lunch/dinner/snack), date picker with navigation, source mode toggle (saved recipes list / USDA food search with debounce), servings adjuster (+/- buttons with numeric input), nutrient preview scaled by servings, submit with success feedback (checkmark + 800ms return)
+  - `apps/mobile/src/screens/NutritionScreen.tsx` — Added LogMealScreen import and view routing for `log-meal` view type
+- **Learnings for future iterations:**
+  - Mobile sub-screens follow `onBack` prop pattern — parent NutritionScreen routes via `view.type` conditional rendering
+  - Recipe detail API returns `RecipeWithNutrients` (Recipe + `nutrientsPerServing`) — need separate interface in mobile since not exported from shared
+  - USDA food search endpoint is `/nutrition/foods/search?q=...` (not `/search?query=...`)
+  - Mobile uses manual state management (useState/useEffect) not React Query — API calls in effects with cancelled flag for cleanup
+  - `nestedScrollEnabled` needed for ScrollView inside ScrollView (recipe list / food results inside main scroll)
+  - Mobile typecheck passes, all 590 API tests pass
+---
+
+## 2026-03-17T07:17 - US-019
+- What was implemented: Mobile nutrition goals screen at `apps/mobile/src/screens/NutritionGoalsScreen.tsx` with nutrient selection, 3-target limit, points explanation, and save button
+- Files changed:
+  - `apps/mobile/src/screens/NutritionGoalsScreen.tsx` (new) — Full goals screen with checkbox-style nutrient selection (max 3), selected targets pills (removable), "How Points Work" info card, save with loading/success states, change detection for save button opacity
+  - `apps/mobile/src/screens/NutritionScreen.tsx` — Added NutritionGoalsScreen import and view routing for `goals` view type
+- **Learnings for future iterations:**
+  - Goals API: GET `/nutrition/goals` returns NutritionGoals (404 for new users), PUT `/nutrition/goals` with `{ targetNutrients: NutrientId[] }`
+  - `initialized` flag pattern prevents re-overwriting user selections when data is loaded (same as web pattern and recipe edit)
+  - `originalSelection` state tracks what was loaded from API for change detection (hasChanges computed)
+  - Mobile uses `apiPut` for goals update (matches web `useUpdateNutritionGoals` which uses PUT)
+  - Sub-screen integration: import + view type routing in NutritionScreen, `onBack` prop pattern
+  - Mobile typecheck passes, all 590 API tests pass
+---
+
+## 2026-03-17T07:20 - US-020
+- What was implemented: Added 4th Nutrition tab (🍎) to mobile TabBar between Friends and Account
+- Files changed:
+  - `apps/mobile/App.tsx` — Added `'nutrition'` to `AppTab` type, added Nutrition tab button to `TabBar`, added `NutritionView` state management in `AppNavigator`, wired `NutritionScreen` component with view/onChangeView props, added `handleTabPress` to reset nutrition view when switching away
+- **Learnings for future iterations:**
+  - NutritionScreen accepts `view` and `onChangeView` props (externally managed state), unlike HomeScreen which manages its own view state internally
+  - Tab press handler resets NutritionView to dashboard when switching away from nutrition tab
+  - Mobile typecheck: `npx tsc --noEmit -p apps/mobile/tsconfig.json` — runs clean
+  - Mobile has 36 tests across 6 files, all passing
+  - API has 590 tests across 26 files, all passing
+---
+
+## 2026-03-17T07:21 - US-021
+- What was implemented: Verified USDA API key infrastructure already in place from US-008. Validated Bicep template with `az bicep build`.
+- Files changed:
+  - `infra/modules/api-container-app.bicep` — Already contains `usda-foodcentral-api-key` secret (lines 69-72) and `USDA_API_KEY` env var mapping (lines 110-112), added during US-008
+- **Learnings for future iterations:**
+  - Bicep changes were bundled with US-008 (route registration) — US-021 was effectively a no-op
+  - `az bicep build --file <path> --stdout` validates template syntax without deploying
+  - All 590 API tests still passing
+---

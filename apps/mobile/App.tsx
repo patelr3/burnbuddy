@@ -9,9 +9,11 @@ import SignupScreen from './src/screens/SignupScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import FriendsScreen from './src/screens/FriendsScreen';
 import AccountScreen from './src/screens/AccountScreen';
+import NutritionScreen from './src/screens/NutritionScreen';
+import type { NutritionView } from './src/screens/NutritionScreen';
 
 type AuthScreen = 'login' | 'signup';
-type AppTab = 'home' | 'friends' | 'account';
+type AppTab = 'home' | 'friends' | 'nutrition' | 'account';
 
 function TabBar({ activeTab, onTabPress }: { activeTab: AppTab; onTabPress: (tab: AppTab) => void }) {
   return (
@@ -40,6 +42,17 @@ function TabBar({ activeTab, onTabPress }: { activeTab: AppTab; onTabPress: (tab
       </TouchableOpacity>
       <TouchableOpacity
         style={tabStyles.tab}
+        onPress={() => onTabPress('nutrition')}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: activeTab === 'nutrition' }}
+        testID="tab-nutrition"
+      >
+        <Text style={[tabStyles.tabText, activeTab === 'nutrition' && tabStyles.activeTabText]}>
+          🍎 Nutrition
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={tabStyles.tab}
         onPress={() => onTabPress('account')}
         accessibilityRole="tab"
         accessibilityState={{ selected: activeTab === 'account' }}
@@ -57,6 +70,7 @@ function AppNavigator() {
   const { user, loading } = useAuth();
   const [authScreen, setAuthScreen] = useState<AuthScreen>('login');
   const [activeTab, setActiveTab] = useState<AppTab>('home');
+  const [nutritionView, setNutritionView] = useState<NutritionView>({ type: 'dashboard' });
   const [notificationSenderUid, setNotificationSenderUid] = useState<string | null>(null);
   const lastResponseId = useRef<string | null>(null);
 
@@ -87,6 +101,13 @@ function AppNavigator() {
     }
   }, [lastNotificationResponse]);
 
+  const handleTabPress = (tab: AppTab) => {
+    if (tab !== 'nutrition') {
+      setNutritionView({ type: 'dashboard' });
+    }
+    setActiveTab(tab);
+  };
+
   if (loading) {
     return (
       <View style={styles.loading}>
@@ -116,11 +137,13 @@ function AppNavigator() {
           />
         ) : activeTab === 'friends' ? (
           <FriendsScreen />
+        ) : activeTab === 'nutrition' ? (
+          <NutritionScreen view={nutritionView} onChangeView={setNutritionView} />
         ) : (
           <AccountScreen />
         )}
       </View>
-      <TabBar activeTab={activeTab} onTabPress={setActiveTab} />
+      <TabBar activeTab={activeTab} onTabPress={handleTabPress} />
     </View>
   );
 }

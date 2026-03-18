@@ -66,6 +66,11 @@ resource apiApp 'Microsoft.App/containerApps@2023-05-01' = {
           identity: 'system'
         }
         {
+          name: 'usda-foodcentral-api-key'
+          keyVaultUrl: '${keyVaultUri}/secrets/usda-foodcentral-api-key'
+          identity: 'system'
+        }
+        {
           name: 'replicate-api-token'
           keyVaultUrl: '${keyVaultUri}/secrets/replicate-api-token'
           identity: 'system'
@@ -105,6 +110,10 @@ resource apiApp 'Microsoft.App/containerApps@2023-05-01' = {
             {
               name: 'OTEL_EXPORTER_OTLP_ENDPOINT'
               secretRef: 'otel-collector-endpoint'
+            }
+            {
+              name: 'USDA_API_KEY'
+              secretRef: 'usda-foodcentral-api-key'
             }
             {
               name: 'REPLICATE_API_TOKEN'

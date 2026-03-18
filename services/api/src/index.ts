@@ -17,6 +17,7 @@ import groupWorkoutsRouter from './routes/group-workouts';
 import dashboardRouter from './routes/dashboard';
 import metricsRouter from './routes/metrics';
 import diagnosticsRouter from './routes/diagnostics';
+import nutritionRouter from './routes/nutrition';
 
 // Initialize Firebase Admin on startup
 initFirebase();
@@ -49,6 +50,7 @@ app.use('/group-workouts', groupWorkoutsRouter);
 app.use('/dashboard', dashboardRouter);
 app.use('/metrics', metricsRouter);
 app.use('/diagnostics', diagnosticsRouter);
+app.use('/nutrition', nutritionRouter);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
