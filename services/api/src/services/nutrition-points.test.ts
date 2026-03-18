@@ -6,6 +6,9 @@ const {
   mockMealsQueryGet,
   mockMealsQueryChain,
   mockMealsCollectionWhere,
+  mockSupplementsQueryGet,
+  mockSupplementsQueryChain,
+  mockSupplementsCollectionWhere,
   mockAwardDocGet,
   mockAwardDocSet,
   mockAwardDocDelete,
@@ -28,6 +31,13 @@ const {
     get: mockMealsQueryGet,
   };
   const mockMealsCollectionWhere = vi.fn(() => mockMealsQueryChain);
+
+  const mockSupplementsQueryGet = vi.fn();
+  const mockSupplementsQueryChain = {
+    where: vi.fn(),
+    get: mockSupplementsQueryGet,
+  };
+  const mockSupplementsCollectionWhere = vi.fn(() => mockSupplementsQueryChain);
 
   const mockAwardDocGet = vi.fn();
   const mockAwardDocSet = vi.fn();
@@ -55,6 +65,9 @@ const {
     mockMealsQueryGet,
     mockMealsQueryChain,
     mockMealsCollectionWhere,
+    mockSupplementsQueryGet,
+    mockSupplementsQueryChain,
+    mockSupplementsCollectionWhere,
     mockAwardDocGet,
     mockAwardDocSet,
     mockAwardDocDelete,
@@ -82,6 +95,9 @@ vi.mock('../lib/firestore', () => ({
       }
       if (name === 'mealEntries') {
         return { where: mockMealsCollectionWhere };
+      }
+      if (name === 'supplementEntries') {
+        return { where: mockSupplementsCollectionWhere };
       }
       if (name === 'nutritionPointsAwarded') {
         return { doc: mockAwardDocRef };
@@ -120,6 +136,9 @@ describe('evaluateNutritionPoints', () => {
     mockMealsCollectionWhere.mockReturnValue(mockMealsQueryChain);
     mockMealsQueryChain.where.mockReturnThis();
 
+    mockSupplementsCollectionWhere.mockReturnValue(mockSupplementsQueryChain);
+    mockSupplementsQueryChain.where.mockReturnThis();
+
     mockAwardDocRef.mockImplementation(() => ({
       get: mockAwardDocGet,
       set: mockAwardDocSet,
@@ -134,6 +153,8 @@ describe('evaluateNutritionPoints', () => {
     mockGoalsDocGet.mockResolvedValue({ exists: false });
     // Default: no meals
     mockMealsQueryGet.mockResolvedValue({ docs: [] });
+    // Default: no supplements
+    mockSupplementsQueryGet.mockResolvedValue({ docs: [] });
     // Default: no awards
     mockAwardDocGet.mockResolvedValue({ exists: false });
     // Default: writes succeed
@@ -557,5 +578,37 @@ describe('evaluateNutritionPoints', () => {
     await evaluateNutritionPoints(TEST_UID, decDate);
 
     expect(mockMonthlyDocRef).toHaveBeenCalledWith(`${TEST_UID}_2025-12`);
+  });
+
+  it('does not revoke manually completed point when consumption drops below 100%', async () => {
+    mockGoalsDocGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ uid: TEST_UID, targetNutrients: ['iron'], updatedAt: '2026-01-01' }),
+    });
+
+    // Only 5mg iron (below 18mg recommended)
+    mockMealsQueryGet.mockResolvedValue({
+      docs: [
+        {
+          data: () => ({
+            uid: TEST_UID,
+            date: TEST_DATE,
+            nutrients: [{ nutrientId: 'iron', amount: 5 }],
+          }),
+        },
+      ],
+    });
+
+    // Point was previously awarded AND is manually completed
+    mockAwardDocGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ uid: TEST_UID, date: TEST_DATE, nutrientId: 'iron', manuallyCompleted: true }),
+    });
+
+    await evaluateNutritionPoints(TEST_UID, TEST_DATE);
+
+    // Should NOT delete award (manually completed points are protected)
+    expect(mockAwardDocDelete).not.toHaveBeenCalled();
+    expect(mockMonthlyDocSet).not.toHaveBeenCalled();
   });
 });

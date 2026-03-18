@@ -1,12 +1,13 @@
 import { Router, type Request, type Response } from 'express';
 import { randomUUID } from 'crypto';
+import { FieldValue } from 'firebase-admin/firestore';
 import { requireAuth } from '../middleware/auth';
 import { getDb } from '../lib/firestore';
 import { logger } from '../lib/logger';
 import { cachedSearchFoods } from '../services/food-search-cache';
 import { evaluateNutritionPoints } from '../services/nutrition-points';
-import type { Recipe, MealEntry, NutrientAmount, NutritionGoals, NutrientId, DailyNutritionSummary } from '@burnbuddy/shared';
-import { SUPPORTED_NUTRIENTS } from '@burnbuddy/shared';
+import type { Recipe, MealEntry, SupplementEntry, NutrientAmount, NutritionGoals, NutrientId, DailyNutritionSummary } from '@burnbuddy/shared';
+import { SUPPORTED_NUTRIENTS, SUPPORTED_UNITS } from '@burnbuddy/shared';
 
 const router = Router();
 
@@ -51,6 +52,16 @@ router.post('/recipes', requireAuth, async (req: Request, res: Response): Promis
   if (servings === undefined || servings === null || typeof servings !== 'number' || servings <= 0) {
     res.status(400).json({ error: 'servings must be a positive number' });
     return;
+  }
+
+  if (ingredients && Array.isArray(ingredients)) {
+    const invalidUnit = ingredients.find(
+      (i) => i.unit && !(SUPPORTED_UNITS as readonly string[]).includes(i.unit),
+    );
+    if (invalidUnit) {
+      res.status(400).json({ error: `Invalid unit '${invalidUnit.unit}'. Supported units: ${SUPPORTED_UNITS.join(', ')}` });
+      return;
+    }
   }
 
   const now = new Date().toISOString();
@@ -155,6 +166,16 @@ router.put('/recipes/:id', requireAuth, async (req: Request, res: Response): Pro
   if (servings !== undefined && (typeof servings !== 'number' || servings <= 0)) {
     res.status(400).json({ error: 'servings must be a positive number' });
     return;
+  }
+
+  if (ingredients && Array.isArray(ingredients)) {
+    const invalidUnit = ingredients.find(
+      (i) => i.unit && !(SUPPORTED_UNITS as readonly string[]).includes(i.unit),
+    );
+    if (invalidUnit) {
+      res.status(400).json({ error: `Invalid unit '${invalidUnit.unit}'. Supported units: ${SUPPORTED_UNITS.join(', ')}` });
+      return;
+    }
   }
 
   const updatedRecipe: Recipe = {
@@ -360,6 +381,109 @@ router.delete('/meals/:id', requireAuth, async (req: Request, res: Response): Pr
   res.status(204).send();
 });
 
+// ── Supplement logging routes ──────────────────────────────────────
+
+// POST /nutrition/supplements — Log a supplement entry
+router.post('/supplements', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const uid = req.user!.uid;
+  const { date, supplementName, nutrients } = req.body as {
+    date?: string;
+    supplementName?: string;
+    nutrients?: NutrientAmount[];
+  };
+
+  if (!date || typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    res.status(400).json({ error: 'date is required in YYYY-MM-DD format' });
+    return;
+  }
+
+  if (!supplementName || typeof supplementName !== 'string' || supplementName.trim().length === 0) {
+    res.status(400).json({ error: 'supplementName is required' });
+    return;
+  }
+
+  if (!Array.isArray(nutrients) || nutrients.length === 0) {
+    res.status(400).json({ error: 'nutrients must be a non-empty array' });
+    return;
+  }
+
+  const id = randomUUID();
+  const entry: SupplementEntry = {
+    id,
+    uid,
+    date,
+    supplementName: supplementName.trim(),
+    nutrients,
+    createdAt: new Date().toISOString(),
+  };
+
+  const db = getDb();
+  await db.collection('supplementEntries').doc(id).set(entry);
+
+  // Fire-and-forget: evaluate nutrition points
+  evaluateNutritionPoints(uid, date).catch((err: unknown) => {
+    logger.error({ err, uid, date }, 'Nutrition points evaluation failed after supplement log');
+  });
+
+  res.status(201).json(entry);
+});
+
+// GET /nutrition/supplements?date=YYYY-MM-DD — Get supplement entries for a date
+router.get('/supplements', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const uid = req.user!.uid;
+  let date = req.query['date'] as string | undefined;
+
+  if (!date) {
+    date = new Date().toISOString().split('T')[0]!;
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    res.status(400).json({ error: 'date must be in YYYY-MM-DD format' });
+    return;
+  }
+
+  const db = getDb();
+  const snapshot = await db
+    .collection('supplementEntries')
+    .where('uid', '==', uid)
+    .where('date', '==', date)
+    .orderBy('createdAt', 'asc')
+    .get();
+
+  const supplements = snapshot.docs.map((doc) => doc.data() as SupplementEntry);
+  res.json(supplements);
+});
+
+// DELETE /nutrition/supplements/:id — Delete a supplement entry
+router.delete('/supplements/:id', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const uid = req.user!.uid;
+  const id = req.params['id'] as string;
+  const db = getDb();
+
+  const doc = await db.collection('supplementEntries').doc(id).get();
+
+  if (!doc.exists) {
+    res.status(404).json({ error: 'Supplement entry not found' });
+    return;
+  }
+
+  const entry = doc.data() as SupplementEntry;
+
+  if (entry.uid !== uid) {
+    res.status(404).json({ error: 'Supplement entry not found' });
+    return;
+  }
+
+  await db.collection('supplementEntries').doc(id).delete();
+
+  // Fire-and-forget: re-evaluate nutrition points
+  evaluateNutritionPoints(uid, entry.date).catch((err: unknown) => {
+    logger.error({ err, uid, date: entry.date }, 'Nutrition points evaluation failed after supplement delete');
+  });
+
+  res.status(204).send();
+});
+
 // ── Goals routes ──────────────────────────────────────────────────
 
 // GET /nutrition/goals — Get the user's nutrition goals
@@ -417,6 +541,123 @@ router.put('/goals', requireAuth, async (req: Request, res: Response): Promise<v
   res.json(goals);
 });
 
+// ── Manual goal completion routes ──────────────────────────────────
+
+// POST /nutrition/goals/complete — Manually mark a nutrient goal as complete for today
+router.post('/goals/complete', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const uid = req.user!.uid;
+  const { nutrientId } = req.body as { nutrientId?: string };
+
+  if (!nutrientId || typeof nutrientId !== 'string') {
+    res.status(400).json({ error: 'nutrientId is required' });
+    return;
+  }
+
+  const validIds = new Set(SUPPORTED_NUTRIENTS.map((n) => n.id));
+  if (!validIds.has(nutrientId as NutrientId)) {
+    res.status(400).json({ error: `Invalid nutrient ID: ${nutrientId}` });
+    return;
+  }
+
+  const date = new Date().toISOString().split('T')[0]!;
+  const db = getDb();
+  const awardDocId = `${uid}_${date}_${nutrientId}`;
+
+  const existingDoc = await db.collection('nutritionPointsAwarded').doc(awardDocId).get();
+
+  if (existingDoc.exists) {
+    // Already awarded (from consumption or previous manual completion)
+    if (existingDoc.data()?.manuallyCompleted) {
+      res.json({ message: 'Already manually completed', nutrientId, date });
+      return;
+    }
+    // Point already earned from consumption — add the manual flag
+    await db.collection('nutritionPointsAwarded').doc(awardDocId).set(
+      { manuallyCompleted: true },
+      { merge: true },
+    );
+    res.json({ message: 'Marked as manually completed', nutrientId, date });
+    return;
+  }
+
+  // Award point with manual flag
+  const now = new Date().toISOString();
+  const month = date.slice(0, 7);
+  const monthlyDocId = `${uid}_${month}`;
+
+  await db.collection('nutritionPointsAwarded').doc(awardDocId).set({
+    uid,
+    date,
+    nutrientId,
+    manuallyCompleted: true,
+    awardedAt: now,
+  });
+
+  await db.collection('monthlyPoints').doc(monthlyDocId).set(
+    {
+      uid,
+      month,
+      points: FieldValue.increment(1),
+      updatedAt: now,
+    },
+    { merge: true },
+  );
+
+  // Fire-and-forget: re-evaluate to keep state consistent
+  evaluateNutritionPoints(uid, date).catch((err: unknown) => {
+    logger.error({ err, uid, date }, 'Nutrition points evaluation failed after manual completion');
+  });
+
+  res.json({ message: 'Goal manually completed', nutrientId, date });
+});
+
+// DELETE /nutrition/goals/complete/:nutrientId — Remove manual completion for today
+router.delete('/goals/complete/:nutrientId', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const uid = req.user!.uid;
+  const nutrientId = req.params['nutrientId'] as string;
+
+  const validIds = new Set(SUPPORTED_NUTRIENTS.map((n) => n.id));
+  if (!validIds.has(nutrientId as NutrientId)) {
+    res.status(400).json({ error: `Invalid nutrient ID: ${nutrientId}` });
+    return;
+  }
+
+  const date = new Date().toISOString().split('T')[0]!;
+  const db = getDb();
+  const awardDocId = `${uid}_${date}_${nutrientId}`;
+
+  const existingDoc = await db.collection('nutritionPointsAwarded').doc(awardDocId).get();
+
+  if (!existingDoc.exists || !existingDoc.data()?.manuallyCompleted) {
+    res.status(404).json({ error: 'No manual completion found for this nutrient today' });
+    return;
+  }
+
+  // Delete the award doc
+  await db.collection('nutritionPointsAwarded').doc(awardDocId).delete();
+
+  const now = new Date().toISOString();
+  const month = date.slice(0, 7);
+  const monthlyDocId = `${uid}_${month}`;
+
+  await db.collection('monthlyPoints').doc(monthlyDocId).set(
+    {
+      uid,
+      month,
+      points: FieldValue.increment(-1),
+      updatedAt: now,
+    },
+    { merge: true },
+  );
+
+  // Fire-and-forget: re-evaluate (may re-award if consumption >= 100%)
+  evaluateNutritionPoints(uid, date).catch((err: unknown) => {
+    logger.error({ err, uid, date }, 'Nutrition points evaluation failed after manual completion removal');
+  });
+
+  res.status(204).send();
+});
+
 // ── Summary route ─────────────────────────────────────────────────
 
 // GET /nutrition/summary?date=YYYY-MM-DD — Daily nutrition summary
@@ -444,10 +685,24 @@ router.get('/summary', requireAuth, async (req: Request, res: Response): Promise
 
   const meals = mealsSnap.docs.map((doc) => doc.data() as MealEntry);
 
-  // Sum consumed amounts per nutrient
+  // Fetch all supplement entries for this date
+  const supplementsSnap = await db
+    .collection('supplementEntries')
+    .where('uid', '==', uid)
+    .where('date', '==', date)
+    .get();
+
+  const supplements = supplementsSnap.docs.map((doc) => doc.data() as SupplementEntry);
+
+  // Sum consumed amounts per nutrient (meals + supplements)
   const consumedMap = new Map<NutrientId, number>();
   for (const meal of meals) {
     for (const n of meal.nutrients) {
+      consumedMap.set(n.nutrientId, (consumedMap.get(n.nutrientId) ?? 0) + n.amount);
+    }
+  }
+  for (const supp of supplements) {
+    for (const n of supp.nutrients) {
       consumedMap.set(n.nutrientId, (consumedMap.get(n.nutrientId) ?? 0) + n.amount);
     }
   }
@@ -464,6 +719,29 @@ router.get('/summary', requireAuth, async (req: Request, res: Response): Promise
     };
   });
 
+  // Check for manually completed nutrients
+  const awardedSnap = await db
+    .collection('nutritionPointsAwarded')
+    .where('uid', '==', uid)
+    .where('date', '==', date)
+    .get();
+
+  const manuallyCompletedSet = new Set<string>();
+  for (const doc of awardedSnap.docs) {
+    const data = doc.data();
+    if (data.manuallyCompleted === true) {
+      manuallyCompletedSet.add(data.nutrientId as string);
+    }
+  }
+
+  // Override percentComplete for manually completed nutrients
+  const enrichedNutrients = nutrients.map((n) => {
+    if (manuallyCompletedSet.has(n.nutrientId)) {
+      return { ...n, percentComplete: Math.max(n.percentComplete, 100), manuallyCompleted: true };
+    }
+    return n;
+  });
+
   // Count points earned for this date
   const pointsSnap = await db
     .collection('nutritionPoints')
@@ -475,8 +753,8 @@ router.get('/summary', requireAuth, async (req: Request, res: Response): Promise
 
   const summary: DailyNutritionSummary = {
     date,
-    nutrients,
-    pointsEarned,
+    nutrients: enrichedNutrients,
+    pointsEarned: pointsEarned + manuallyCompletedSet.size,
   };
 
   res.json(summary);

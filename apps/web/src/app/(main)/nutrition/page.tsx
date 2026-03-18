@@ -7,10 +7,13 @@ import {
   useNutritionSummary,
   useNutritionMeals,
   useNutritionGoals,
+  useNutritionSupplements,
+  useCompleteGoal,
+  useUndoCompleteGoal,
 } from '@/lib/nutrition-queries';
 import { SUPPORTED_NUTRIENTS } from '@burnbuddy/shared';
-import type { NutrientId, MealEntry, DailyNutritionSummary } from '@burnbuddy/shared';
-import { ChevronLeft, ChevronRight, UtensilsCrossed, BookOpen, Target } from 'lucide-react';
+import type { NutrientId, MealEntry, DailyNutritionSummary, SupplementEntry } from '@burnbuddy/shared';
+import { ChevronLeft, ChevronRight, UtensilsCrossed, BookOpen, Target, Pill, Check, Undo2 } from 'lucide-react';
 
 function formatDate(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -66,31 +69,74 @@ interface TargetNutrientCardProps {
   recommended: number;
   percentComplete: number;
   earned: boolean;
+  manuallyCompleted?: boolean;
+  isToday: boolean;
+  onComplete?: () => void;
+  onUndo?: () => void;
+  isPending?: boolean;
 }
 
-function TargetNutrientCard({ nutrientId, consumed, recommended, percentComplete, earned }: TargetNutrientCardProps) {
+function TargetNutrientCard({
+  nutrientId,
+  consumed,
+  recommended,
+  percentComplete,
+  earned,
+  manuallyCompleted,
+  isToday,
+  onComplete,
+  onUndo,
+  isPending,
+}: TargetNutrientCardProps) {
   const info = NUTRIENT_MAP.get(nutrientId);
   if (!info) return null;
   const pct = Math.min(percentComplete, 100);
 
   return (
-    <div className="rounded-lg border border-gray-700 bg-surface-elevated p-4">
+    <div className={`rounded-lg border p-4 ${manuallyCompleted ? 'border-green-500/40 bg-green-900/10' : 'border-gray-700 bg-surface-elevated'}`}>
       <div className="mb-2 flex items-center justify-between">
         <span className="text-sm font-semibold text-white">
-          {earned && <span className="mr-1">🔥</span>}
+          {manuallyCompleted && <span className="mr-1">✅</span>}
+          {earned && !manuallyCompleted && <span className="mr-1">🔥</span>}
           {info.name}
         </span>
-        <span className="text-xs text-gray-400">
-          {consumed.toFixed(1)} / {recommended} {info.unit}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-400">
+            {consumed.toFixed(1)} / {recommended} {info.unit}
+          </span>
+          {isToday && !manuallyCompleted && percentComplete < 100 && (
+            <button
+              onClick={onComplete}
+              disabled={isPending}
+              className="flex cursor-pointer items-center gap-1 rounded-md bg-green-600/20 px-2 py-0.5 text-xs font-medium text-green-400 hover:bg-green-600/30 disabled:opacity-50"
+              title="Mark as complete"
+            >
+              <Check className="h-3 w-3" />
+              Complete
+            </button>
+          )}
+          {isToday && manuallyCompleted && (
+            <button
+              onClick={onUndo}
+              disabled={isPending}
+              className="flex cursor-pointer items-center gap-1 rounded-md bg-gray-600/20 px-2 py-0.5 text-xs font-medium text-gray-400 hover:bg-gray-600/30 disabled:opacity-50"
+              title="Undo manual completion"
+            >
+              <Undo2 className="h-3 w-3" />
+              Undo
+            </button>
+          )}
+        </div>
       </div>
-      <div className={`h-3 w-full overflow-hidden rounded-full ${progressBarBg(percentComplete)}`}>
+      <div className={`h-3 w-full overflow-hidden rounded-full ${manuallyCompleted ? 'bg-green-500/20' : progressBarBg(percentComplete)}`}>
         <div
-          className={`h-full rounded-full transition-all ${progressColor(percentComplete)}`}
+          className={`h-full rounded-full transition-all ${manuallyCompleted ? 'bg-green-500' : progressColor(percentComplete)}`}
           style={{ width: `${pct}%` }}
         />
       </div>
-      <div className="mt-1 text-right text-xs text-gray-500">{percentComplete}%</div>
+      <div className="mt-1 text-right text-xs text-gray-500">
+        {manuallyCompleted ? '✅ Manually completed' : `${percentComplete}%`}
+      </div>
     </div>
   );
 }
@@ -168,6 +214,42 @@ function MealCard({ meal }: MealCardProps) {
   );
 }
 
+interface SupplementCardProps {
+  entry: SupplementEntry;
+}
+
+function SupplementCard({ entry }: SupplementCardProps) {
+  const topNutrients = entry.nutrients.slice(0, 3);
+
+  return (
+    <div className="rounded-lg border border-gray-700 bg-surface p-3.5">
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="text-sm font-semibold text-white">{entry.supplementName}</div>
+          <div className="mt-0.5 text-xs text-gray-400">
+            💊 Supplement · {formatTime(entry.createdAt)}
+          </div>
+        </div>
+        <span className="rounded-full bg-purple-500/20 px-2 py-0.5 text-xs text-purple-300">
+          💊
+        </span>
+      </div>
+      {topNutrients.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {topNutrients.map((n) => {
+            const info = NUTRIENT_MAP.get(n.nutrientId);
+            return info ? (
+              <span key={n.nutrientId} className="rounded bg-surface-elevated px-2 py-0.5 text-xs text-gray-400">
+                {info.name}: {n.amount.toFixed(1)} {info.unit}
+              </span>
+            ) : null;
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function NutritionPage() {
   const { user, loading } = useAuth();
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -176,9 +258,10 @@ export default function NutritionPage() {
 
   const { data: summary, isLoading: summaryLoading } = useNutritionSummary(dateStr);
   const { data: meals, isLoading: mealsLoading } = useNutritionMeals(dateStr);
+  const { data: supplements, isLoading: supplementsLoading } = useNutritionSupplements(dateStr);
   const { data: goals, isLoading: goalsLoading } = useNutritionGoals();
 
-  const isLoading = summaryLoading || mealsLoading || goalsLoading;
+  const isLoading = summaryLoading || mealsLoading || supplementsLoading || goalsLoading;
 
   const goBack = () => {
     setSelectedDate((d) => {
@@ -203,6 +286,9 @@ export default function NutritionPage() {
 
   const targetNutrientIds = useMemo(() => new Set(goals?.targetNutrients ?? []), [goals]);
 
+  const completeGoal = useCompleteGoal();
+  const undoCompleteGoal = useUndoCompleteGoal();
+
   const { targetNutrients, otherNutrients } = useMemo(() => {
     if (!summary) return { targetNutrients: [], otherNutrients: [] };
     const target = summary.nutrients.filter((n) => targetNutrientIds.has(n.nutrientId));
@@ -221,6 +307,18 @@ export default function NutritionPage() {
     }
     return set;
   }, [summary, targetNutrientIds]);
+
+  // Track manually completed nutrients
+  const manuallyCompletedNutrients = useMemo(() => {
+    const set = new Set<NutrientId>();
+    if (!summary) return set;
+    for (const n of summary.nutrients) {
+      if (n.manuallyCompleted) {
+        set.add(n.nutrientId);
+      }
+    }
+    return set;
+  }, [summary]);
 
   if (loading) return null;
 
@@ -288,6 +386,11 @@ export default function NutritionPage() {
                     recommended={n.recommended}
                     percentComplete={n.percentComplete}
                     earned={earnedNutrients.has(n.nutrientId)}
+                    manuallyCompleted={manuallyCompletedNutrients.has(n.nutrientId)}
+                    isToday={isToday}
+                    onComplete={() => completeGoal.mutate(n.nutrientId)}
+                    onUndo={() => undoCompleteGoal.mutate(n.nutrientId)}
+                    isPending={completeGoal.isPending || undoCompleteGoal.isPending}
                   />
                 ))}
               </div>
@@ -323,20 +426,27 @@ export default function NutritionPage() {
 
           {/* Quick Actions */}
           <section className="mb-6">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               <Link
                 href="/nutrition/log"
                 className="flex flex-col items-center gap-1.5 rounded-lg border border-gray-700 bg-surface p-3 no-underline hover:bg-surface-elevated"
               >
                 <UtensilsCrossed className="h-5 w-5 text-primary" />
-                <span className="text-xs font-medium text-gray-300">Log a Meal</span>
+                <span className="text-xs font-medium text-gray-300">Log Meal</span>
+              </Link>
+              <Link
+                href="/nutrition/supplements/log"
+                className="flex flex-col items-center gap-1.5 rounded-lg border border-gray-700 bg-surface p-3 no-underline hover:bg-surface-elevated"
+              >
+                <Pill className="h-5 w-5 text-purple-400" />
+                <span className="text-xs font-medium text-gray-300">Log Supplement</span>
               </Link>
               <Link
                 href="/nutrition/recipes"
                 className="flex flex-col items-center gap-1.5 rounded-lg border border-gray-700 bg-surface p-3 no-underline hover:bg-surface-elevated"
               >
                 <BookOpen className="h-5 w-5 text-secondary" />
-                <span className="text-xs font-medium text-gray-300">My Recipes</span>
+                <span className="text-xs font-medium text-gray-300">Recipes</span>
               </Link>
               <Link
                 href="/nutrition/goals"
@@ -367,6 +477,30 @@ export default function NutritionPage() {
               <div className="space-y-2">
                 {meals.map((meal) => (
                   <MealCard key={meal.id} meal={meal} />
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Supplements */}
+          <section className="mb-6">
+            <h2 className="mb-3 text-base font-semibold text-white">
+              {isToday ? "Today's Supplements" : 'Supplements'}
+            </h2>
+            {!supplements || supplements.length === 0 ? (
+              <div className="rounded-lg border border-gray-700 bg-surface p-4 text-center">
+                <div className="text-sm text-gray-400">No supplements logged</div>
+                <Link
+                  href="/nutrition/supplements/log"
+                  className="mt-2 inline-block text-xs font-medium text-purple-400 no-underline hover:underline"
+                >
+                  Log a supplement →
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {supplements.map((entry) => (
+                  <SupplementCard key={entry.id} entry={entry} />
                 ))}
               </div>
             )}

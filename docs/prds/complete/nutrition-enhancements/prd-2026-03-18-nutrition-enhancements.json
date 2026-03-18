@@ -1,0 +1,103 @@
+{
+  "project": "BurnBuddy",
+  "branchName": "ralph/nutrition-enhancements",
+  "description": "Nutrition Section Enhancements — Replace ingredient unit text field with dropdown, add supplement tracking with catalog and logging, and manual goal completion",
+  "dependsOn": ["ralph/nutrition-tracking"],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Replace ingredient unit text field with dropdown",
+      "description": "As a user creating a recipe, I want to select an ingredient unit from a dropdown so that I don't accidentally enter typos or inconsistent unit names.",
+      "acceptanceCriteria": [
+        "Define a SUPPORTED_UNITS constant in packages/shared/src/nutrition.ts with the following units: g, mg, oz, cup, tbsp, tsp, serving, ml, L, lb",
+        "Update the Ingredient type's unit field to use a union type of supported unit strings",
+        "On the recipe creation page (apps/web/src/app/(main)/nutrition/recipes/new/page.tsx), replace the text input for unit with a <select> dropdown populated from SUPPORTED_UNITS",
+        "Default the dropdown selection to 'serving'",
+        "On the recipe edit page (apps/web/src/app/(main)/nutrition/recipes/[id]/page.tsx), also replace the unit text input with the same dropdown",
+        "The API recipe creation and update endpoints (POST /nutrition/recipes, PUT /nutrition/recipes/:id) validate that the unit value is one of the supported units; return 400 if not",
+        "Existing recipes with non-standard units still display correctly (show the stored value even if it's not in the dropdown)",
+        "Shared package builds successfully (cd packages/shared && yarn build)",
+        "API typecheck passes",
+        "Web typecheck passes",
+        "Existing API tests still pass",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Add supplement type definitions and catalog",
+      "description": "As a developer, I need shared types for supplements and a catalog of common supplements so the feature has a solid data foundation.",
+      "acceptanceCriteria": [
+        "Define a Supplement type in packages/shared/src/nutrition.ts with fields: id: string, name: string, brand?: string, nutrients: NutrientAmount[], isCustom: boolean",
+        "Define a SupplementEntry type for logging supplement intake: id: string, uid: string, date: string (YYYY-MM-DD), supplementName: string, nutrients: NutrientAmount[], createdAt: string",
+        "Create a COMMON_SUPPLEMENTS constant array in packages/shared/src/nutrition.ts containing at least 8 common supplements (e.g., Vitamin D3 1000 IU, Vitamin C 500mg, Calcium 600mg, Iron 65mg, Vitamin B12 1000mcg, Zinc 50mg, Magnesium 400mg, Fish Oil / Omega-3 1000mg) with accurate nutrient amounts mapped to existing NutrientId values",
+        "Export all new types and the constant from the shared package",
+        "Shared package builds successfully (cd packages/shared && yarn build)",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Supplement logging API endpoints",
+      "description": "As a user, I want API endpoints to log, retrieve, and delete supplement entries so that my supplement intake is tracked.",
+      "acceptanceCriteria": [
+        "POST /nutrition/supplements — logs a supplement entry for the authenticated user. Accepts { date, supplementName, nutrients }. Stores in Firestore collection supplementEntries. After saving, fires evaluateNutritionPoints(uid, date) asynchronously (same pattern as meal logging)",
+        "GET /nutrition/supplements?date=YYYY-MM-DD — returns all supplement entries for the user on the given date (defaults to today)",
+        "DELETE /nutrition/supplements/:id — deletes a supplement entry (must belong to authenticated user). After deletion, fires evaluateNutritionPoints(uid, date) asynchronously",
+        "The daily nutrition summary endpoint (GET /nutrition/summary) includes nutrients from supplement entries in its totals, alongside meal entries",
+        "Write unit tests for all three supplement endpoints following the existing test pattern (vi.mock + vi.hoisted + supertest)",
+        "API typecheck passes",
+        "All API tests pass (existing + new)"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Supplement logging UI",
+      "description": "As a user, I want to log a supplement from the nutrition dashboard so I can track my vitamin and supplement intake alongside food.",
+      "acceptanceCriteria": [
+        "Add a 'Log Supplement' quick action button on the nutrition dashboard (/nutrition/page.tsx), next to existing 'Log Meal' button",
+        "Create a new page at /nutrition/supplements/log with: a 'Common Supplements' section showing the catalog from COMMON_SUPPLEMENTS as selectable cards, a 'Custom Supplement' section where the user can enter a name and specify nutrient amounts, a date field defaulting to today, and a 'Log Supplement' submit button",
+        "When a catalog supplement is selected, its nutrient amounts are pre-filled and shown to the user before submission",
+        "For custom supplements, the user enters a name and fills in nutrient amounts (only non-zero nutrients need to be entered)",
+        "After successful submission, redirect back to the nutrition dashboard",
+        "Supplement entries appear on the dashboard with a pill icon (💊) or similar visual distinction from meals",
+        "Web typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Manual goal completion",
+      "description": "As a user, I want to manually mark a nutrition goal as complete for today so that I earn the point even if my logged meals/supplements don't fully reflect my actual intake.",
+      "acceptanceCriteria": [
+        "POST /nutrition/goals/complete — accepts { nutrientId } and marks that nutrient goal as manually completed for today's date. Stores a document in Firestore (e.g., in nutritionPointsAwarded with a flag manuallyCompleted: true). Awards the point if not already awarded for that nutrient today. Fires point evaluation for the day.",
+        "DELETE /nutrition/goals/complete/:nutrientId — removes the manual completion for today, revoking the point if it was manually awarded. Fires point evaluation for the day.",
+        "The daily summary endpoint reflects manually completed goals: the nutrient should show as 100% complete when manually marked",
+        "On the nutrition dashboard, each target nutrient card that is below 100% shows a 'Mark Complete' button (e.g., a checkmark icon)",
+        "Clicking 'Mark Complete' calls the API and immediately updates the UI to show that nutrient at 100% with a visual indicator (e.g., ✅ badge or different color) that it was manually completed",
+        "If a nutrient is already manually completed, show an 'Undo' option instead of 'Mark Complete'",
+        "Manual completion is only available for today's date (not past dates)",
+        "Write unit tests for the manual completion API endpoints",
+        "API typecheck passes",
+        "Web typecheck passes",
+        "All API tests pass",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}

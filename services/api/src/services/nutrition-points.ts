@@ -2,7 +2,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { getDb } from '../lib/firestore';
 import { logger } from '../lib/logger';
 import { SUPPORTED_NUTRIENTS } from '@burnbuddy/shared';
-import type { NutrientId, NutrientAmount, NutritionGoals, MealEntry } from '@burnbuddy/shared';
+import type { NutrientId, NutrientAmount, NutritionGoals, MealEntry, SupplementEntry } from '@burnbuddy/shared';
 
 /**
  * Extracts YYYY-MM from a YYYY-MM-DD date string.
@@ -49,11 +49,26 @@ export async function evaluateNutritionPoints(uid: string, date: string): Promis
 
   const meals = mealsSnapshot.docs.map((doc) => doc.data() as MealEntry);
 
-  // 3. Sum consumed nutrients across all meals
+  // 2b. Fetch all supplement entries for user on this date
+  const supplementsSnapshot = await db
+    .collection('supplementEntries')
+    .where('uid', '==', uid)
+    .where('date', '==', date)
+    .get();
+
+  const supplements = supplementsSnapshot.docs.map((doc) => doc.data() as SupplementEntry);
+
+  // 3. Sum consumed nutrients across all meals and supplements
   const consumedMap = new Map<NutrientId, number>();
   for (const meal of meals) {
     if (!meal.nutrients) continue;
     for (const n of meal.nutrients) {
+      consumedMap.set(n.nutrientId, (consumedMap.get(n.nutrientId) ?? 0) + n.amount);
+    }
+  }
+  for (const supp of supplements) {
+    if (!supp.nutrients) continue;
+    for (const n of supp.nutrients) {
       consumedMap.set(n.nutrientId, (consumedMap.get(n.nutrientId) ?? 0) + n.amount);
     }
   }
@@ -80,6 +95,8 @@ export async function evaluateNutritionPoints(uid: string, date: string): Promis
     try {
       const awardDoc = await db.collection('nutritionPointsAwarded').doc(awardDocId).get();
       const alreadyAwarded = awardDoc.exists;
+      const awardData = typeof awardDoc.data === 'function' ? awardDoc.data() : undefined;
+      const isManuallyCompleted = alreadyAwarded && awardData?.manuallyCompleted === true;
 
       if (percentComplete >= 100 && !alreadyAwarded) {
         // Award point
@@ -99,8 +116,8 @@ export async function evaluateNutritionPoints(uid: string, date: string): Promis
           { merge: true },
         );
         logger.info({ uid, date, nutrientId }, 'Nutrition point awarded');
-      } else if (percentComplete < 100 && alreadyAwarded) {
-        // Revoke point
+      } else if (percentComplete < 100 && alreadyAwarded && !isManuallyCompleted) {
+        // Revoke point (but not if manually completed)
         await db.collection('nutritionPointsAwarded').doc(awardDocId).delete();
         await db.collection('monthlyPoints').doc(monthlyDocId).set(
           {
