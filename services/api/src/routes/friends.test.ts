@@ -511,13 +511,13 @@ describe('POST /friends/requests/:id/accept', () => {
     expect(res.status).toBe(409);
   });
 
-  it('accepts the request and creates a friendship document', async () => {
+  it('accepts the request and creates a friendship document atomically', async () => {
     mockFrRequestDocGet.mockResolvedValueOnce({
       exists: true,
       data: () => ({ id: 'req-1', fromUid: OTHER_UID, toUid: TEST_UID, status: 'pending', createdAt: '' }),
     });
-    mockFrRequestDocUpdate.mockResolvedValueOnce(undefined);
-    mockFriendDocSet.mockResolvedValueOnce(undefined);
+    // No reverse pending requests
+    mockFrRequestQueryGet.mockResolvedValueOnce({ empty: true, docs: [] });
 
     const res = await request(buildApp())
       .post('/friends/requests/req-1/accept')
@@ -525,8 +525,38 @@ describe('POST /friends/requests/:id/accept', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ success: true, friendRequestId: 'req-1' });
-    expect(mockFrRequestDocUpdate).toHaveBeenCalledWith({ status: 'accepted' });
-    expect(mockFriendDocSet).toHaveBeenCalledOnce();
+    expect(mockBatch).toHaveBeenCalledOnce();
+    expect(mockBatchUpdate).toHaveBeenCalledWith(expect.anything(), { status: 'accepted' });
+    expect(mockBatchSet).toHaveBeenCalledOnce();
+    expect(mockBatchCommit).toHaveBeenCalledOnce();
+    // Verify sorted composite key for friend document
+    const friendData = mockBatchSet.mock.calls[0]?.[1];
+    const [sorted1, sorted2] = [TEST_UID, OTHER_UID].sort();
+    expect(friendData).toMatchObject({ uid1: sorted1, uid2: sorted2 });
+  });
+
+  it('cleans up reverse pending requests on accept', async () => {
+    mockFrRequestDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ id: 'req-1', fromUid: OTHER_UID, toUid: TEST_UID, status: 'pending', createdAt: '' }),
+    });
+    // Reverse pending request exists (TEST_UID→OTHER_UID)
+    mockFrRequestQueryGet.mockResolvedValueOnce({
+      empty: false,
+      docs: [{ id: 'reverse-req', data: () => ({ id: 'reverse-req', fromUid: TEST_UID, toUid: OTHER_UID, status: 'pending', createdAt: '' }) }],
+    });
+
+    const res = await request(buildApp())
+      .post('/friends/requests/req-1/accept')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(mockBatch).toHaveBeenCalledOnce();
+    expect(mockBatchUpdate).toHaveBeenCalledWith(expect.anything(), { status: 'accepted' });
+    expect(mockBatchSet).toHaveBeenCalledOnce();
+    // Reverse pending request should be deleted in the batch
+    expect(mockBatchDelete).toHaveBeenCalledOnce();
+    expect(mockBatchCommit).toHaveBeenCalledOnce();
   });
 });
 

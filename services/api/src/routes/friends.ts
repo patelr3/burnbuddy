@@ -168,14 +168,27 @@ router.post(
       return;
     }
 
-    await db.collection('friendRequests').doc(id).update({ status: 'accepted' });
-
     const createdAt = new Date().toISOString();
     const [uid1, uid2] = [friendRequest.fromUid, uid].sort();
     const friendship: Friend = { uid1, uid2, createdAt };
     const friendDocId = `${uid1}_${uid2}`;
 
-    await db.collection('friends').doc(friendDocId).set(friendship);
+    // Find any reverse pending requests between the same pair
+    const otherPending = await db
+      .collection('friendRequests')
+      .where('fromUid', '==', uid)
+      .where('toUid', '==', friendRequest.fromUid)
+      .where('status', '==', 'pending')
+      .get();
+
+    // Atomic batch: update request status, create friend doc, delete reverse pending requests
+    const batch = db.batch();
+    batch.update(db.collection('friendRequests').doc(id), { status: 'accepted' });
+    batch.set(db.collection('friends').doc(friendDocId), friendship);
+    for (const doc of otherPending.docs) {
+      batch.delete(db.collection('friendRequests').doc(doc.id));
+    }
+    await batch.commit();
 
     res.json({ success: true, friendRequestId: id });
   },
