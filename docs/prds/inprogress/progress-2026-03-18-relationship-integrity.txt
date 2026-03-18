@@ -7,6 +7,8 @@ Started: 2026-03-18
 - Batch mocks (`mockBatch`, `mockBatchSet`, `mockBatchUpdate`, `mockBatchCommit`) added to vi.hoisted for atomic write tests
 - Sorted composite key pattern: `[uid1, uid2].sort().join('_')` used for both `friends` and `burnBuddies` collections
 - Build shared package (`cd packages/shared && yarn build`) before API typecheck
+- TLA+ specs use IF/THEN/ELSE for conditional behavior; set difference with non-existent elements is a no-op
+- TLC tools jar downloadable from GitHub releases; clean up TTrace files before committing
 
 ---
 
@@ -30,4 +32,77 @@ Started: 2026-03-18
   - Same `mockFrRequestQueryGet` mock is shared for ALL friendRequests.where() queries; use `mockResolvedValueOnce()` in sequence for A→B then B→A checks
   - Added `mockBatchSet` and `mockBatchUpdate` to existing batch mock setup in friends.test.ts (was only `delete` + `commit` before, used for cascade deletes)
   - Existing "creates a new friend request" test and G-4 test both needed a second `mockResolvedValueOnce({ empty: true })` for the new reverse query
+---
+
+## 2026-03-18T06:33 - US-003
+- Converted burn buddy accept handler to use Firestore batched writes for atomic operations
+- Batch atomically: (1) updates request status to 'accepted', (2) creates burnBuddy document, (3) deletes any reverse pending requests between the same pair
+- Updated existing "accepts the request" test to verify batch usage instead of direct doc operations
+- Added new test verifying reverse pending requests are cleaned up on accept
+- Updated G-1 sorted composite key test to verify via `mockBatchSet` instead of `mockBBDocSet`
+- Files changed: `services/api/src/routes/burn-buddies.ts`, `services/api/src/routes/burn-buddies.test.ts`
+- **Learnings for future iterations:**
+  - When converting from direct doc operations to batch, the test assertions must change: verify `mockBatchUpdate`/`mockBatchSet` instead of `mockBBRequestDocUpdate`/`mockBBDocSet`
+  - `batch.set(docRef, data)` passes two args — for G-1 key check use `mockBatchSet.mock.calls[0]?.[1]` (second arg) not `[0]` (first arg is the ref)
+  - The reverse pending query reuses `mockBBRequestQueryGet` chain — same sequential `mockResolvedValueOnce` pattern applies
+---
+
+## 2026-03-18T06:35 - US-004
+- Converted friend request accept handler to use Firestore batched writes for atomic operations
+- Batch atomically: (1) updates request status to 'accepted', (2) creates friend document with sorted composite key, (3) deletes any reverse pending requests between the same pair
+- Updated existing "accepts the request" test to verify batch usage (mockBatchUpdate/mockBatchSet/mockBatchCommit)
+- Added new test "cleans up reverse pending requests on accept" verifying reverse pending requests are deleted in the batch
+- Files changed: `services/api/src/routes/friends.ts`, `services/api/src/routes/friends.test.ts`
+- **Learnings for future iterations:**
+  - Same pattern as US-003 burn-buddies accept: query for reverse pending, then batch update+set+delete
+  - `mockBatchSet.mock.calls[0]?.[1]` gets the data argument (second arg) — first arg is the doc ref
+  - All 37 friends tests pass after conversion
+---
+
+## 2026-03-18T06:40 - US-005
+- Created `scripts/repair-relationships.ts` — one-time relationship cleanup migration script
+- Detects 4 categories: orphan pending BB requests, orphan pending friend requests, burnBuddies without friends, requests with non-existent user profiles
+- Runs dry-run by default (`--dry-run`), `--fix` flag to apply repairs
+- Uses Firestore batched writes (max 500 ops per batch)
+- Logs every issue found with full details (doc ID, UIDs involved, issue type)
+- Core detection (`detectIssues`) and repair (`applyRepairs`) functions are exported for testability
+- Created `scripts/repair-relationships.test.ts` with 9 tests covering all detection categories plus composite key direction handling
+- Files changed: `scripts/repair-relationships.ts`, `scripts/repair-relationships.test.ts`
+- **Learnings for future iterations:**
+  - Scripts at repo root can be tested with `npx vitest run scripts/<file>.test.ts` without needing a vitest config
+  - Follow the `migrate-cartoon-pictures.ts` pattern for CLI args, Firebase init, and credential handling
+  - Export core logic functions (taking `db` parameter) for easy unit testing with mock Firestore objects
+  - Use `isDirectExecution` guard to prevent `main()` from running when imported for testing
+---
+
+## 2026-03-18T06:44 - US-006
+- Implemented GET /diagnostics/relationships endpoint behind requireAuth
+- Scans 5 Firestore collections in parallel (burnBuddyRequests, friendRequests, burnBuddies, friends, users)
+- Reports 4 issue categories with counts and doc IDs (capped at 50 per category): orphan BB requests, orphan friend requests, BBs without friendships, requests with invalid UIDs
+- Returns totalScanned count
+- Error handling returns 500 with logged error on Firestore failure
+- Added 8 new tests (13 total in diagnostics.test.ts): auth, clean report, each issue type, cap at 50, multiple simultaneous issues, error handling
+- Files changed: `services/api/src/routes/diagnostics.ts`, `services/api/src/routes/diagnostics.test.ts`
+- **Learnings for future iterations:**
+  - The existing diagnostics route/test already existed for storage/sharp health — extended it with the new /relationships sub-route
+  - Firestore mock for `getDb` needed `collection(name)` routing to multiple mock collections — each collection's `.where()` chain needs `mockReturnThis()` re-applied in beforeEach
+  - Detection logic mirrors the repair script's `detectIssues()` but adapted for the route context using `getDb()` instead of a passed `db` parameter
+  - The `emptySnap()` helper and `setupRelationshipMocks()` helper make test setup concise and reusable
+---
+
+## 2026-03-18T06:48 - US-007
+- Updated TLA+ BurnBuddyManagement spec to model the cross-directional race condition fix
+- Added INV-8 NoPendingAfterBuddyEstablished: verified TLC catches the bug with old actions (trace: A→B pending + B accepts A's reverse → orphan pending)
+- Updated SendBuddyRequest to model auto-accept behavior when reverse pending exists (IF/THEN/ELSE)
+- Updated AcceptBuddyRequest to atomically remove reverse pending requests (belt-and-suspenders cleanup)
+- Updated concurrent scenarios comment: cross-directional pending requests can no longer coexist
+- Added code references throughout (burn-buddies.ts lines 57-85, 177-183; friends.ts)
+- TLC model check passes: 6.2M states generated, 439K distinct states, depth 37, all 10 invariants satisfied
+- Files changed: `specs/tla/burn-buddies/BurnBuddyManagement.tla`, `specs/tla/burn-buddies/BurnBuddyManagement.cfg`
+- **Learnings for future iterations:**
+  - TLA2tools.jar can be downloaded from GitHub releases and run with Java 21 in the devcontainer
+  - TLC with 3 model-value UIDs explores ~6M states in ~4-11 seconds — fast enough for CI
+  - IF/THEN/ELSE in TLA+ works for modeling conditional behavior (auto-accept vs create new)
+  - Set difference with non-existent element is a no-op in TLA+ — safe for defensive cleanup modeling
+  - The trace file (BurnBuddyManagement_TTrace_*.tla/.bin) is auto-generated by TLC; clean up before committing
 ---

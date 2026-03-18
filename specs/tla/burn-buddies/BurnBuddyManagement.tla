@@ -105,6 +105,17 @@ NoSelfRequests ==
 NoBuddyWithoutFriendship ==
     \A bb \in burnBuddies : bb \in friends
 
+(* INV-8: No pending request can exist once a burn buddy is established.
+   After the cross-directional fix, SendBuddyRequest auto-accepts reverse
+   pending requests and AcceptBuddyRequest atomically cleans up reverse
+   pending requests. This invariant verifies no pending request survives
+   for a pair that already has an active burn buddy.
+   See burn-buddies.ts lines 57-85 (auto-accept) and lines 177-183 (atomic accept). *)
+NoPendingAfterBuddyEstablished ==
+    \A bb \in burnBuddies :
+        ~\E r \in buddyRequests :
+            {r.fromUid, r.toUid} = bb /\ r.status = "pending"
+
 (* Combined safety invariant *)
 SafetyInvariant ==
     /\ TypeOK
@@ -114,6 +125,7 @@ SafetyInvariant ==
     /\ AtMostOnePendingPerDirection
     /\ NoSelfRequests
     /\ NoBuddyWithoutFriendship
+    /\ NoPendingAfterBuddyEstablished
 
 ------------------------------------------------------------------------
 (* --- INITIAL STATE --- *)
@@ -161,28 +173,49 @@ DeleteFriendship(u1, u2) ==
    - Users must be friends (lines 32-40)
    - No existing pending request in same direction (lines 42-50)
    - No existing burn buddy relationship (implied — would be redundant)
-   Postcondition: A new pending request record is added. *)
+   Cross-directional fix (burn-buddies.ts lines 57-85): If a reverse
+   pending request (to→from) exists, auto-accept it instead of creating
+   a new request — both users want to be buddies, so establish the
+   relationship atomically via batch write. *)
 SendBuddyRequest(from, to) ==
     /\ from /= to                                             \* No self-requests
     /\ {from, to} \in friends                                  \* Friendship required
     /\ ~\E r \in buddyRequests :                               \* No duplicate pending
          r.fromUid = from /\ r.toUid = to /\ r.status = "pending"
     /\ {from, to} \notin burnBuddies                           \* Not already buddies
-    /\ buddyRequests' = buddyRequests \cup
-         {[fromUid |-> from, toUid |-> to, status |-> "pending"]}
-    /\ UNCHANGED <<friends, burnBuddies>>
+    /\ LET reverseReq == [fromUid |-> to, toUid |-> from, status |-> "pending"]
+       IN
+       IF reverseReq \in buddyRequests
+       THEN \* Auto-accept: reverse pending exists, both users want to be buddies.
+            \* Atomically update reverse request to accepted and create buddy.
+            \* See burn-buddies.ts lines 57-85 (batch write: update + set).
+            /\ buddyRequests' = (buddyRequests \ {reverseReq}) \cup
+                 {[fromUid |-> to, toUid |-> from, status |-> "accepted"]}
+            /\ burnBuddies' = burnBuddies \cup {{from, to}}
+            /\ UNCHANGED friends
+       ELSE \* Normal case: no reverse pending, create a new pending request.
+            /\ buddyRequests' = buddyRequests \cup
+                 {[fromUid |-> from, toUid |-> to, status |-> "pending"]}
+            /\ UNCHANGED <<friends, burnBuddies>>
 
 (* Accept a pending burn buddy request. Only the recipient (toUid) can accept.
-   On acceptance:
+   On acceptance (atomic batch write — see burn-buddies.ts lines 177-183):
    1. The request status changes to "accepted"
-   2. A new BurnBuddy document is created (modeled as set {from, to}).
-   See burn-buddies.ts lines 94-130. *)
+   2. A new BurnBuddy document is created (modeled as set {from, to})
+   3. Any reverse pending request (to→from) is deleted to prevent orphans
+   The reverse cleanup is belt-and-suspenders — SendBuddyRequest's auto-accept
+   should prevent reverse pending requests from coexisting, but AcceptBuddyRequest
+   cleans them up defensively in case of races. See also friends.ts for the
+   identical pattern applied to friend requests. *)
 AcceptBuddyRequest(from, to) ==
     LET req == [fromUid |-> from, toUid |-> to, status |-> "pending"]
+        reverseReq == [fromUid |-> to, toUid |-> from, status |-> "pending"]
     IN
     /\ req \in buddyRequests                                   \* Request must exist and be pending
     /\ {from, to} \notin burnBuddies                           \* Not already buddies
-    /\ buddyRequests' = (buddyRequests \ {req}) \cup
+    \* Atomically: mark accepted, create buddy, remove any reverse pending.
+    \* Set difference with reverseReq is safe even if it doesn't exist.
+    /\ buddyRequests' = (buddyRequests \ {req, reverseReq}) \cup
          {[fromUid |-> from, toUid |-> to, status |-> "accepted"]}
     /\ burnBuddies' = burnBuddies \cup {{from, to}}
     /\ UNCHANGED friends
@@ -230,8 +263,10 @@ DeleteBuddy(u1, u2) ==
 (* --- CONCURRENT SCENARIOS --- *)
 
 (* Two users send buddy requests to each other simultaneously.
-   Both can coexist as pending because they are in different directions
-   (fromUid=A, toUid=B) vs (fromUid=B, toUid=A).
+   After the cross-directional fix (burn-buddies.ts lines 57-85),
+   the second request detects the reverse pending request and auto-accepts
+   it instead of creating a new one. Cross-directional pending requests
+   can no longer coexist — NoPendingAfterBuddyEstablished enforces this.
    TLC explores all interleavings automatically via the Next relation. *)
 
 (* Accept during delete: one user accepts while the other deletes.
