@@ -7,10 +7,11 @@ import {
   useNutritionSummary,
   useNutritionMeals,
   useNutritionGoals,
+  useNutritionSupplements,
 } from '@/lib/nutrition-queries';
 import { SUPPORTED_NUTRIENTS } from '@burnbuddy/shared';
-import type { NutrientId, MealEntry, DailyNutritionSummary } from '@burnbuddy/shared';
-import { ChevronLeft, ChevronRight, UtensilsCrossed, BookOpen, Target } from 'lucide-react';
+import type { NutrientId, MealEntry, DailyNutritionSummary, SupplementEntry } from '@burnbuddy/shared';
+import { ChevronLeft, ChevronRight, UtensilsCrossed, BookOpen, Target, Pill } from 'lucide-react';
 
 function formatDate(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -168,6 +169,42 @@ function MealCard({ meal }: MealCardProps) {
   );
 }
 
+interface SupplementCardProps {
+  entry: SupplementEntry;
+}
+
+function SupplementCard({ entry }: SupplementCardProps) {
+  const topNutrients = entry.nutrients.slice(0, 3);
+
+  return (
+    <div className="rounded-lg border border-gray-700 bg-surface p-3.5">
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="text-sm font-semibold text-white">{entry.supplementName}</div>
+          <div className="mt-0.5 text-xs text-gray-400">
+            💊 Supplement · {formatTime(entry.createdAt)}
+          </div>
+        </div>
+        <span className="rounded-full bg-purple-500/20 px-2 py-0.5 text-xs text-purple-300">
+          💊
+        </span>
+      </div>
+      {topNutrients.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {topNutrients.map((n) => {
+            const info = NUTRIENT_MAP.get(n.nutrientId);
+            return info ? (
+              <span key={n.nutrientId} className="rounded bg-surface-elevated px-2 py-0.5 text-xs text-gray-400">
+                {info.name}: {n.amount.toFixed(1)} {info.unit}
+              </span>
+            ) : null;
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function NutritionPage() {
   const { user, loading } = useAuth();
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -176,9 +213,10 @@ export default function NutritionPage() {
 
   const { data: summary, isLoading: summaryLoading } = useNutritionSummary(dateStr);
   const { data: meals, isLoading: mealsLoading } = useNutritionMeals(dateStr);
+  const { data: supplements, isLoading: supplementsLoading } = useNutritionSupplements(dateStr);
   const { data: goals, isLoading: goalsLoading } = useNutritionGoals();
 
-  const isLoading = summaryLoading || mealsLoading || goalsLoading;
+  const isLoading = summaryLoading || mealsLoading || supplementsLoading || goalsLoading;
 
   const goBack = () => {
     setSelectedDate((d) => {
@@ -323,20 +361,27 @@ export default function NutritionPage() {
 
           {/* Quick Actions */}
           <section className="mb-6">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               <Link
                 href="/nutrition/log"
                 className="flex flex-col items-center gap-1.5 rounded-lg border border-gray-700 bg-surface p-3 no-underline hover:bg-surface-elevated"
               >
                 <UtensilsCrossed className="h-5 w-5 text-primary" />
-                <span className="text-xs font-medium text-gray-300">Log a Meal</span>
+                <span className="text-xs font-medium text-gray-300">Log Meal</span>
+              </Link>
+              <Link
+                href="/nutrition/supplements/log"
+                className="flex flex-col items-center gap-1.5 rounded-lg border border-gray-700 bg-surface p-3 no-underline hover:bg-surface-elevated"
+              >
+                <Pill className="h-5 w-5 text-purple-400" />
+                <span className="text-xs font-medium text-gray-300">Log Supplement</span>
               </Link>
               <Link
                 href="/nutrition/recipes"
                 className="flex flex-col items-center gap-1.5 rounded-lg border border-gray-700 bg-surface p-3 no-underline hover:bg-surface-elevated"
               >
                 <BookOpen className="h-5 w-5 text-secondary" />
-                <span className="text-xs font-medium text-gray-300">My Recipes</span>
+                <span className="text-xs font-medium text-gray-300">Recipes</span>
               </Link>
               <Link
                 href="/nutrition/goals"
@@ -367,6 +412,30 @@ export default function NutritionPage() {
               <div className="space-y-2">
                 {meals.map((meal) => (
                   <MealCard key={meal.id} meal={meal} />
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Supplements */}
+          <section className="mb-6">
+            <h2 className="mb-3 text-base font-semibold text-white">
+              {isToday ? "Today's Supplements" : 'Supplements'}
+            </h2>
+            {!supplements || supplements.length === 0 ? (
+              <div className="rounded-lg border border-gray-700 bg-surface p-4 text-center">
+                <div className="text-sm text-gray-400">No supplements logged</div>
+                <Link
+                  href="/nutrition/supplements/log"
+                  className="mt-2 inline-block text-xs font-medium text-purple-400 no-underline hover:underline"
+                >
+                  Log a supplement →
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {supplements.map((entry) => (
+                  <SupplementCard key={entry.id} entry={entry} />
                 ))}
               </div>
             )}

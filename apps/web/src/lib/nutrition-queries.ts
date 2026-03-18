@@ -9,6 +9,7 @@ import type {
   NutrientId,
   Ingredient,
   NutrientAmount,
+  SupplementEntry,
 } from '@burnbuddy/shared';
 
 // ── Query keys ───────────────────────────────────────────────────────────────
@@ -16,6 +17,7 @@ import type {
 export const nutritionKeys = {
   nutritionSummary: (date: string) => ['nutrition-summary', date] as const,
   nutritionMeals: (date: string) => ['nutrition-meals', date] as const,
+  nutritionSupplements: (date: string) => ['nutrition-supplements', date] as const,
   recipes: ['recipes'] as const,
   recipe: (id: string) => ['recipe', id] as const,
   nutritionGoals: ['nutrition-goals'] as const,
@@ -162,6 +164,34 @@ export function useUpdateNutritionGoals() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: nutritionKeys.nutritionGoals });
       queryClient.invalidateQueries({ queryKey: ['nutrition-summary'] });
+    },
+  });
+}
+
+// ── Supplement hooks ─────────────────────────────────────────────────────────
+
+export function useNutritionSupplements(date: string) {
+  return useQuery({
+    queryKey: nutritionKeys.nutritionSupplements(date),
+    queryFn: () => apiGet<SupplementEntry[]>(`/nutrition/supplements?date=${date}`),
+    enabled: !!date,
+  });
+}
+
+interface LogSupplementInput {
+  date: string;
+  supplementName: string;
+  nutrients: NutrientAmount[];
+}
+
+export function useLogSupplement() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: LogSupplementInput) =>
+      apiPost<SupplementEntry>('/nutrition/supplements', input),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: nutritionKeys.nutritionSupplements(variables.date) });
+      queryClient.invalidateQueries({ queryKey: nutritionKeys.nutritionSummary(variables.date) });
     },
   });
 }
