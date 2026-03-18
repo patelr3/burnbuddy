@@ -404,6 +404,31 @@ describe('POST /nutrition/recipes', () => {
     expect(res.body.directNutrients).toEqual([{ nutrientId: 'iron', amount: 5 }]);
     expect(res.body.ingredients).toHaveLength(1);
   });
+
+  it('returns 400 when ingredient has invalid unit', async () => {
+    const body = {
+      name: 'Bad Unit Recipe',
+      ingredients: [
+        {
+          id: 'ing-1',
+          name: 'Chicken',
+          quantity: 200,
+          unit: 'kilos',
+          nutrients: [{ nutrientId: 'iron', amount: 3 }],
+        },
+      ],
+      servings: 1,
+    };
+
+    const res = await request(buildApp())
+      .post('/nutrition/recipes')
+      .set('Authorization', VALID_TOKEN)
+      .send(body);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Invalid unit');
+    expect(res.body.error).toContain('kilos');
+  });
 });
 
 describe('GET /nutrition/recipes', () => {
@@ -662,6 +687,32 @@ describe('PUT /nutrition/recipes/:id', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.updatedAt).not.toBe('2026-01-01T00:00:00.000Z');
+  });
+
+  it('returns 400 when updated ingredient has invalid unit', async () => {
+    mockRecipesDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => makeRecipe(),
+    });
+
+    const res = await request(buildApp())
+      .put(`/nutrition/recipes/${RECIPE_ID}`)
+      .set('Authorization', VALID_TOKEN)
+      .send({
+        ingredients: [
+          {
+            id: 'ing-1',
+            name: 'Chicken',
+            quantity: 200,
+            unit: 'pounds',
+            nutrients: [{ nutrientId: 'iron', amount: 3 }],
+          },
+        ],
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Invalid unit');
+    expect(res.body.error).toContain('pounds');
   });
 });
 

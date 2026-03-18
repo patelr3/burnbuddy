@@ -6,7 +6,7 @@ import { logger } from '../lib/logger';
 import { cachedSearchFoods } from '../services/food-search-cache';
 import { evaluateNutritionPoints } from '../services/nutrition-points';
 import type { Recipe, MealEntry, NutrientAmount, NutritionGoals, NutrientId, DailyNutritionSummary } from '@burnbuddy/shared';
-import { SUPPORTED_NUTRIENTS } from '@burnbuddy/shared';
+import { SUPPORTED_NUTRIENTS, SUPPORTED_UNITS } from '@burnbuddy/shared';
 
 const router = Router();
 
@@ -51,6 +51,16 @@ router.post('/recipes', requireAuth, async (req: Request, res: Response): Promis
   if (servings === undefined || servings === null || typeof servings !== 'number' || servings <= 0) {
     res.status(400).json({ error: 'servings must be a positive number' });
     return;
+  }
+
+  if (ingredients && Array.isArray(ingredients)) {
+    const invalidUnit = ingredients.find(
+      (i) => i.unit && !(SUPPORTED_UNITS as readonly string[]).includes(i.unit),
+    );
+    if (invalidUnit) {
+      res.status(400).json({ error: `Invalid unit '${invalidUnit.unit}'. Supported units: ${SUPPORTED_UNITS.join(', ')}` });
+      return;
+    }
   }
 
   const now = new Date().toISOString();
@@ -155,6 +165,16 @@ router.put('/recipes/:id', requireAuth, async (req: Request, res: Response): Pro
   if (servings !== undefined && (typeof servings !== 'number' || servings <= 0)) {
     res.status(400).json({ error: 'servings must be a positive number' });
     return;
+  }
+
+  if (ingredients && Array.isArray(ingredients)) {
+    const invalidUnit = ingredients.find(
+      (i) => i.unit && !(SUPPORTED_UNITS as readonly string[]).includes(i.unit),
+    );
+    if (invalidUnit) {
+      res.status(400).json({ error: `Invalid unit '${invalidUnit.unit}'. Supported units: ${SUPPORTED_UNITS.join(', ')}` });
+      return;
+    }
   }
 
   const updatedRecipe: Recipe = {

@@ -22,11 +22,15 @@ export interface NutrientAmount {
   amount: number;
 }
 
+export const SUPPORTED_UNITS = ['g', 'mg', 'oz', 'cup', 'tbsp', 'tsp', 'serving', 'ml', 'L', 'lb'] as const;
+
+export type IngredientUnit = (typeof SUPPORTED_UNITS)[number];
+
 export interface Ingredient {
   id: string;
   name: string;
   quantity: number;
-  unit: string;
+  unit: IngredientUnit | string; // string allows existing recipes with non-standard units
   nutrients: NutrientAmount[];
   fdcId?: string;
 }

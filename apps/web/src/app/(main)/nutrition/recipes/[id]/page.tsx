@@ -12,6 +12,7 @@ import {
 } from '@/lib/nutrition-queries';
 import {
   SUPPORTED_NUTRIENTS,
+  SUPPORTED_UNITS,
   type NutrientAmount,
   type FoodSearchResult,
   type NutrientId,
@@ -509,13 +510,15 @@ export default function EditRecipePage() {
                     </div>
                     <div className="flex-1">
                       <label className="mb-1 block text-xs text-gray-400">Unit</label>
-                      <input
-                        type="text"
+                      <select
                         value={ingredientUnit}
                         onChange={(e) => setIngredientUnit(e.target.value)}
-                        placeholder="serving"
-                        className="w-full rounded border border-gray-600 bg-surface px-2 py-1.5 text-sm text-white placeholder:text-gray-500 focus:ring-1 focus:ring-secondary focus:outline-none"
-                      />
+                        className="w-full rounded border border-gray-600 bg-surface px-2 py-1.5 text-sm text-white focus:ring-1 focus:ring-secondary focus:outline-none"
+                      >
+                        {SUPPORTED_UNITS.map((u) => (
+                          <option key={u} value={u}>{u}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
