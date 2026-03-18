@@ -21,7 +21,7 @@
         "Existing unit tests updated and passing (cd services/api && yarn test -- users-profile-picture)"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -53,7 +53,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -71,7 +71,7 @@
         "Unit tests updated to verify async behavior (cd services/api && yarn test -- users-profile-picture)"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

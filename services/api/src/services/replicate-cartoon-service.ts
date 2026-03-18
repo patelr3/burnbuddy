@@ -15,7 +15,7 @@ export class PassthroughCartoonService implements CartoonService {
 const REPLICATE_API_BASE = 'https://api.replicate.com';
 const MODEL_VERSION =
   '3f91ee385785d4eb3dd6c14d2c80dcfd82d2b607fde4bdd610092c8fee8d81bb';
-const TIMEOUT_MS = 60_000;
+const TIMEOUT_MS = 180_000;
 const POLL_INTERVAL_MS = 1_000;
 
 interface ReplicatePrediction {

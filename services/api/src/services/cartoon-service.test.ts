@@ -259,7 +259,7 @@ describe('ReplicateCartoonService', () => {
       ).rejects.toThrow('Replicate poll error (500): Internal server error');
     });
 
-    it('throws a timeout error after 60 seconds of polling', async () => {
+    it('throws a timeout error after 180 seconds of polling', async () => {
       // Create prediction
       fetchMock.mockResolvedValueOnce({
         ok: true,
@@ -278,11 +278,11 @@ describe('ReplicateCartoonService', () => {
 
       // Attach rejection handler BEFORE advancing timers to avoid unhandled rejection
       const assertionPromise = expect(cartoonizePromise).rejects.toThrow(
-        'Cartoon conversion timed out after 60 seconds',
+        'Cartoon conversion timed out after 180 seconds',
       );
 
-      // Advance past the 60-second timeout
-      await vi.advanceTimersByTimeAsync(61_000);
+      // Advance past the 180-second timeout
+      await vi.advanceTimersByTimeAsync(181_000);
 
       await assertionPromise;
     });

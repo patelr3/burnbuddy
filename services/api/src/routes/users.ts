@@ -367,46 +367,48 @@ router.post(
       profilePictureUrl: FieldValue.delete(),
     });
 
-    // Convert to cartoon style using the publicly accessible blob URL
-    const originalBlobUrl = getBlobUrl(originalBlobPath);
-    let avatarBuffer: Buffer;
-    try {
-      const cartoonResult = await createCartoonService().cartoonize(originalBlobUrl);
-      if (cartoonResult === null) {
-        // Cartoon conversion skipped (no token) — use original as avatar
-        avatarBuffer = optimizedBuffer;
-      } else {
-        avatarBuffer = cartoonResult;
+    // Return immediately — cartoon conversion runs in the background
+    logger.info({ uid }, 'Profile picture uploaded, starting background cartoon conversion');
+    res.json({ profilePictureStatus: 'processing' });
+
+    // Fire-and-forget background cartoon conversion
+    (async () => {
+      try {
+        const originalBlobUrl = getBlobUrl(originalBlobPath);
+        let avatarBuffer: Buffer;
+
+        const cartoonResult = await createCartoonService().cartoonize(originalBlobUrl);
+        if (cartoonResult === null) {
+          // Cartoon conversion skipped (no token) — use original as avatar
+          avatarBuffer = optimizedBuffer;
+        } else {
+          avatarBuffer = cartoonResult;
+        }
+
+        // Upload avatar (cartoon version or original fallback)
+        const avatarBlobPath = `profile-pictures/${uid}/avatar.jpeg`;
+        const avatarBlobClient = containerClient.getBlockBlobClient(avatarBlobPath);
+
+        await avatarBlobClient.upload(avatarBuffer, avatarBuffer.length, {
+          blobHTTPHeaders: {
+            blobContentType: 'image/jpeg',
+            blobCacheControl: 'public, max-age=86400',
+          },
+        });
+
+        const profilePictureUrl = `${getBlobUrl(avatarBlobPath)}?v=${Date.now()}`;
+        await db.collection('users').doc(uid).update({ profilePictureUrl, profilePictureStatus: 'ready' });
+
+        logger.info({ uid }, 'Background cartoon conversion completed');
+      } catch (err) {
+        logger.error({ err, uid }, 'Background cartoon conversion failed');
+        try {
+          await db.collection('users').doc(uid).update({ profilePictureStatus: 'failed' });
+        } catch (updateErr) {
+          logger.error({ err: updateErr, uid }, 'Failed to update profilePictureStatus to failed');
+        }
       }
-    } catch (err) {
-      logger.error({ err, uid }, 'Cartoon conversion failed');
-      res.status(500).json({ error: 'Failed to create cartoon avatar. Please try again.' });
-      return;
-    }
-
-    // Upload avatar (cartoon version or original fallback)
-    const avatarBlobPath = `profile-pictures/${uid}/avatar.jpeg`;
-    const avatarBlobClient = containerClient.getBlockBlobClient(avatarBlobPath);
-
-    try {
-      await avatarBlobClient.upload(avatarBuffer, avatarBuffer.length, {
-        blobHTTPHeaders: {
-          blobContentType: 'image/jpeg',
-          blobCacheControl: 'public, max-age=86400',
-        },
-      });
-    } catch (err) {
-      logger.error({ err, uid }, 'Azure Blob Storage upload of cartoon avatar failed');
-      res.status(503).json({ error: 'Storage service unavailable. Please try again.' });
-      return;
-    }
-
-    const profilePictureUrl = `${getBlobUrl(avatarBlobPath)}?v=${Date.now()}`;
-
-    await db.collection('users').doc(uid).update({ profilePictureUrl, profilePictureStatus: 'ready' });
-
-    logger.info({ uid }, 'Profile picture upload completed');
-    res.json({ profilePictureUrl });
+    })();
   },
 );
 

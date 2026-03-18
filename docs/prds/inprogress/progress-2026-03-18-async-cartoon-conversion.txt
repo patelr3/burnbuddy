@@ -9,6 +9,8 @@ Started: 2026-03-18
 - Run API tests with: `cd services/api && npx vitest run <test-name>`
 - Use `FieldValue` from `firebase-admin/firestore` (not `admin.firestore.FieldValue`) — the import works in tests without mocking
 - Delete test file: `users-delete-profile-picture.test.ts` — 4 tests covering delete endpoint
+- Use `vi.waitFor()` to assert fire-and-forget background task behavior in tests
+- Upload endpoint returns `{ profilePictureStatus: 'processing' }` — no profilePictureUrl in immediate response
 
 ---
 
@@ -36,4 +38,29 @@ Started: 2026-03-18
   - `admin.firestore.FieldValue` from the mock doesn't work in profile picture tests — use `FieldValue` from `firebase-admin/firestore` import instead (already imported in users.ts)
   - The delete test file had stale `.webp` blob paths from US-001 — always check sibling test files when changing formats
   - When adding a Firestore write step, existing tests that count `mockUsersDocUpdate` calls need updating
+---
+
+## 2026-03-18T06:36 - US-003
+- Implemented: Update Replicate model parameters and add JPEG conversion
+- Files changed:
+  - `services/api/src/services/replicate-cartoon-service.ts` — Updated createPrediction() input params (strength 0.5, guidance_scale 6, negative_prompt '', num_inference_steps 20); added sharp JPEG conversion in downloadOutput()
+  - `services/api/src/services/cartoon-service.test.ts` — Updated parameter assertions, added sharp mock, verified JPEG conversion
+- **Learnings for future iterations:**
+  - The Replicate cartoon service downloads raw output that may be PNG — always convert to JPEG via sharp before returning
+  - Mock sharp with a chain pattern: `vi.fn(() => ({ jpeg: mockJpeg, toBuffer: mockToBuffer }))` where jpeg returns `this`
+  - Clear sharp mocks in beforeEach since the module-level mock persists across tests
+---
+
+## 2026-03-18T06:41 - US-004
+- Implemented: Make cartoon conversion async (fire-and-forget)
+- Files changed:
+  - `services/api/src/routes/users.ts` — POST handler now returns `{ profilePictureStatus: 'processing' }` immediately after uploading original; cartoon conversion runs as fire-and-forget IIFE; background task sets 'ready' on success, 'failed' on error
+  - `services/api/src/services/replicate-cartoon-service.ts` — TIMEOUT_MS increased from 60_000 to 180_000 (3 minutes)
+  - `services/api/src/routes/users-profile-picture.test.ts` — Updated all tests: response now has profilePictureStatus instead of profilePictureUrl; use `vi.waitFor()` to assert background task completion; cartoon failure tests expect 200 + background 'failed' update
+  - `services/api/src/services/cartoon-service.test.ts` — Updated timeout test from 60s to 180s
+- **Learnings for future iterations:**
+  - Use `vi.waitFor()` to assert async background task behavior in tests — it polls until the assertion passes
+  - Fire-and-forget pattern: `(async () => { ... })()` — no await, wrapped in try/catch for error handling
+  - Tests that verify background task Firestore updates need `vi.waitFor()` since the response returns before the background completes
+  - When making a handler async, all tests checking response body need updating (no more profilePictureUrl in response)
 ---
