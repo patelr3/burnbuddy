@@ -135,8 +135,8 @@ function buildApp() {
 
 const VALID_TOKEN = 'Bearer valid.token';
 const TEST_UID = 'test-uid-001';
-const TEST_BLOB_URL = 'https://burnbuddybetasa.blob.core.windows.net/uploads/profile-pictures/test-uid-001/avatar.webp';
-const TEST_ORIGINAL_BLOB_URL = 'https://burnbuddybetasa.blob.core.windows.net/uploads/profile-pictures/test-uid-001/original.webp';
+const TEST_BLOB_URL = 'https://burnbuddybetasa.blob.core.windows.net/uploads/profile-pictures/test-uid-001/avatar.jpeg';
+const TEST_ORIGINAL_BLOB_URL = 'https://burnbuddybetasa.blob.core.windows.net/uploads/profile-pictures/test-uid-001/original.jpeg';
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -151,12 +151,13 @@ beforeEach(() => {
     rotate: vi.fn().mockReturnThis(),
     resize: vi.fn().mockReturnThis(),
     webp: vi.fn().mockReturnThis(),
+    jpeg: vi.fn().mockReturnThis(),
     toBuffer: mockSharpToBuffer,
   };
   mockSharpConstructor.mockReturnValue(sharpChain);
   mockUpload.mockResolvedValue(undefined);
   mockGetBlobUrl.mockImplementation((path: string) => {
-    if (path.includes('original.webp')) return TEST_ORIGINAL_BLOB_URL;
+    if (path.includes('original.jpeg')) return TEST_ORIGINAL_BLOB_URL;
     return TEST_BLOB_URL;
   });
   mockUsersDocUpdate.mockResolvedValue(undefined);
@@ -198,8 +199,8 @@ describe('POST /users/me/profile-picture', () => {
 
     // Verify original uploaded first, then cartoon avatar
     expect(mockGetBlockBlobClient).toHaveBeenCalledTimes(2);
-    expect(mockGetBlockBlobClient).toHaveBeenNthCalledWith(1, `profile-pictures/${TEST_UID}/original.webp`);
-    expect(mockGetBlockBlobClient).toHaveBeenNthCalledWith(2, `profile-pictures/${TEST_UID}/avatar.webp`);
+    expect(mockGetBlockBlobClient).toHaveBeenNthCalledWith(1, `profile-pictures/${TEST_UID}/original.jpeg`);
+    expect(mockGetBlockBlobClient).toHaveBeenNthCalledWith(2, `profile-pictures/${TEST_UID}/avatar.jpeg`);
 
     // Verify cartoon service was called with blob URL of the original
     expect(mockCartoonize).toHaveBeenCalledWith(TEST_ORIGINAL_BLOB_URL);
@@ -208,7 +209,7 @@ describe('POST /users/me/profile-picture', () => {
     expect(mockUpload).toHaveBeenCalledTimes(2);
 
     // Verify getBlobUrl was called for the avatar path
-    expect(mockGetBlobUrl).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/avatar.webp`);
+    expect(mockGetBlobUrl).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/avatar.jpeg`);
 
     // Verify Firestore update includes cache-busting param
     expect(mockUsersDocRef).toHaveBeenCalledWith(TEST_UID);
@@ -243,8 +244,8 @@ describe('POST /users/me/profile-picture', () => {
     expect(res.body.profilePictureUrl).toMatch(/\?v=\d+/);
   });
 
-  it('returns 413 when file exceeds 5 MB', async () => {
-    const oversizedBuffer = Buffer.alloc(5 * 1024 * 1024 + 1, 0xff);
+  it('returns 413 when file exceeds 15 MB', async () => {
+    const oversizedBuffer = Buffer.alloc(15 * 1024 * 1024 + 1, 0xff);
 
     const res = await request(buildApp())
       .post('/users/me/profile-picture')
@@ -349,10 +350,10 @@ describe('POST /users/me/profile-picture', () => {
 
     expect(res.status).toBe(200);
 
-    // Two storage uploads: original.webp (optimized buffer) and avatar.webp (cartoon buffer)
+    // Two storage uploads: original.jpeg (optimized buffer) and avatar.jpeg (cartoon buffer)
     expect(mockUpload).toHaveBeenCalledTimes(2);
-    expect(mockGetBlockBlobClient).toHaveBeenNthCalledWith(1, `profile-pictures/${TEST_UID}/original.webp`);
-    expect(mockGetBlockBlobClient).toHaveBeenNthCalledWith(2, `profile-pictures/${TEST_UID}/avatar.webp`);
+    expect(mockGetBlockBlobClient).toHaveBeenNthCalledWith(1, `profile-pictures/${TEST_UID}/original.jpeg`);
+    expect(mockGetBlockBlobClient).toHaveBeenNthCalledWith(2, `profile-pictures/${TEST_UID}/avatar.jpeg`);
 
     // First upload: original backup with optimized buffer
     expect(mockUpload).toHaveBeenNthCalledWith(
@@ -361,7 +362,7 @@ describe('POST /users/me/profile-picture', () => {
       optimizedBuffer.length,
       expect.objectContaining({
         blobHTTPHeaders: expect.objectContaining({
-          blobContentType: 'image/webp',
+          blobContentType: 'image/jpeg',
           blobCacheControl: 'public, max-age=86400',
         }),
       }),
@@ -374,7 +375,7 @@ describe('POST /users/me/profile-picture', () => {
       cartoonBuffer.length,
       expect.objectContaining({
         blobHTTPHeaders: expect.objectContaining({
-          blobContentType: 'image/webp',
+          blobContentType: 'image/jpeg',
           blobCacheControl: 'public, max-age=86400',
         }),
       }),
@@ -394,7 +395,7 @@ describe('POST /users/me/profile-picture', () => {
     expect(res.body.error).toBe('Failed to create cartoon avatar. Please try again.');
 
     // Original was uploaded (before cartoon conversion)
-    expect(mockGetBlockBlobClient).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/original.webp`);
+    expect(mockGetBlockBlobClient).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/original.jpeg`);
 
     // Firestore should NOT be updated on cartoon failure
     expect(mockUsersDocUpdate).not.toHaveBeenCalled();
@@ -411,9 +412,9 @@ describe('POST /users/me/profile-picture', () => {
 
     expect(res.status).toBe(500);
     expect(mockUsersDocUpdate).not.toHaveBeenCalled();
-    // getBlobUrl is called once for original.webp (passed to cartoonize), but NOT for avatar.webp
+    // getBlobUrl is called once for original.jpeg (passed to cartoonize), but NOT for avatar.jpeg
     expect(mockGetBlobUrl).toHaveBeenCalledTimes(1);
-    expect(mockGetBlobUrl).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/original.webp`);
+    expect(mockGetBlobUrl).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/original.jpeg`);
   });
 
   it('accepts HEIC file when browser reports application/octet-stream (extension fallback)', async () => {
@@ -497,7 +498,7 @@ describe('POST /users/me/profile-picture', () => {
       expect(res.body.profilePictureUrl).toMatch(/\?v=\d+/);
     });
 
-    it('uploads optimizedBuffer as both original.webp and avatar.webp', async () => {
+    it('uploads optimizedBuffer as both original.jpeg and avatar.jpeg', async () => {
       const optimizedBuffer = Buffer.from('optimized-image-data');
       mockSharpToBuffer.mockResolvedValueOnce(optimizedBuffer);
 
@@ -507,10 +508,10 @@ describe('POST /users/me/profile-picture', () => {
         .set('Authorization', VALID_TOKEN)
         .attach('picture', imageBuffer, { filename: 'photo.jpg', contentType: 'image/jpeg' });
 
-      // Both original.webp and avatar.webp are uploaded
+      // Both original.jpeg and avatar.jpeg are uploaded
       expect(mockGetBlockBlobClient).toHaveBeenCalledTimes(2);
-      expect(mockGetBlockBlobClient).toHaveBeenNthCalledWith(1, `profile-pictures/${TEST_UID}/original.webp`);
-      expect(mockGetBlockBlobClient).toHaveBeenNthCalledWith(2, `profile-pictures/${TEST_UID}/avatar.webp`);
+      expect(mockGetBlockBlobClient).toHaveBeenNthCalledWith(1, `profile-pictures/${TEST_UID}/original.jpeg`);
+      expect(mockGetBlockBlobClient).toHaveBeenNthCalledWith(2, `profile-pictures/${TEST_UID}/avatar.jpeg`);
 
       // Both uploads use the same optimizedBuffer
       expect(mockUpload).toHaveBeenCalledTimes(2);
@@ -519,7 +520,7 @@ describe('POST /users/me/profile-picture', () => {
         optimizedBuffer,
         optimizedBuffer.length,
         expect.objectContaining({
-          blobHTTPHeaders: expect.objectContaining({ blobContentType: 'image/webp' }),
+          blobHTTPHeaders: expect.objectContaining({ blobContentType: 'image/jpeg' }),
         }),
       );
       expect(mockUpload).toHaveBeenNthCalledWith(
@@ -527,7 +528,7 @@ describe('POST /users/me/profile-picture', () => {
         optimizedBuffer,
         optimizedBuffer.length,
         expect.objectContaining({
-          blobHTTPHeaders: expect.objectContaining({ blobContentType: 'image/webp' }),
+          blobHTTPHeaders: expect.objectContaining({ blobContentType: 'image/jpeg' }),
         }),
       );
     });

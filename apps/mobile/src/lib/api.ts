@@ -106,7 +106,7 @@ export async function apiUploadFile<T>(
     clearTimeout(timeoutId);
   }
 
-  if (res.status === 413) throw new Error('File is too large. Maximum size is 5 MB.');
+  if (res.status === 413) throw new Error('File is too large. Maximum size is 15 MB.');
   if (res.status === 400) {
     const data = await res.json().catch(() => null);
     throw new Error(data?.error ?? 'Invalid file. Please use JPEG, PNG, WebP, or HEIC.');

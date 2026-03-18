@@ -33,7 +33,7 @@ function createCartoonService() {
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  limits: { fileSize: 15 * 1024 * 1024 }, // 15 MB
 });
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
@@ -288,7 +288,7 @@ router.get('/me/points', requireAuth, cacheControl(30), async (req: Request, res
 
 /**
  * POST /users/me/profile-picture
- * Uploads a profile picture, resizes to 256×256, converts to WebP, stores it in
+ * Uploads a profile picture, resizes to 256×256, converts to JPEG, stores it in
  * Azure Blob Storage, and updates the user's Firestore document with the public URL.
  */
 router.post(
@@ -297,7 +297,7 @@ router.post(
   (req: Request, res: Response, next: NextFunction) => {
     upload.single('picture')(req, res, (err: unknown) => {
       if (err && err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
-        res.status(413).json({ error: 'File too large. Maximum size is 5 MB.' });
+        res.status(413).json({ error: 'File too large. Maximum size is 15 MB.' });
         return;
       }
       if (err) { next(err); return; }
@@ -333,7 +333,7 @@ router.post(
       optimizedBuffer = await sharp(req.file.buffer)
         .rotate()
         .resize(256, 256, { fit: 'cover' })
-        .webp()
+        .jpeg({ quality: 90 })
         .toBuffer();
     } catch (err) {
       logger.error({ err, uid, fileSize }, 'Image processing failed');
@@ -344,13 +344,13 @@ router.post(
     const containerClient = getContainerClient('uploads');
 
     // Upload original backup before cartoon conversion
-    const originalBlobPath = `profile-pictures/${uid}/original.webp`;
+    const originalBlobPath = `profile-pictures/${uid}/original.jpeg`;
     const originalBlobClient = containerClient.getBlockBlobClient(originalBlobPath);
 
     try {
       await originalBlobClient.upload(optimizedBuffer, optimizedBuffer.length, {
         blobHTTPHeaders: {
-          blobContentType: 'image/webp',
+          blobContentType: 'image/jpeg',
           blobCacheControl: 'public, max-age=86400',
         },
       });
@@ -378,13 +378,13 @@ router.post(
     }
 
     // Upload avatar (cartoon version or original fallback)
-    const avatarBlobPath = `profile-pictures/${uid}/avatar.webp`;
+    const avatarBlobPath = `profile-pictures/${uid}/avatar.jpeg`;
     const avatarBlobClient = containerClient.getBlockBlobClient(avatarBlobPath);
 
     try {
       await avatarBlobClient.upload(avatarBuffer, avatarBuffer.length, {
         blobHTTPHeaders: {
-          blobContentType: 'image/webp',
+          blobContentType: 'image/jpeg',
           blobCacheControl: 'public, max-age=86400',
         },
       });
@@ -414,10 +414,10 @@ router.delete('/me/profile-picture', requireAuth, async (req: Request, res: Resp
 
   const container = getContainerClient('uploads');
   await container
-    .getBlockBlobClient(`profile-pictures/${uid}/original.webp`)
+    .getBlockBlobClient(`profile-pictures/${uid}/original.jpeg`)
     .deleteIfExists();
   await container
-    .getBlockBlobClient(`profile-pictures/${uid}/avatar.webp`)
+    .getBlockBlobClient(`profile-pictures/${uid}/avatar.jpeg`)
     .deleteIfExists();
 
   // Clear the profilePictureUrl field in Firestore
