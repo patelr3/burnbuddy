@@ -40,7 +40,7 @@ router.post('/requests', requireAuth, requireProfile, async (req: Request, res: 
     return;
   }
 
-  // Check if a pending request already exists
+  // Check if a pending request already exists (A→B)
   const existing = await db
     .collection('burnBuddyRequests')
     .where('fromUid', '==', fromUid)
@@ -51,6 +51,36 @@ router.post('/requests', requireAuth, requireProfile, async (req: Request, res: 
 
   if (!existing.empty) {
     res.status(409).json({ error: 'A pending Burn Buddy request already exists' });
+    return;
+  }
+
+  // Check for reverse pending request (B→A) — cross-directional race condition fix
+  const reverseExisting = await db
+    .collection('burnBuddyRequests')
+    .where('fromUid', '==', toUid)
+    .where('toUid', '==', fromUid)
+    .where('status', '==', 'pending')
+    .limit(1)
+    .get();
+
+  if (!reverseExisting.empty) {
+    // Both users want to be burn buddies — auto-accept the reverse request atomically
+    const reverseRequest = reverseExisting.docs[0].data() as BurnBuddyRequest;
+    const burnBuddyId = `${uid1}_${uid2}`;
+
+    const burnBuddy: BurnBuddy = {
+      id: burnBuddyId,
+      uid1,
+      uid2,
+      createdAt: new Date().toISOString(),
+    };
+
+    const batch = db.batch();
+    batch.update(db.collection('burnBuddyRequests').doc(reverseRequest.id), { status: 'accepted' });
+    batch.set(db.collection('burnBuddies').doc(burnBuddyId), burnBuddy);
+    await batch.commit();
+
+    res.json({ autoAccepted: true, burnBuddyRequestId: reverseRequest.id, burnBuddy });
     return;
   }
 
