@@ -99,7 +99,7 @@
         "Unit tests cover 409 responses for both endpoints (cd services/api && yarn test -- users-profile-picture)"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

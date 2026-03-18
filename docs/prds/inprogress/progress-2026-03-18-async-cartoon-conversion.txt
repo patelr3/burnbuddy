@@ -4,13 +4,14 @@ Started: 2026-03-18
 ## Codebase Patterns
 - Sharp mock chain in tests needs all chained methods (rotate, resize, jpeg/webp, toBuffer) as vi.fn().mockReturnThis()
 - Blob paths use format `profile-pictures/${uid}/original.jpeg` and `profile-pictures/${uid}/avatar.jpeg`
-- Test file: `users-profile-picture.test.ts` — 22 tests covering upload, format validation, cartoon conversion, passthrough
+- Test file: `users-profile-picture.test.ts` — 23 tests covering upload, format validation, cartoon conversion, passthrough, 409 conflict
 - Build shared package before API typecheck: `cd packages/shared && yarn build`
 - Run API tests with: `cd services/api && npx vitest run <test-name>`
 - Use `FieldValue` from `firebase-admin/firestore` (not `admin.firestore.FieldValue`) — the import works in tests without mocking
-- Delete test file: `users-delete-profile-picture.test.ts` — 4 tests covering delete endpoint
+- Delete test file: `users-delete-profile-picture.test.ts` — 5 tests covering delete endpoint and 409 conflict
 - Use `vi.waitFor()` to assert fire-and-forget background task behavior in tests
 - Upload endpoint returns `{ profilePictureStatus: 'processing' }` — no profilePictureUrl in immediate response
+- When adding doc.get() to mocked Firestore, add `mockUsersDocGet` to BOTH the hoisted block AND the destructured const
 
 ---
 
@@ -73,4 +74,16 @@ Started: 2026-03-18
   - GET /users/me already returns `doc.data() as UserProfile` — no route handler changes needed since Firestore documents already include profilePictureStatus (added in US-002)
   - Tests use spread of TEST_PROFILE with additional fields to test various status combinations
   - The 'processing' and 'failed' states should not have profilePictureUrl, while 'ready' state includes the avatar URL
+---
+
+## 2026-03-18T06:47 - US-006
+- Implemented: Block upload/delete while cartoon conversion is processing
+- Files changed:
+  - `services/api/src/routes/users.ts` — Added Firestore doc.get() check at start of POST and DELETE profile-picture handlers; returns 409 if profilePictureStatus is 'processing'
+  - `services/api/src/routes/users-profile-picture.test.ts` — Added mockUsersDocGet to hoisted mocks; added 409 test for upload during processing
+  - `services/api/src/routes/users-delete-profile-picture.test.ts` — Added mockUsersDocGet to hoisted mocks; added 409 test for delete during processing
+- **Learnings for future iterations:**
+  - When adding a doc.get() call, both the hoisted mock definition AND the destructured const at the top must include the new mock variable
+  - The mockUsersDocRef needs both `update` and `get` methods in its implementation
+  - Default mockUsersDocGet should return `{ exists: true, data: () => ({}) }` to not block normal operations
 ---
