@@ -1,0 +1,93 @@
+# Ralph Progress Log — Nutrition Section Enhancements
+Started: 2026-03-18
+---
+
+## Codebase Patterns
+- Shared package must be built (`cd packages/shared && yarn build`) before API/web typecheck passes — they resolve from dist/
+- Web pages at `apps/web/src/app/(main)/nutrition/recipes/` use `@burnbuddy/shared` imports for types and constants
+- API route validation pattern: check input → return 400 with descriptive error → proceed with business logic
+- API test pattern: vi.hoisted mocks + supertest + buildApp() — no emulators
+- Auth cookie `auth_session` bypasses Next.js middleware for dev-browser testing
+- Ingredient form fields (quantity/unit) only appear after selecting a food from USDA search
+- yarn install needed before typecheck in fresh worktrees
+- When adding a new Firestore collection, update ALL test files that mock getDb() (nutrition.test.ts AND nutrition-points.test.ts)
+- Summary endpoint and evaluateNutritionPoints both query mealEntries + supplementEntries — keep both in sync
+
+---
+
+## 2026-03-18T06:55 - US-001
+- Implemented: Replace ingredient unit text field with dropdown
+- Files changed:
+  - `packages/shared/src/nutrition.ts` — Added SUPPORTED_UNITS constant and IngredientUnit type
+  - `apps/web/src/app/(main)/nutrition/recipes/new/page.tsx` — Replaced text input with <select> dropdown
+  - `apps/web/src/app/(main)/nutrition/recipes/[id]/page.tsx` — Same dropdown replacement on edit page
+  - `services/api/src/routes/nutrition.ts` — Added unit validation to POST/PUT recipe endpoints
+  - `services/api/src/routes/nutrition.test.ts` — Added 2 unit validation tests
+- **Learnings for future iterations:**
+  - Ingredient type uses `IngredientUnit | string` union to allow existing non-standard units to display
+  - SUPPORTED_UNITS is exported as `as const` for type narrowing
+  - Both recipe new/edit pages have nearly identical ingredient forms — changes must be applied to both
+  - Food search requires API running on port 3021 to work in browser testing
+  - Pre-existing typecheck errors in mobile workspace are unrelated — use per-package typecheck
+---
+
+## 2026-03-18T07:04 - US-002
+- Implemented: Add supplement type definitions and catalog
+- Files changed:
+  - `packages/shared/src/nutrition.ts` — Added Supplement type, SupplementEntry type, COMMON_SUPPLEMENTS constant (8 supplements)
+- **Learnings for future iterations:**
+  - Supplement nutrients reference existing NutrientId values (vitaminD, vitaminC, calcium, iron, vitaminB12, zinc, magnesium, omega3)
+  - Vitamin D IU to mcg conversion: 1000 IU = 25 mcg (the SUPPORTED_NUTRIENTS unit for vitaminD is mcg)
+  - Fish Oil omega3 amount is in grams (matching SUPPORTED_NUTRIENTS unit for omega3)
+  - COMMON_SUPPLEMENTS uses isCustom: false; custom user supplements will use isCustom: true
+  - SupplementEntry stores supplementName (not supplementId) so entries remain readable even if catalog changes
+---
+
+## 2026-03-18T07:12 - US-003
+- Implemented: Supplement logging API endpoints (POST, GET, DELETE)
+- Files changed:
+  - `services/api/src/routes/nutrition.ts` — Added POST/GET/DELETE /supplements routes; updated summary to include supplement nutrients
+  - `services/api/src/routes/nutrition.test.ts` — Added supplementEntries mock setup + 27 new tests for supplement CRUD + updated summary tests
+  - `services/api/src/services/nutrition-points.ts` — Added supplementEntries query to evaluateNutritionPoints so supplements count toward points
+  - `services/api/src/services/nutrition-points.test.ts` — Added supplementEntries mock to existing tests
+- **Learnings for future iterations:**
+  - When adding a new Firestore collection, ALL test files that mock getDb() must be updated (both nutrition.test.ts AND nutrition-points.test.ts)
+  - The summary endpoint queries both mealEntries and supplementEntries — summary tests must mock both collections
+  - evaluateNutritionPoints sums nutrients from meals AND supplements — tests default supplementsQueryGet to { docs: [] }
+  - Supplement POST validates: date (YYYY-MM-DD), supplementName (non-empty string), nutrients (non-empty array)
+  - Fire-and-forget pattern: `evaluateNutritionPoints(uid, date).catch(err => logger.error(...))`
+---
+
+## 2026-03-18T07:20 - US-004
+- Implemented: Supplement logging UI — dashboard integration + log page
+- Files changed:
+  - `apps/web/src/lib/nutrition-queries.ts` — Added nutritionSupplements query key, useNutritionSupplements hook, useLogSupplement mutation hook
+  - `apps/web/src/app/(main)/nutrition/page.tsx` — Added Log Supplement quick action (Pill icon, purple), SupplementCard component with 💊 badge, supplements section below meals
+  - `apps/web/src/app/(main)/nutrition/supplements/log/page.tsx` — New page with catalog/custom modes, selectable COMMON_SUPPLEMENTS cards, custom nutrient entry, date picker, nutrient preview, success redirect
+- **Learnings for future iterations:**
+  - Dashboard quick actions grid changed from 3-col to 4-col to fit Log Supplement button
+  - Pill icon from lucide-react (`Pill`) is available in v0.577+
+  - SupplementEntry type has `supplementName` not `name` — must match the API response field
+  - Browser testing without real Firebase auth only shows skeleton/unauthenticated states — verify compilation + structure, not full interactive flows
+  - Custom supplement form lists all SUPPORTED_NUTRIENTS with number inputs — only non-zero values are submitted
+  - The supplement log page follows the same pattern as log meal: date → source selection → nutrient preview → submit → success → redirect
+---
+
+## 2026-03-18T07:35 - US-005
+- Implemented: Manual goal completion — API endpoints + dashboard UI + points integration
+- Files changed:
+  - `packages/shared/src/nutrition.ts` — Added `manuallyCompleted?: boolean` to DailyNutritionSummary nutrient entries
+  - `services/api/src/routes/nutrition.ts` — Added POST /goals/complete, DELETE /goals/complete/:nutrientId, updated summary to include manual completions + FieldValue import
+  - `services/api/src/services/nutrition-points.ts` — Modified evaluateNutritionPoints to not revoke manually completed points (checks `manuallyCompleted` flag)
+  - `services/api/src/routes/nutrition.test.ts` — Added nutritionPointsAwarded + monthlyPoints + FieldValue mocks, 15 new tests for manual completion + summary integration
+  - `services/api/src/services/nutrition-points.test.ts` — Added test for not revoking manually completed points
+  - `apps/web/src/lib/nutrition-queries.ts` — Added useCompleteGoal and useUndoCompleteGoal mutation hooks
+  - `apps/web/src/app/(main)/nutrition/page.tsx` — TargetNutrientCard now has Mark Complete / Undo buttons, green styling for manual completions, ✅ badge
+- **Learnings for future iterations:**
+  - `nutritionPointsAwarded` and `nutritionPoints` are different Firestore collections — summary queries `nutritionPoints` for existing points, `nutritionPointsAwarded` for manual completions
+  - When adding Firestore collection mocks to test files, must add: doc ref mock, query chain mock, collection where mock, AND re-wire in beforeEach
+  - Manual completion uses server-side today's date (not client-provided) to prevent backdating
+  - `awardDoc.data()` may not exist as a function in test mocks — use `typeof awardDoc.data === 'function'` guard for safety
+  - FieldValue.increment must be mocked in route tests when routes use it directly (not just in service tests)
+  - Mark Complete button only appears for today's date + target nutrients below 100%
+---
