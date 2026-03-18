@@ -168,7 +168,7 @@ export default function AccountPage() {
     } else if (profile?.profilePictureStatus !== 'processing' && isPollingCartoon) {
       stopPolling();
       if (profile?.profilePictureStatus === 'failed') {
-        setUploadError('Cartoon conversion failed. You can retry by uploading a new photo.');
+        setUploadError('Cartoon conversion failed. Tap your avatar to retry.');
       }
     }
   }, [profile?.profilePictureStatus, isPollingCartoon, startPolling, stopPolling]);
@@ -333,6 +333,11 @@ export default function AccountPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
+    const MAX_SIZE_MB = 15;
+    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+      setUploadError(`File is too large. Maximum size is ${MAX_SIZE_MB} MB.`);
+      return;
+    }
     uploadPictureMutation.mutate(file);
   };
 
@@ -507,7 +512,8 @@ export default function AccountPage() {
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploadPictureMutation.isPending || profile?.profilePictureStatus === 'processing'}
-                    className="relative cursor-pointer rounded-full border-none bg-transparent p-0 transition-opacity hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:cursor-not-allowed"
+                    title={profile?.profilePictureStatus === 'processing' ? 'Please wait for cartoon conversion to finish' : 'Change profile picture'}
+                    className="relative cursor-pointer rounded-full border-none bg-transparent p-0 transition-opacity hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
                     aria-label="Change profile picture"
                   >
                     {uploadPictureMutation.isPending ? (
@@ -515,11 +521,18 @@ export default function AccountPage() {
                         <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-400 border-t-primary" />
                       </div>
                     ) : (
-                      <Avatar
-                        displayName={user?.displayName ?? profile?.displayName ?? '?'}
-                        profilePictureUrl={profile?.profilePictureStatus === 'processing' ? undefined : profile?.profilePictureUrl}
-                        size="lg"
-                      />
+                      <div className="relative">
+                        <Avatar
+                          displayName={user?.displayName ?? profile?.displayName ?? '?'}
+                          profilePictureUrl={profile?.profilePictureStatus === 'processing' ? undefined : profile?.profilePictureUrl}
+                          size="lg"
+                        />
+                        {profile?.profilePictureStatus === 'processing' && (
+                          <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
+                            <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-400 border-t-primary" />
+                          </div>
+                        )}
+                      </div>
                     )}
 
                   </button>
@@ -541,17 +554,21 @@ export default function AccountPage() {
                     <p className="mt-1 text-xs font-medium text-gray-400">Uploading…</p>
                   )}
                   {!uploadPictureMutation.isPending && profile?.profilePictureStatus === 'processing' && (
-                    <p className="mt-1 text-xs font-medium text-gray-400">Creating your cartoon avatar…</p>
+                    <p className="mt-1 text-xs font-medium text-primary">Creating your cartoon avatar…</p>
                   )}
-                  {uploadError && (
+                  {!uploadPictureMutation.isPending && profile?.profilePictureStatus === 'failed' && (
+                    <p className="mt-1 text-xs font-medium text-danger">Cartoon conversion failed. Tap to retry.</p>
+                  )}
+                  {uploadError && profile?.profilePictureStatus !== 'failed' && (
                     <p className="mt-1 text-xs text-danger">{uploadError}</p>
                   )}
                 </div>
               </div>
-              {profile?.profilePictureUrl && !uploadPictureMutation.isPending && profile?.profilePictureStatus !== 'processing' && (
+              {(profile?.profilePictureUrl || profile?.profilePictureStatus === 'processing') && !uploadPictureMutation.isPending && (
                 <button
                   onClick={() => removePictureMutation.mutate()}
-                  disabled={removePictureMutation.isPending}
+                  disabled={removePictureMutation.isPending || profile?.profilePictureStatus === 'processing'}
+                  title={profile?.profilePictureStatus === 'processing' ? 'Please wait for cartoon conversion to finish' : 'Remove profile photo'}
                   className="cursor-pointer rounded-md border border-gray-600 bg-surface-elevated px-3 py-1.5 text-xs text-gray-300 hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {removePictureMutation.isPending ? 'Removing…' : 'Remove photo'}

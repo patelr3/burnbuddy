@@ -100,3 +100,15 @@ Started: 2026-03-18
   - `useEffect` watching `profilePictureStatus` + `isPollingCartoon` can serve as both auto-start and auto-stop — just be careful about re-render loops
   - Browser testing requires Firebase Auth credentials — local verification limited without `.env.local`
 ---
+
+## 2026-03-18T07:01 - US-008
+- Implemented: Frontend upload/delete button disabling and UX feedback
+- Files changed:
+  - `apps/web/src/app/(main)/account/page.tsx` — Added tooltip on upload/delete buttons when disabled during processing; delete button now shows as disabled (not hidden) during processing; processing overlay spinner on avatar; dedicated failure message "Cartoon conversion failed. Tap to retry."; processing text uses primary color; client-side file size validation (15 MB)
+- **Learnings for future iterations:**
+  - Use `title` attribute for native tooltip on disabled buttons
+  - Show disabled buttons (not hidden) with explanatory tooltip for better UX — users need to know the action exists but is temporarily unavailable
+  - Client-side file size validation prevents unnecessary network requests and gives instant feedback
+  - Use `text-primary` color for processing status messages to distinguish from error/neutral text
+  - When showing failure status, use a dedicated inline message rather than relying only on the `uploadError` state
+---
