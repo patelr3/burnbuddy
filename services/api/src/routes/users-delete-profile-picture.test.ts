@@ -11,7 +11,6 @@ const {
   mockDeleteIfExists,
   mockGetBlockBlobClient,
   mockGetContainerClient,
-  mockFieldValueDelete,
 } = vi.hoisted(() => {
   const mockVerifyIdToken = vi.fn();
 
@@ -28,8 +27,6 @@ const {
     getBlockBlobClient: mockGetBlockBlobClient,
   }));
 
-  const mockFieldValueDelete = vi.fn(() => '__FIELD_DELETE_SENTINEL__');
-
   return {
     mockVerifyIdToken,
     mockUsersDocUpdate,
@@ -37,18 +34,12 @@ const {
     mockDeleteIfExists,
     mockGetBlockBlobClient,
     mockGetContainerClient,
-    mockFieldValueDelete,
   };
 });
 
 vi.mock('../lib/firebase', () => ({
   admin: {
     auth: () => ({ verifyIdToken: mockVerifyIdToken }),
-    firestore: {
-      FieldValue: {
-        delete: mockFieldValueDelete,
-      },
-    },
   },
   initFirebase: vi.fn(),
 }));
@@ -88,6 +79,7 @@ vi.mock('../services/replicate-cartoon-service', () => ({
 }));
 
 import usersRouter from './users';
+import { FieldValue } from 'firebase-admin/firestore';
 
 function buildApp() {
   const app = express();
@@ -136,17 +128,17 @@ describe('DELETE /users/me/profile-picture', () => {
     expect(res.status).toBe(204);
     expect(res.body).toEqual({});
 
-    // Verify both blobs deleted: original.webp and avatar.webp
-    expect(mockGetBlockBlobClient).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/original.webp`);
-    expect(mockGetBlockBlobClient).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/avatar.webp`);
+    // Verify both blobs deleted: original.jpeg and avatar.jpeg
+    expect(mockGetBlockBlobClient).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/original.jpeg`);
+    expect(mockGetBlockBlobClient).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/avatar.jpeg`);
     expect(mockDeleteIfExists).toHaveBeenCalledTimes(2);
 
-    // Verify Firestore field was deleted
+    // Verify Firestore fields were deleted
     expect(mockUsersDocRef).toHaveBeenCalledWith(TEST_UID);
     expect(mockUsersDocUpdate).toHaveBeenCalledWith({
-      profilePictureUrl: '__FIELD_DELETE_SENTINEL__',
+      profilePictureUrl: FieldValue.delete(),
+      profilePictureStatus: FieldValue.delete(),
     });
-    expect(mockFieldValueDelete).toHaveBeenCalled();
   });
 
   it('returns 204 even if no picture existed (deleteIfExists is idempotent)', async () => {
@@ -159,9 +151,10 @@ describe('DELETE /users/me/profile-picture', () => {
 
     expect(res.status).toBe(204);
 
-    // Should still update Firestore to clear the field
+    // Should still update Firestore to clear the fields
     expect(mockUsersDocUpdate).toHaveBeenCalledWith({
-      profilePictureUrl: '__FIELD_DELETE_SENTINEL__',
+      profilePictureUrl: FieldValue.delete(),
+      profilePictureStatus: FieldValue.delete(),
     });
   });
 

@@ -38,7 +38,7 @@
         "Build shared package successfully (cd packages/shared && yarn build)"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

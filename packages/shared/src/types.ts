@@ -7,6 +7,7 @@ export interface UserProfile {
   username?: string;
   usernameLower?: string;
   profilePictureUrl?: string;
+  profilePictureStatus?: 'processing' | 'ready' | 'failed' | null;
   fcmToken?: string;
   gettingStartedDismissed?: boolean;
   heightCm?: number;

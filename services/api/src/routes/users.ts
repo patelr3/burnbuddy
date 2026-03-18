@@ -360,6 +360,13 @@ router.post(
       return;
     }
 
+    // Mark profile picture as processing and clear any existing URL
+    const db = getDb();
+    await db.collection('users').doc(uid).update({
+      profilePictureStatus: 'processing',
+      profilePictureUrl: FieldValue.delete(),
+    });
+
     // Convert to cartoon style using the publicly accessible blob URL
     const originalBlobUrl = getBlobUrl(originalBlobPath);
     let avatarBuffer: Buffer;
@@ -396,8 +403,7 @@ router.post(
 
     const profilePictureUrl = `${getBlobUrl(avatarBlobPath)}?v=${Date.now()}`;
 
-    const db = getDb();
-    await db.collection('users').doc(uid).update({ profilePictureUrl });
+    await db.collection('users').doc(uid).update({ profilePictureUrl, profilePictureStatus: 'ready' });
 
     logger.info({ uid }, 'Profile picture upload completed');
     res.json({ profilePictureUrl });
@@ -420,10 +426,11 @@ router.delete('/me/profile-picture', requireAuth, async (req: Request, res: Resp
     .getBlockBlobClient(`profile-pictures/${uid}/avatar.jpeg`)
     .deleteIfExists();
 
-  // Clear the profilePictureUrl field in Firestore
+  // Clear the profilePictureUrl and profilePictureStatus fields in Firestore
   const db = getDb();
   await db.collection('users').doc(uid).update({
-    profilePictureUrl: admin.firestore.FieldValue.delete(),
+    profilePictureUrl: FieldValue.delete(),
+    profilePictureStatus: FieldValue.delete(),
   });
 
   res.status(204).send();

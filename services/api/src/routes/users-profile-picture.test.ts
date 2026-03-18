@@ -211,11 +211,15 @@ describe('POST /users/me/profile-picture', () => {
     // Verify getBlobUrl was called for the avatar path
     expect(mockGetBlobUrl).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/avatar.jpeg`);
 
-    // Verify Firestore update includes cache-busting param
+    // Verify Firestore updates: first 'processing', then 'ready' with URL
     expect(mockUsersDocRef).toHaveBeenCalledWith(TEST_UID);
-    const updateArg = mockUsersDocUpdate.mock.calls[0][0];
-    expect(updateArg.profilePictureUrl).toContain(TEST_BLOB_URL);
-    expect(updateArg.profilePictureUrl).toMatch(/\?v=\d+/);
+    expect(mockUsersDocUpdate).toHaveBeenCalledTimes(2);
+    const processingArg = mockUsersDocUpdate.mock.calls[0][0];
+    expect(processingArg.profilePictureStatus).toBe('processing');
+    const readyArg = mockUsersDocUpdate.mock.calls[1][0];
+    expect(readyArg.profilePictureUrl).toContain(TEST_BLOB_URL);
+    expect(readyArg.profilePictureUrl).toMatch(/\?v=\d+/);
+    expect(readyArg.profilePictureStatus).toBe('ready');
   });
 
   it('accepts PNG uploads', async () => {
@@ -397,8 +401,9 @@ describe('POST /users/me/profile-picture', () => {
     // Original was uploaded (before cartoon conversion)
     expect(mockGetBlockBlobClient).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/original.jpeg`);
 
-    // Firestore should NOT be updated on cartoon failure
-    expect(mockUsersDocUpdate).not.toHaveBeenCalled();
+    // Firestore should be updated once for 'processing' but NOT for 'ready'
+    expect(mockUsersDocUpdate).toHaveBeenCalledTimes(1);
+    expect(mockUsersDocUpdate.mock.calls[0][0].profilePictureStatus).toBe('processing');
   });
 
   it('does not update Firestore profilePictureUrl on cartoon conversion failure', async () => {
@@ -411,7 +416,9 @@ describe('POST /users/me/profile-picture', () => {
       .attach('picture', imageBuffer, { filename: 'photo.jpg', contentType: 'image/jpeg' });
 
     expect(res.status).toBe(500);
-    expect(mockUsersDocUpdate).not.toHaveBeenCalled();
+    // First update is 'processing', no second update for 'ready'
+    expect(mockUsersDocUpdate).toHaveBeenCalledTimes(1);
+    expect(mockUsersDocUpdate.mock.calls[0][0].profilePictureStatus).toBe('processing');
     // getBlobUrl is called once for original.jpeg (passed to cartoonize), but NOT for avatar.jpeg
     expect(mockGetBlobUrl).toHaveBeenCalledTimes(1);
     expect(mockGetBlobUrl).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/original.jpeg`);
@@ -565,9 +572,13 @@ describe('POST /users/me/profile-picture', () => {
 
       expect(res.status).toBe(200);
       expect(mockUsersDocRef).toHaveBeenCalledWith(TEST_UID);
-      expect(mockUsersDocUpdate).toHaveBeenCalledOnce();
-      const updateArg = mockUsersDocUpdate.mock.calls[0][0];
-      expect(updateArg.profilePictureUrl).toContain(TEST_BLOB_URL);
+      expect(mockUsersDocUpdate).toHaveBeenCalledTimes(2);
+      // First update: processing
+      expect(mockUsersDocUpdate.mock.calls[0][0].profilePictureStatus).toBe('processing');
+      // Second update: ready with URL
+      const readyArg = mockUsersDocUpdate.mock.calls[1][0];
+      expect(readyArg.profilePictureUrl).toContain(TEST_BLOB_URL);
+      expect(readyArg.profilePictureStatus).toBe('ready');
     });
   });
 });
