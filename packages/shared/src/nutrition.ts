@@ -72,6 +72,7 @@ export interface DailyNutritionSummary {
     consumed: number;
     recommended: number;
     percentComplete: number;
+    manuallyCompleted?: boolean;
   }[];
   pointsEarned: number;
 }

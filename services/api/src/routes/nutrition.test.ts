@@ -32,6 +32,16 @@ const {
   mockPointsQueryGet,
   mockPointsQueryChain,
   mockPointsCollectionWhere,
+  mockAwardedDocGet,
+  mockAwardedDocSet,
+  mockAwardedDocDelete,
+  mockAwardedDocRef,
+  mockAwardedQueryGet,
+  mockAwardedQueryChain,
+  mockAwardedCollectionWhere,
+  mockMonthlyDocSet,
+  mockMonthlyDocRef,
+  mockFieldValueIncrement,
   mockCachedSearchFoods,
   mockEvaluateNutritionPoints,
 } = vi.hoisted(() => {
@@ -101,6 +111,29 @@ const {
   };
   const mockPointsCollectionWhere = vi.fn(() => mockPointsQueryChain);
 
+  const mockAwardedDocGet = vi.fn();
+  const mockAwardedDocSet = vi.fn();
+  const mockAwardedDocDelete = vi.fn();
+  const mockAwardedDocRef = vi.fn(() => ({
+    get: mockAwardedDocGet,
+    set: mockAwardedDocSet,
+    delete: mockAwardedDocDelete,
+  }));
+
+  const mockAwardedQueryGet = vi.fn();
+  const mockAwardedQueryChain = {
+    where: vi.fn(),
+    get: mockAwardedQueryGet,
+  };
+  const mockAwardedCollectionWhere = vi.fn(() => mockAwardedQueryChain);
+
+  const mockMonthlyDocSet = vi.fn();
+  const mockMonthlyDocRef = vi.fn(() => ({
+    set: mockMonthlyDocSet,
+  }));
+
+  const mockFieldValueIncrement = vi.fn((n: number) => `INCREMENT(${n})`);
+
   const mockCachedSearchFoods = vi.fn();
   const mockEvaluateNutritionPoints = vi.fn();
 
@@ -133,6 +166,16 @@ const {
     mockPointsQueryGet,
     mockPointsQueryChain,
     mockPointsCollectionWhere,
+    mockAwardedDocGet,
+    mockAwardedDocSet,
+    mockAwardedDocDelete,
+    mockAwardedDocRef,
+    mockAwardedQueryGet,
+    mockAwardedQueryChain,
+    mockAwardedCollectionWhere,
+    mockMonthlyDocSet,
+    mockMonthlyDocRef,
+    mockFieldValueIncrement,
     mockCachedSearchFoods,
     mockEvaluateNutritionPoints,
   };
@@ -144,6 +187,12 @@ vi.mock('../lib/firebase', () => ({
     auth: () => ({ verifyIdToken: mockVerifyIdToken }),
   },
   initFirebase: vi.fn(),
+}));
+
+vi.mock('firebase-admin/firestore', () => ({
+  FieldValue: {
+    increment: mockFieldValueIncrement,
+  },
 }));
 
 vi.mock('../lib/firestore', () => ({
@@ -175,6 +224,17 @@ vi.mock('../lib/firestore', () => ({
       if (name === 'nutritionPoints') {
         return {
           where: mockPointsCollectionWhere,
+        };
+      }
+      if (name === 'nutritionPointsAwarded') {
+        return {
+          doc: mockAwardedDocRef,
+          where: mockAwardedCollectionWhere,
+        };
+      }
+      if (name === 'monthlyPoints') {
+        return {
+          doc: mockMonthlyDocRef,
         };
       }
       return {};
@@ -298,6 +358,23 @@ beforeEach(() => {
   // Re-wire points query chain after reset
   mockPointsCollectionWhere.mockReturnValue(mockPointsQueryChain);
   mockPointsQueryChain.where.mockReturnThis();
+
+  // Re-wire nutritionPointsAwarded mocks after reset
+  mockAwardedCollectionWhere.mockReturnValue(mockAwardedQueryChain);
+  mockAwardedQueryChain.where.mockReturnThis();
+  mockAwardedQueryGet.mockResolvedValue({ docs: [] });
+
+  mockAwardedDocRef.mockImplementation(() => ({
+    get: mockAwardedDocGet,
+    set: mockAwardedDocSet,
+    delete: mockAwardedDocDelete,
+  }));
+
+  // Re-wire monthlyPoints mocks after reset
+  mockMonthlyDocRef.mockImplementation(() => ({
+    set: mockMonthlyDocSet,
+  }));
+  mockMonthlyDocSet.mockResolvedValue(undefined);
 
   // Re-wire nutrition points evaluation mock after reset
   mockEvaluateNutritionPoints.mockResolvedValue(undefined);
@@ -1752,5 +1829,262 @@ describe('GET /nutrition/foods/search', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual([]);
+  });
+});
+
+// ── Manual goal completion tests ─────────────────────────────────
+
+describe('POST /nutrition/goals/complete', () => {
+  it('returns 401 without auth', async () => {
+    mockVerifyIdToken.mockRejectedValueOnce(new Error('Unauthorized'));
+
+    const res = await request(buildApp())
+      .post('/nutrition/goals/complete')
+      .send({ nutrientId: 'iron' });
+
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 400 when nutrientId is missing', async () => {
+    const res = await request(buildApp())
+      .post('/nutrition/goals/complete')
+      .set('Authorization', VALID_TOKEN)
+      .send({});
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/nutrientId/);
+  });
+
+  it('returns 400 for invalid nutrient ID', async () => {
+    const res = await request(buildApp())
+      .post('/nutrition/goals/complete')
+      .set('Authorization', VALID_TOKEN)
+      .send({ nutrientId: 'invalidNutrient' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/Invalid nutrient ID/);
+  });
+
+  it('creates manual completion when no existing award', async () => {
+    mockAwardedDocGet.mockResolvedValueOnce({ exists: false });
+    mockAwardedDocSet.mockResolvedValueOnce(undefined);
+    mockMonthlyDocSet.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .post('/nutrition/goals/complete')
+      .set('Authorization', VALID_TOKEN)
+      .send({ nutrientId: 'iron' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toBe('Goal manually completed');
+    expect(res.body.nutrientId).toBe('iron');
+
+    // Verify award doc was created with manuallyCompleted flag
+    expect(mockAwardedDocSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        uid: TEST_UID,
+        nutrientId: 'iron',
+        manuallyCompleted: true,
+      }),
+    );
+
+    // Verify monthly points incremented
+    expect(mockMonthlyDocSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        uid: TEST_UID,
+        points: 'INCREMENT(1)',
+      }),
+      { merge: true },
+    );
+
+    // Verify evaluation triggered
+    expect(mockEvaluateNutritionPoints).toHaveBeenCalled();
+  });
+
+  it('adds manual flag to existing consumption-based award', async () => {
+    mockAwardedDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ uid: TEST_UID, nutrientId: 'iron', awardedAt: '2026-03-15T00:00:00Z' }),
+    });
+    mockAwardedDocSet.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .post('/nutrition/goals/complete')
+      .set('Authorization', VALID_TOKEN)
+      .send({ nutrientId: 'iron' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toBe('Marked as manually completed');
+
+    // Should merge the manual flag
+    expect(mockAwardedDocSet).toHaveBeenCalledWith(
+      { manuallyCompleted: true },
+      { merge: true },
+    );
+
+    // Should NOT increment monthly points (already awarded)
+    expect(mockMonthlyDocSet).not.toHaveBeenCalled();
+  });
+
+  it('returns ok when already manually completed', async () => {
+    mockAwardedDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ uid: TEST_UID, nutrientId: 'iron', manuallyCompleted: true }),
+    });
+
+    const res = await request(buildApp())
+      .post('/nutrition/goals/complete')
+      .set('Authorization', VALID_TOKEN)
+      .send({ nutrientId: 'iron' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toBe('Already manually completed');
+    expect(mockAwardedDocSet).not.toHaveBeenCalled();
+  });
+});
+
+describe('DELETE /nutrition/goals/complete/:nutrientId', () => {
+  it('returns 401 without auth', async () => {
+    mockVerifyIdToken.mockRejectedValueOnce(new Error('Unauthorized'));
+
+    const res = await request(buildApp())
+      .delete('/nutrition/goals/complete/iron');
+
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 400 for invalid nutrient ID', async () => {
+    const res = await request(buildApp())
+      .delete('/nutrition/goals/complete/invalidNutrient')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/Invalid nutrient ID/);
+  });
+
+  it('returns 404 when no manual completion exists', async () => {
+    mockAwardedDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .delete('/nutrition/goals/complete/iron')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toMatch(/No manual completion/);
+  });
+
+  it('returns 404 when award exists but was not manually completed', async () => {
+    mockAwardedDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ uid: TEST_UID, nutrientId: 'iron' }),
+    });
+
+    const res = await request(buildApp())
+      .delete('/nutrition/goals/complete/iron')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toMatch(/No manual completion/);
+  });
+
+  it('removes manual completion and decrements monthly points', async () => {
+    mockAwardedDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ uid: TEST_UID, nutrientId: 'iron', manuallyCompleted: true, date: '2026-03-15' }),
+    });
+    mockAwardedDocDelete.mockResolvedValueOnce(undefined);
+    mockMonthlyDocSet.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .delete('/nutrition/goals/complete/iron')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(204);
+
+    // Verify award doc was deleted
+    expect(mockAwardedDocDelete).toHaveBeenCalled();
+
+    // Verify monthly points decremented
+    expect(mockMonthlyDocSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        uid: TEST_UID,
+        points: 'INCREMENT(-1)',
+      }),
+      { merge: true },
+    );
+
+    // Verify evaluation triggered
+    expect(mockEvaluateNutritionPoints).toHaveBeenCalled();
+  });
+});
+
+// ── Summary with manual completion tests ─────────────────────────
+
+describe('GET /nutrition/summary with manual completions', () => {
+  it('reflects manually completed goals at 100%', async () => {
+    mockMealsCollectionWhere.mockReturnValue(mockMealsQueryChain);
+    mockMealsQueryChain.where.mockReturnThis();
+    mockMealsQueryChain.get.mockResolvedValueOnce({ docs: [] });
+    mockSupplementsCollectionWhere.mockReturnValue(mockSupplementsQueryChain);
+    mockSupplementsQueryChain.where.mockReturnThis();
+    mockSupplementsQueryChain.get.mockResolvedValueOnce({ docs: [] });
+
+    // nutritionPointsAwarded has a manual completion for iron
+    mockAwardedCollectionWhere.mockReturnValue(mockAwardedQueryChain);
+    mockAwardedQueryChain.where.mockReturnThis();
+    mockAwardedQueryGet.mockResolvedValueOnce({
+      docs: [{ data: () => ({ nutrientId: 'iron', manuallyCompleted: true }) }],
+    });
+
+    mockPointsCollectionWhere.mockReturnValue(mockPointsQueryChain);
+    mockPointsQueryChain.where.mockReturnThis();
+    mockPointsQueryChain.get.mockResolvedValueOnce({ docs: [] });
+
+    const res = await request(buildApp())
+      .get('/nutrition/summary?date=2026-03-15')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+
+    const ironNutrient = res.body.nutrients.find((n: any) => n.nutrientId === 'iron');
+    expect(ironNutrient.percentComplete).toBe(100);
+    expect(ironNutrient.manuallyCompleted).toBe(true);
+    expect(ironNutrient.consumed).toBe(0); // no actual consumption
+
+    // 0 from nutritionPoints + 1 from manual completion
+    expect(res.body.pointsEarned).toBe(1);
+  });
+
+  it('counts manual completions in pointsEarned', async () => {
+    mockMealsCollectionWhere.mockReturnValue(mockMealsQueryChain);
+    mockMealsQueryChain.where.mockReturnThis();
+    mockMealsQueryChain.get.mockResolvedValueOnce({ docs: [] });
+    mockSupplementsCollectionWhere.mockReturnValue(mockSupplementsQueryChain);
+    mockSupplementsQueryChain.where.mockReturnThis();
+    mockSupplementsQueryChain.get.mockResolvedValueOnce({ docs: [] });
+
+    // Two manually completed nutrients
+    mockAwardedCollectionWhere.mockReturnValue(mockAwardedQueryChain);
+    mockAwardedQueryChain.where.mockReturnThis();
+    mockAwardedQueryGet.mockResolvedValueOnce({
+      docs: [
+        { data: () => ({ nutrientId: 'iron', manuallyCompleted: true }) },
+        { data: () => ({ nutrientId: 'calcium', manuallyCompleted: true }) },
+      ],
+    });
+
+    mockPointsCollectionWhere.mockReturnValue(mockPointsQueryChain);
+    mockPointsQueryChain.where.mockReturnThis();
+    mockPointsQueryChain.get.mockResolvedValueOnce({
+      docs: [{ data: () => ({}) }], // 1 existing point from nutritionPoints
+    });
+
+    const res = await request(buildApp())
+      .get('/nutrition/summary?date=2026-03-15')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    // 1 from nutritionPoints + 2 manual = 3
+    expect(res.body.pointsEarned).toBe(3);
   });
 });

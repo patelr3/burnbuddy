@@ -95,6 +95,8 @@ export async function evaluateNutritionPoints(uid: string, date: string): Promis
     try {
       const awardDoc = await db.collection('nutritionPointsAwarded').doc(awardDocId).get();
       const alreadyAwarded = awardDoc.exists;
+      const awardData = typeof awardDoc.data === 'function' ? awardDoc.data() : undefined;
+      const isManuallyCompleted = alreadyAwarded && awardData?.manuallyCompleted === true;
 
       if (percentComplete >= 100 && !alreadyAwarded) {
         // Award point
@@ -114,8 +116,8 @@ export async function evaluateNutritionPoints(uid: string, date: string): Promis
           { merge: true },
         );
         logger.info({ uid, date, nutrientId }, 'Nutrition point awarded');
-      } else if (percentComplete < 100 && alreadyAwarded) {
-        // Revoke point
+      } else if (percentComplete < 100 && alreadyAwarded && !isManuallyCompleted) {
+        // Revoke point (but not if manually completed)
         await db.collection('nutritionPointsAwarded').doc(awardDocId).delete();
         await db.collection('monthlyPoints').doc(monthlyDocId).set(
           {

@@ -195,3 +195,27 @@ export function useLogSupplement() {
     },
   });
 }
+
+// ── Manual goal completion hooks ─────────────────────────────────────────────
+
+export function useCompleteGoal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (nutrientId: NutrientId) =>
+      apiPost<{ message: string; nutrientId: string; date: string }>('/nutrition/goals/complete', { nutrientId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['nutrition-summary'] });
+    },
+  });
+}
+
+export function useUndoCompleteGoal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (nutrientId: NutrientId) =>
+      apiDelete(`/nutrition/goals/complete/${nutrientId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['nutrition-summary'] });
+    },
+  });
+}

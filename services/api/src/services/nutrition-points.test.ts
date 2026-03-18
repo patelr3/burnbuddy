@@ -579,4 +579,36 @@ describe('evaluateNutritionPoints', () => {
 
     expect(mockMonthlyDocRef).toHaveBeenCalledWith(`${TEST_UID}_2025-12`);
   });
+
+  it('does not revoke manually completed point when consumption drops below 100%', async () => {
+    mockGoalsDocGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ uid: TEST_UID, targetNutrients: ['iron'], updatedAt: '2026-01-01' }),
+    });
+
+    // Only 5mg iron (below 18mg recommended)
+    mockMealsQueryGet.mockResolvedValue({
+      docs: [
+        {
+          data: () => ({
+            uid: TEST_UID,
+            date: TEST_DATE,
+            nutrients: [{ nutrientId: 'iron', amount: 5 }],
+          }),
+        },
+      ],
+    });
+
+    // Point was previously awarded AND is manually completed
+    mockAwardDocGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ uid: TEST_UID, date: TEST_DATE, nutrientId: 'iron', manuallyCompleted: true }),
+    });
+
+    await evaluateNutritionPoints(TEST_UID, TEST_DATE);
+
+    // Should NOT delete award (manually completed points are protected)
+    expect(mockAwardDocDelete).not.toHaveBeenCalled();
+    expect(mockMonthlyDocSet).not.toHaveBeenCalled();
+  });
 });
