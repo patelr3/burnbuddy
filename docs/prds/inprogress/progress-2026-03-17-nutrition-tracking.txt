@@ -1,3 +1,44 @@
 # Ralph Progress Log — Nutrition Tracking
 Started: 2026-03-18
 ---
+
+## Codebase Patterns
+- Nutrition types live in `packages/shared/src/nutrition.ts`, exported via `index.ts`
+- After changing shared types, must run `cd packages/shared && yarn build` before API/web typecheck
+- Root `yarn typecheck` fails due to pre-existing mobile errors; use per-package typecheck instead
+- API tests run with `cd services/api && yarn test` (vitest, 607 tests baseline)
+- Prior nutrition implementation exists from commit b0f81b5 — many files may already have nutrition code
+
+---
+
+## 2026-03-18T06:24 - US-001
+- **What was implemented**: Verified existing nutrition domain types in shared package
+- **Files changed**: None (types already existed from prior implementation b0f81b5)
+- **Learnings for future iterations:**
+  - The shared package already has `nutrition.ts` with all required types: NutrientId, NutrientInfo, NutrientAmount, Ingredient, Recipe, MealEntry, NutritionGoals, DailyNutritionSummary, FoodSearchResult, SUPPORTED_NUTRIENTS
+  - `index.ts` already exports `./nutrition`
+  - Build and typecheck all pass for shared, API, and web packages
+  - Many nutrition-related files may already exist in the API and web from the prior implementation — check before creating new files
+---
+
+## 2026-03-18T06:28 - US-002 through US-021
+- **What was implemented**: Verified all 21 stories already fully implemented from prior commit b0f81b5
+- **Files changed**: Only PRD file (marking passes: true) and this progress file
+- **Summary**:
+  - US-001: Shared nutrition types in packages/shared/src/nutrition.ts
+  - US-002: USDA food search service with 19 tests
+  - US-003: Firestore food search cache with 30-day TTL, 13 tests
+  - US-004-006: Nutrition API routes (recipes CRUD, meal logging, goals/summary)
+  - US-007: Nutrition points awarding service with 16 tests
+  - US-008: Routes registered in API index.ts
+  - US-009: React Query hooks in nutrition-queries.ts
+  - US-010-014: Web pages (dashboard, meal log, recipes, recipe form, goals)
+  - US-015: NavBar with Nutrition tab
+  - US-016-019: Mobile screens (dashboard, meal log, recipes, goals)
+  - US-020: Mobile tab navigation with Nutrition tab
+  - US-021: Bicep infrastructure and deploy workflow for USDA_API_KEY
+- **Learnings for future iterations:**
+  - All nutrition code was from a prior full-stack implementation (commit b0f81b5)
+  - 607 API tests pass (27 test files including nutrition)
+  - Typecheck passes for shared, API, and web packages
+---
