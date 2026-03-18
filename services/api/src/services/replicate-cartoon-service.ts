@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import { logger } from '../lib/logger';
 import type { CartoonService } from './cartoon-service';
 
@@ -60,7 +61,10 @@ export class ReplicateCartoonService implements CartoonService {
         version: MODEL_VERSION,
         input: {
           image: imageUrl,
-          strength: 0.7,
+          strength: 0.5,
+          guidance_scale: 6,
+          negative_prompt: '',
+          num_inference_steps: 20,
           num_outputs: 1,
         },
       }),
@@ -131,7 +135,10 @@ export class ReplicateCartoonService implements CartoonService {
     }
 
     const arrayBuffer = await response.arrayBuffer();
-    return Buffer.from(arrayBuffer);
+    const rawBuffer = Buffer.from(arrayBuffer);
+
+    // Replicate may return PNG — convert to JPEG for consistent storage
+    return sharp(rawBuffer).jpeg({ quality: 90 }).toBuffer();
   }
 
   private sleep(ms: number): Promise<void> {
