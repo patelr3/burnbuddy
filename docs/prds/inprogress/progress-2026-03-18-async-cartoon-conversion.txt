@@ -64,3 +64,13 @@ Started: 2026-03-18
   - Tests that verify background task Firestore updates need `vi.waitFor()` since the response returns before the background completes
   - When making a handler async, all tests checking response body need updating (no more profilePictureUrl in response)
 ---
+
+## 2026-03-18T06:43 - US-005
+- Implemented: Add profile picture status to GET /users/me response
+- Files changed:
+  - `services/api/src/routes/users.test.ts` — Added 4 new tests covering profilePictureStatus values: 'processing', 'ready', 'failed', and null
+- **Learnings for future iterations:**
+  - GET /users/me already returns `doc.data() as UserProfile` — no route handler changes needed since Firestore documents already include profilePictureStatus (added in US-002)
+  - Tests use spread of TEST_PROFILE with additional fields to test various status combinations
+  - The 'processing' and 'failed' states should not have profilePictureUrl, while 'ready' state includes the avatar URL
+---

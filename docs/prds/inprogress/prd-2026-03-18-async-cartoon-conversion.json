@@ -85,7 +85,7 @@
         "Unit tests cover all status values"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

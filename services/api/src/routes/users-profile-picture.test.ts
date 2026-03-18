@@ -5,6 +5,7 @@ import request from 'supertest';
 const {
   mockVerifyIdToken,
   mockUsersDocUpdate,
+  mockUsersDocGet,
   mockUsersDocRef,
   mockSharpToBuffer,
   mockSharpConstructor,
@@ -20,8 +21,10 @@ const {
   const mockVerifyIdToken = vi.fn();
 
   const mockUsersDocUpdate = vi.fn();
+  const mockUsersDocGet = vi.fn();
   const mockUsersDocRef = vi.fn(() => ({
     update: mockUsersDocUpdate,
+    get: mockUsersDocGet,
   }));
 
   const mockSharpToBuffer = vi.fn();
@@ -45,6 +48,7 @@ const {
   return {
     mockVerifyIdToken,
     mockUsersDocUpdate,
+    mockUsersDocGet,
     mockUsersDocRef,
     mockSharpToBuffer,
     mockSharpConstructor,
@@ -147,6 +151,7 @@ beforeEach(() => {
   mockVerifyIdToken.mockResolvedValue({ uid: TEST_UID });
   mockSharpToBuffer.mockResolvedValue(Buffer.from('optimized-image-data'));
   mockCartoonize.mockResolvedValue(Buffer.from('cartoon-image-data'));
+  mockUsersDocGet.mockResolvedValue({ exists: true, data: () => ({}) });
   const sharpChain = {
     rotate: vi.fn().mockReturnThis(),
     resize: vi.fn().mockReturnThis(),
@@ -164,6 +169,7 @@ beforeEach(() => {
 
   mockUsersDocRef.mockImplementation(() => ({
     update: mockUsersDocUpdate,
+    get: mockUsersDocGet,
   }));
   mockGetBlockBlobClient.mockImplementation(() => ({
     upload: mockUpload,
@@ -491,6 +497,28 @@ describe('POST /users/me/profile-picture', () => {
       expect.objectContaining({ mimetype: 'application/octet-stream', originalname: 'file.bmp' }),
       'Profile picture rejected: unsupported file type',
     );
+  });
+
+  it('returns 409 when cartoon conversion is already processing', async () => {
+    mockUsersDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ profilePictureStatus: 'processing' }),
+    });
+
+    const imageBuffer = Buffer.alloc(100, 0xff);
+
+    const res = await request(buildApp())
+      .post('/users/me/profile-picture')
+      .set('Authorization', VALID_TOKEN)
+      .attach('picture', imageBuffer, { filename: 'photo.jpg', contentType: 'image/jpeg' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/already in progress/i);
+
+    // Should not have attempted image processing or upload
+    expect(mockSharpConstructor).not.toHaveBeenCalled();
+    expect(mockUpload).not.toHaveBeenCalled();
+    expect(mockUsersDocUpdate).not.toHaveBeenCalled();
   });
 
   describe('passthrough when REPLICATE_API_TOKEN is missing', () => {

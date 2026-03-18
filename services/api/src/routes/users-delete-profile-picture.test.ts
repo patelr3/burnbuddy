@@ -7,6 +7,7 @@ import request from 'supertest';
 const {
   mockVerifyIdToken,
   mockUsersDocUpdate,
+  mockUsersDocGet,
   mockUsersDocRef,
   mockDeleteIfExists,
   mockGetBlockBlobClient,
@@ -15,8 +16,10 @@ const {
   const mockVerifyIdToken = vi.fn();
 
   const mockUsersDocUpdate = vi.fn();
+  const mockUsersDocGet = vi.fn();
   const mockUsersDocRef = vi.fn(() => ({
     update: mockUsersDocUpdate,
+    get: mockUsersDocGet,
   }));
 
   const mockDeleteIfExists = vi.fn();
@@ -30,6 +33,7 @@ const {
   return {
     mockVerifyIdToken,
     mockUsersDocUpdate,
+    mockUsersDocGet,
     mockUsersDocRef,
     mockDeleteIfExists,
     mockGetBlockBlobClient,
@@ -100,9 +104,11 @@ beforeEach(() => {
   mockVerifyIdToken.mockResolvedValue({ uid: TEST_UID });
   mockDeleteIfExists.mockResolvedValue(undefined);
   mockUsersDocUpdate.mockResolvedValue(undefined);
+  mockUsersDocGet.mockResolvedValue({ exists: true, data: () => ({}) });
 
   mockUsersDocRef.mockImplementation(() => ({
     update: mockUsersDocUpdate,
+    get: mockUsersDocGet,
   }));
   mockGetBlockBlobClient.mockImplementation(() => ({
     deleteIfExists: mockDeleteIfExists,
@@ -156,6 +162,24 @@ describe('DELETE /users/me/profile-picture', () => {
       profilePictureUrl: FieldValue.delete(),
       profilePictureStatus: FieldValue.delete(),
     });
+  });
+
+  it('returns 409 when cartoon conversion is already processing', async () => {
+    mockUsersDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ profilePictureStatus: 'processing' }),
+    });
+
+    const res = await request(buildApp())
+      .delete('/users/me/profile-picture')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/already in progress/i);
+
+    // Should not have attempted blob deletion or Firestore update
+    expect(mockDeleteIfExists).not.toHaveBeenCalled();
+    expect(mockUsersDocUpdate).not.toHaveBeenCalled();
   });
 
   it('propagates storage errors', async () => {

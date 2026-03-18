@@ -311,6 +311,14 @@ router.post(
     }
 
     const uid = req.user!.uid;
+
+    // Block upload while cartoon conversion is in progress
+    const userDoc = await getDb().collection('users').doc(uid).get();
+    if (userDoc.exists && userDoc.data()?.profilePictureStatus === 'processing') {
+      res.status(409).json({ error: 'A cartoon conversion is already in progress. Please wait for it to finish.' });
+      return;
+    }
+
     const resolvedMimetype = resolveImageMimeType(req.file);
     logger.info(
       { uid, fileSize: req.file.size, mimetype: req.file.mimetype, resolvedMimetype, originalname: req.file.originalname },
@@ -419,6 +427,13 @@ router.post(
  */
 router.delete('/me/profile-picture', requireAuth, async (req: Request, res: Response): Promise<void> => {
   const uid = req.user!.uid;
+
+  // Block delete while cartoon conversion is in progress
+  const userDoc = await getDb().collection('users').doc(uid).get();
+  if (userDoc.exists && userDoc.data()?.profilePictureStatus === 'processing') {
+    res.status(409).json({ error: 'A cartoon conversion is already in progress. Please wait for it to finish.' });
+    return;
+  }
 
   const container = getContainerClient('uploads');
   await container
