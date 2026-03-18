@@ -87,3 +87,16 @@ Started: 2026-03-18
   - The mockUsersDocRef needs both `update` and `get` methods in its implementation
   - Default mockUsersDocGet should return `{ exists: true, data: () => ({}) }` to not block normal operations
 ---
+
+## 2026-03-18T06:55 - US-007
+- Implemented: Frontend polling for cartoon completion
+- Files changed:
+  - `apps/web/src/lib/queries.ts` — Added optional `refetchInterval` parameter to `useAccount()` hook
+  - `apps/web/src/app/(main)/account/page.tsx` — Added polling logic with 5s interval, 3-minute timeout; removed optimistic URL preview; show blank avatar during processing; status-aware text messages; disabled upload button during processing
+- **Learnings for future iterations:**
+  - React state used by hooks (like `refetchInterval`) must be declared before the hook call to avoid block-scoped variable errors
+  - Use `useCallback` for `startPolling`/`stopPolling` to keep `useEffect` dependency arrays stable
+  - Auto-start polling on page load when status is 'processing' (handles user navigating away and back)
+  - `useEffect` watching `profilePictureStatus` + `isPollingCartoon` can serve as both auto-start and auto-stop — just be careful about re-render loops
+  - Browser testing requires Firebase Auth credentials — local verification limited without `.env.local`
+---
