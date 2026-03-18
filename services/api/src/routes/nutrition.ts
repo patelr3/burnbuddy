@@ -5,7 +5,7 @@ import { getDb } from '../lib/firestore';
 import { logger } from '../lib/logger';
 import { cachedSearchFoods } from '../services/food-search-cache';
 import { evaluateNutritionPoints } from '../services/nutrition-points';
-import type { Recipe, MealEntry, NutrientAmount, NutritionGoals, NutrientId, DailyNutritionSummary } from '@burnbuddy/shared';
+import type { Recipe, MealEntry, SupplementEntry, NutrientAmount, NutritionGoals, NutrientId, DailyNutritionSummary } from '@burnbuddy/shared';
 import { SUPPORTED_NUTRIENTS, SUPPORTED_UNITS } from '@burnbuddy/shared';
 
 const router = Router();
@@ -380,6 +380,109 @@ router.delete('/meals/:id', requireAuth, async (req: Request, res: Response): Pr
   res.status(204).send();
 });
 
+// ── Supplement logging routes ──────────────────────────────────────
+
+// POST /nutrition/supplements — Log a supplement entry
+router.post('/supplements', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const uid = req.user!.uid;
+  const { date, supplementName, nutrients } = req.body as {
+    date?: string;
+    supplementName?: string;
+    nutrients?: NutrientAmount[];
+  };
+
+  if (!date || typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    res.status(400).json({ error: 'date is required in YYYY-MM-DD format' });
+    return;
+  }
+
+  if (!supplementName || typeof supplementName !== 'string' || supplementName.trim().length === 0) {
+    res.status(400).json({ error: 'supplementName is required' });
+    return;
+  }
+
+  if (!Array.isArray(nutrients) || nutrients.length === 0) {
+    res.status(400).json({ error: 'nutrients must be a non-empty array' });
+    return;
+  }
+
+  const id = randomUUID();
+  const entry: SupplementEntry = {
+    id,
+    uid,
+    date,
+    supplementName: supplementName.trim(),
+    nutrients,
+    createdAt: new Date().toISOString(),
+  };
+
+  const db = getDb();
+  await db.collection('supplementEntries').doc(id).set(entry);
+
+  // Fire-and-forget: evaluate nutrition points
+  evaluateNutritionPoints(uid, date).catch((err: unknown) => {
+    logger.error({ err, uid, date }, 'Nutrition points evaluation failed after supplement log');
+  });
+
+  res.status(201).json(entry);
+});
+
+// GET /nutrition/supplements?date=YYYY-MM-DD — Get supplement entries for a date
+router.get('/supplements', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const uid = req.user!.uid;
+  let date = req.query['date'] as string | undefined;
+
+  if (!date) {
+    date = new Date().toISOString().split('T')[0]!;
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    res.status(400).json({ error: 'date must be in YYYY-MM-DD format' });
+    return;
+  }
+
+  const db = getDb();
+  const snapshot = await db
+    .collection('supplementEntries')
+    .where('uid', '==', uid)
+    .where('date', '==', date)
+    .orderBy('createdAt', 'asc')
+    .get();
+
+  const supplements = snapshot.docs.map((doc) => doc.data() as SupplementEntry);
+  res.json(supplements);
+});
+
+// DELETE /nutrition/supplements/:id — Delete a supplement entry
+router.delete('/supplements/:id', requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const uid = req.user!.uid;
+  const id = req.params['id'] as string;
+  const db = getDb();
+
+  const doc = await db.collection('supplementEntries').doc(id).get();
+
+  if (!doc.exists) {
+    res.status(404).json({ error: 'Supplement entry not found' });
+    return;
+  }
+
+  const entry = doc.data() as SupplementEntry;
+
+  if (entry.uid !== uid) {
+    res.status(404).json({ error: 'Supplement entry not found' });
+    return;
+  }
+
+  await db.collection('supplementEntries').doc(id).delete();
+
+  // Fire-and-forget: re-evaluate nutrition points
+  evaluateNutritionPoints(uid, entry.date).catch((err: unknown) => {
+    logger.error({ err, uid, date: entry.date }, 'Nutrition points evaluation failed after supplement delete');
+  });
+
+  res.status(204).send();
+});
+
 // ── Goals routes ──────────────────────────────────────────────────
 
 // GET /nutrition/goals — Get the user's nutrition goals
@@ -464,10 +567,24 @@ router.get('/summary', requireAuth, async (req: Request, res: Response): Promise
 
   const meals = mealsSnap.docs.map((doc) => doc.data() as MealEntry);
 
-  // Sum consumed amounts per nutrient
+  // Fetch all supplement entries for this date
+  const supplementsSnap = await db
+    .collection('supplementEntries')
+    .where('uid', '==', uid)
+    .where('date', '==', date)
+    .get();
+
+  const supplements = supplementsSnap.docs.map((doc) => doc.data() as SupplementEntry);
+
+  // Sum consumed amounts per nutrient (meals + supplements)
   const consumedMap = new Map<NutrientId, number>();
   for (const meal of meals) {
     for (const n of meal.nutrients) {
+      consumedMap.set(n.nutrientId, (consumedMap.get(n.nutrientId) ?? 0) + n.amount);
+    }
+  }
+  for (const supp of supplements) {
+    for (const n of supp.nutrients) {
       consumedMap.set(n.nutrientId, (consumedMap.get(n.nutrientId) ?? 0) + n.amount);
     }
   }

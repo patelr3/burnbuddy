@@ -6,6 +6,9 @@ const {
   mockMealsQueryGet,
   mockMealsQueryChain,
   mockMealsCollectionWhere,
+  mockSupplementsQueryGet,
+  mockSupplementsQueryChain,
+  mockSupplementsCollectionWhere,
   mockAwardDocGet,
   mockAwardDocSet,
   mockAwardDocDelete,
@@ -28,6 +31,13 @@ const {
     get: mockMealsQueryGet,
   };
   const mockMealsCollectionWhere = vi.fn(() => mockMealsQueryChain);
+
+  const mockSupplementsQueryGet = vi.fn();
+  const mockSupplementsQueryChain = {
+    where: vi.fn(),
+    get: mockSupplementsQueryGet,
+  };
+  const mockSupplementsCollectionWhere = vi.fn(() => mockSupplementsQueryChain);
 
   const mockAwardDocGet = vi.fn();
   const mockAwardDocSet = vi.fn();
@@ -55,6 +65,9 @@ const {
     mockMealsQueryGet,
     mockMealsQueryChain,
     mockMealsCollectionWhere,
+    mockSupplementsQueryGet,
+    mockSupplementsQueryChain,
+    mockSupplementsCollectionWhere,
     mockAwardDocGet,
     mockAwardDocSet,
     mockAwardDocDelete,
@@ -82,6 +95,9 @@ vi.mock('../lib/firestore', () => ({
       }
       if (name === 'mealEntries') {
         return { where: mockMealsCollectionWhere };
+      }
+      if (name === 'supplementEntries') {
+        return { where: mockSupplementsCollectionWhere };
       }
       if (name === 'nutritionPointsAwarded') {
         return { doc: mockAwardDocRef };
@@ -120,6 +136,9 @@ describe('evaluateNutritionPoints', () => {
     mockMealsCollectionWhere.mockReturnValue(mockMealsQueryChain);
     mockMealsQueryChain.where.mockReturnThis();
 
+    mockSupplementsCollectionWhere.mockReturnValue(mockSupplementsQueryChain);
+    mockSupplementsQueryChain.where.mockReturnThis();
+
     mockAwardDocRef.mockImplementation(() => ({
       get: mockAwardDocGet,
       set: mockAwardDocSet,
@@ -134,6 +153,8 @@ describe('evaluateNutritionPoints', () => {
     mockGoalsDocGet.mockResolvedValue({ exists: false });
     // Default: no meals
     mockMealsQueryGet.mockResolvedValue({ docs: [] });
+    // Default: no supplements
+    mockSupplementsQueryGet.mockResolvedValue({ docs: [] });
     // Default: no awards
     mockAwardDocGet.mockResolvedValue({ exists: false });
     // Default: writes succeed

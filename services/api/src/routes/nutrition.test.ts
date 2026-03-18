@@ -19,6 +19,13 @@ const {
   mockMealsQueryGet,
   mockMealsQueryChain,
   mockMealsCollectionWhere,
+  mockSupplementsDocGet,
+  mockSupplementsDocSet,
+  mockSupplementsDocDelete,
+  mockSupplementsDocRef,
+  mockSupplementsQueryGet,
+  mockSupplementsQueryChain,
+  mockSupplementsCollectionWhere,
   mockGoalsDocGet,
   mockGoalsDocSet,
   mockGoalsDocRef,
@@ -63,6 +70,23 @@ const {
   };
   const mockMealsCollectionWhere = vi.fn(() => mockMealsQueryChain);
 
+  const mockSupplementsDocGet = vi.fn();
+  const mockSupplementsDocSet = vi.fn();
+  const mockSupplementsDocDelete = vi.fn();
+  const mockSupplementsDocRef = vi.fn(() => ({
+    get: mockSupplementsDocGet,
+    set: mockSupplementsDocSet,
+    delete: mockSupplementsDocDelete,
+  }));
+
+  const mockSupplementsQueryGet = vi.fn();
+  const mockSupplementsQueryChain = {
+    where: vi.fn(),
+    orderBy: vi.fn(),
+    get: mockSupplementsQueryGet,
+  };
+  const mockSupplementsCollectionWhere = vi.fn(() => mockSupplementsQueryChain);
+
   const mockGoalsDocGet = vi.fn();
   const mockGoalsDocSet = vi.fn();
   const mockGoalsDocRef = vi.fn(() => ({
@@ -96,6 +120,13 @@ const {
     mockMealsQueryGet,
     mockMealsQueryChain,
     mockMealsCollectionWhere,
+    mockSupplementsDocGet,
+    mockSupplementsDocSet,
+    mockSupplementsDocDelete,
+    mockSupplementsDocRef,
+    mockSupplementsQueryGet,
+    mockSupplementsQueryChain,
+    mockSupplementsCollectionWhere,
     mockGoalsDocGet,
     mockGoalsDocSet,
     mockGoalsDocRef,
@@ -128,6 +159,12 @@ vi.mock('../lib/firestore', () => ({
         return {
           doc: mockMealsDocRef,
           where: mockMealsCollectionWhere,
+        };
+      }
+      if (name === 'supplementEntries') {
+        return {
+          doc: mockSupplementsDocRef,
+          where: mockSupplementsCollectionWhere,
         };
       }
       if (name === 'nutritionGoals') {
@@ -239,6 +276,17 @@ beforeEach(() => {
     get: mockMealsDocGet,
     set: mockMealsDocSet,
     delete: mockMealsDocDelete,
+  }));
+
+  // Re-wire supplements query chain after reset
+  mockSupplementsCollectionWhere.mockReturnValue(mockSupplementsQueryChain);
+  mockSupplementsQueryChain.where.mockReturnThis();
+  mockSupplementsQueryChain.orderBy.mockReturnThis();
+
+  mockSupplementsDocRef.mockImplementation(() => ({
+    get: mockSupplementsDocGet,
+    set: mockSupplementsDocSet,
+    delete: mockSupplementsDocDelete,
   }));
 
   // Re-wire goals doc after reset
@@ -1074,6 +1122,281 @@ describe('DELETE /nutrition/meals/:id', () => {
 
 // ── Goals tests ──────────────────────────────────────────────────
 
+// ── Supplement logging tests ──────────────────────────────────────
+
+const SUPPLEMENT_ID = 'supp-id-001';
+
+function makeSupplement(overrides: Record<string, unknown> = {}) {
+  return {
+    id: SUPPLEMENT_ID,
+    uid: TEST_UID,
+    date: '2026-03-15',
+    supplementName: 'Vitamin D3 1000 IU',
+    nutrients: [{ nutrientId: 'vitaminD', amount: 25 }],
+    createdAt: '2026-03-15T08:00:00.000Z',
+    ...overrides,
+  };
+}
+
+describe('POST /nutrition/supplements', () => {
+  it('returns 401 without auth', async () => {
+    const res = await request(buildApp())
+      .post('/nutrition/supplements')
+      .send({ date: '2026-03-15', supplementName: 'Vitamin D', nutrients: [{ nutrientId: 'vitaminD', amount: 25 }] });
+
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 400 when date is missing', async () => {
+    const res = await request(buildApp())
+      .post('/nutrition/supplements')
+      .set('Authorization', VALID_TOKEN)
+      .send({ supplementName: 'Vitamin D', nutrients: [{ nutrientId: 'vitaminD', amount: 25 }] });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: expect.stringContaining('date') });
+  });
+
+  it('returns 400 when date format is invalid', async () => {
+    const res = await request(buildApp())
+      .post('/nutrition/supplements')
+      .set('Authorization', VALID_TOKEN)
+      .send({ date: '03-15-2026', supplementName: 'Vitamin D', nutrients: [{ nutrientId: 'vitaminD', amount: 25 }] });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: expect.stringContaining('YYYY-MM-DD') });
+  });
+
+  it('returns 400 when supplementName is missing', async () => {
+    const res = await request(buildApp())
+      .post('/nutrition/supplements')
+      .set('Authorization', VALID_TOKEN)
+      .send({ date: '2026-03-15', nutrients: [{ nutrientId: 'vitaminD', amount: 25 }] });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: expect.stringContaining('supplementName') });
+  });
+
+  it('returns 400 when supplementName is empty', async () => {
+    const res = await request(buildApp())
+      .post('/nutrition/supplements')
+      .set('Authorization', VALID_TOKEN)
+      .send({ date: '2026-03-15', supplementName: '   ', nutrients: [{ nutrientId: 'vitaminD', amount: 25 }] });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: expect.stringContaining('supplementName') });
+  });
+
+  it('returns 400 when nutrients is missing', async () => {
+    const res = await request(buildApp())
+      .post('/nutrition/supplements')
+      .set('Authorization', VALID_TOKEN)
+      .send({ date: '2026-03-15', supplementName: 'Vitamin D' });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: expect.stringContaining('nutrients') });
+  });
+
+  it('returns 400 when nutrients is empty array', async () => {
+    const res = await request(buildApp())
+      .post('/nutrition/supplements')
+      .set('Authorization', VALID_TOKEN)
+      .send({ date: '2026-03-15', supplementName: 'Vitamin D', nutrients: [] });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: expect.stringContaining('nutrients') });
+  });
+
+  it('logs a supplement and returns 201', async () => {
+    mockSupplementsDocSet.mockResolvedValueOnce(undefined);
+
+    const body = {
+      date: '2026-03-15',
+      supplementName: 'Vitamin D3 1000 IU',
+      nutrients: [{ nutrientId: 'vitaminD', amount: 25 }],
+    };
+
+    const res = await request(buildApp())
+      .post('/nutrition/supplements')
+      .set('Authorization', VALID_TOKEN)
+      .send(body);
+
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({
+      uid: TEST_UID,
+      date: '2026-03-15',
+      supplementName: 'Vitamin D3 1000 IU',
+    });
+    expect(res.body.nutrients).toEqual([{ nutrientId: 'vitaminD', amount: 25 }]);
+    expect(res.body.id).toBeDefined();
+    expect(res.body.createdAt).toBeDefined();
+    expect(mockSupplementsDocSet).toHaveBeenCalledOnce();
+  });
+
+  it('fires evaluateNutritionPoints after logging', async () => {
+    mockSupplementsDocSet.mockResolvedValueOnce(undefined);
+
+    await request(buildApp())
+      .post('/nutrition/supplements')
+      .set('Authorization', VALID_TOKEN)
+      .send({
+        date: '2026-03-15',
+        supplementName: 'Iron 65mg',
+        nutrients: [{ nutrientId: 'iron', amount: 65 }],
+      });
+
+    expect(mockEvaluateNutritionPoints).toHaveBeenCalledWith(TEST_UID, '2026-03-15');
+  });
+
+  it('logs a supplement with multiple nutrients', async () => {
+    mockSupplementsDocSet.mockResolvedValueOnce(undefined);
+
+    const body = {
+      date: '2026-03-15',
+      supplementName: 'Multivitamin',
+      nutrients: [
+        { nutrientId: 'vitaminD', amount: 10 },
+        { nutrientId: 'iron', amount: 18 },
+        { nutrientId: 'calcium', amount: 200 },
+      ],
+    };
+
+    const res = await request(buildApp())
+      .post('/nutrition/supplements')
+      .set('Authorization', VALID_TOKEN)
+      .send(body);
+
+    expect(res.status).toBe(201);
+    expect(res.body.nutrients).toHaveLength(3);
+  });
+});
+
+describe('GET /nutrition/supplements', () => {
+  it('returns 401 without auth', async () => {
+    const res = await request(buildApp()).get('/nutrition/supplements');
+    expect(res.status).toBe(401);
+  });
+
+  it('returns supplements for a specific date', async () => {
+    const supp1 = makeSupplement({ id: 's1', supplementName: 'Vitamin D', createdAt: '2026-03-15T08:00:00.000Z' });
+    const supp2 = makeSupplement({ id: 's2', supplementName: 'Iron', createdAt: '2026-03-15T09:00:00.000Z' });
+
+    mockSupplementsQueryGet.mockResolvedValueOnce({
+      docs: [{ data: () => supp1 }, { data: () => supp2 }],
+    });
+
+    const res = await request(buildApp())
+      .get('/nutrition/supplements?date=2026-03-15')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(2);
+    expect(res.body[0].id).toBe('s1');
+    expect(res.body[1].id).toBe('s2');
+
+    expect(mockSupplementsCollectionWhere).toHaveBeenCalledWith('uid', '==', TEST_UID);
+    expect(mockSupplementsQueryChain.where).toHaveBeenCalledWith('date', '==', '2026-03-15');
+    expect(mockSupplementsQueryChain.orderBy).toHaveBeenCalledWith('createdAt', 'asc');
+  });
+
+  it('returns empty array when no supplements on date', async () => {
+    mockSupplementsQueryGet.mockResolvedValueOnce({ docs: [] });
+
+    const res = await request(buildApp())
+      .get('/nutrition/supplements?date=2026-03-15')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
+  });
+
+  it('defaults to today when date is not provided', async () => {
+    mockSupplementsQueryGet.mockResolvedValueOnce({ docs: [] });
+
+    const today = new Date().toISOString().split('T')[0];
+
+    const res = await request(buildApp())
+      .get('/nutrition/supplements')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(mockSupplementsQueryChain.where).toHaveBeenCalledWith('date', '==', today);
+  });
+
+  it('returns 400 when date format is invalid', async () => {
+    const res = await request(buildApp())
+      .get('/nutrition/supplements?date=not-a-date')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ error: expect.stringContaining('YYYY-MM-DD') });
+  });
+});
+
+describe('DELETE /nutrition/supplements/:id', () => {
+  it('returns 401 without auth', async () => {
+    const res = await request(buildApp()).delete(`/nutrition/supplements/${SUPPLEMENT_ID}`);
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 when supplement does not exist', async () => {
+    mockSupplementsDocGet.mockResolvedValueOnce({ exists: false });
+
+    const res = await request(buildApp())
+      .delete(`/nutrition/supplements/${SUPPLEMENT_ID}`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(404);
+    expect(res.body).toMatchObject({ error: 'Supplement entry not found' });
+  });
+
+  it('returns 404 when supplement belongs to another user', async () => {
+    mockSupplementsDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => makeSupplement({ uid: OTHER_UID }),
+    });
+
+    const res = await request(buildApp())
+      .delete(`/nutrition/supplements/${SUPPLEMENT_ID}`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(404);
+    expect(res.body).toMatchObject({ error: 'Supplement entry not found' });
+  });
+
+  it('deletes supplement and returns 204', async () => {
+    mockSupplementsDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => makeSupplement(),
+    });
+    mockSupplementsDocDelete.mockResolvedValueOnce(undefined);
+
+    const res = await request(buildApp())
+      .delete(`/nutrition/supplements/${SUPPLEMENT_ID}`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(204);
+    expect(res.body).toEqual({});
+    expect(mockSupplementsDocDelete).toHaveBeenCalledOnce();
+  });
+
+  it('fires evaluateNutritionPoints after deletion', async () => {
+    mockSupplementsDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => makeSupplement({ date: '2026-03-15' }),
+    });
+    mockSupplementsDocDelete.mockResolvedValueOnce(undefined);
+
+    await request(buildApp())
+      .delete(`/nutrition/supplements/${SUPPLEMENT_ID}`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(mockEvaluateNutritionPoints).toHaveBeenCalledWith(TEST_UID, '2026-03-15');
+  });
+});
+
+// ── Goals tests ──────────────────────────────────────────────────
+
 describe('GET /nutrition/goals', () => {
   it('returns 401 without auth', async () => {
     mockVerifyIdToken.mockRejectedValueOnce(new Error('Unauthorized'));
@@ -1209,6 +1532,9 @@ describe('GET /nutrition/summary', () => {
     mockMealsCollectionWhere.mockReturnValue(mockMealsQueryChain);
     mockMealsQueryChain.where.mockReturnThis();
     mockMealsQueryChain.get.mockResolvedValueOnce({ docs: [] });
+    mockSupplementsCollectionWhere.mockReturnValue(mockSupplementsQueryChain);
+    mockSupplementsQueryChain.where.mockReturnThis();
+    mockSupplementsQueryChain.get.mockResolvedValueOnce({ docs: [] });
     mockPointsCollectionWhere.mockReturnValue(mockPointsQueryChain);
     mockPointsQueryChain.where.mockReturnThis();
     mockPointsQueryChain.get.mockResolvedValueOnce({ docs: [] });
@@ -1249,6 +1575,9 @@ describe('GET /nutrition/summary', () => {
         { data: () => meal2 },
       ],
     });
+    mockSupplementsCollectionWhere.mockReturnValue(mockSupplementsQueryChain);
+    mockSupplementsQueryChain.where.mockReturnThis();
+    mockSupplementsQueryChain.get.mockResolvedValueOnce({ docs: [] });
     mockPointsCollectionWhere.mockReturnValue(mockPointsQueryChain);
     mockPointsQueryChain.where.mockReturnThis();
     mockPointsQueryChain.get.mockResolvedValueOnce({ docs: [] });
@@ -1275,6 +1604,9 @@ describe('GET /nutrition/summary', () => {
     mockMealsCollectionWhere.mockReturnValue(mockMealsQueryChain);
     mockMealsQueryChain.where.mockReturnThis();
     mockMealsQueryChain.get.mockResolvedValueOnce({ docs: [] });
+    mockSupplementsCollectionWhere.mockReturnValue(mockSupplementsQueryChain);
+    mockSupplementsQueryChain.where.mockReturnThis();
+    mockSupplementsQueryChain.get.mockResolvedValueOnce({ docs: [] });
     mockPointsCollectionWhere.mockReturnValue(mockPointsQueryChain);
     mockPointsQueryChain.where.mockReturnThis();
     mockPointsQueryChain.get.mockResolvedValueOnce({
@@ -1293,6 +1625,9 @@ describe('GET /nutrition/summary', () => {
     mockMealsCollectionWhere.mockReturnValue(mockMealsQueryChain);
     mockMealsQueryChain.where.mockReturnThis();
     mockMealsQueryChain.get.mockResolvedValueOnce({ docs: [] });
+    mockSupplementsCollectionWhere.mockReturnValue(mockSupplementsQueryChain);
+    mockSupplementsQueryChain.where.mockReturnThis();
+    mockSupplementsQueryChain.get.mockResolvedValueOnce({ docs: [] });
     mockPointsCollectionWhere.mockReturnValue(mockPointsQueryChain);
     mockPointsQueryChain.where.mockReturnThis();
     mockPointsQueryChain.get.mockResolvedValueOnce({ docs: [] });
@@ -1308,6 +1643,47 @@ describe('GET /nutrition/summary', () => {
     expect(ids).toContain('vitaminD');
     expect(ids).toContain('calcium');
     expect(ids).toContain('omega3');
+  });
+
+  it('includes supplement nutrients in summary totals', async () => {
+    const meal1 = {
+      nutrients: [{ nutrientId: 'iron', amount: 5 }],
+    };
+    const supp1 = {
+      nutrients: [
+        { nutrientId: 'iron', amount: 10 },
+        { nutrientId: 'vitaminD', amount: 25 },
+      ],
+    };
+
+    mockMealsCollectionWhere.mockReturnValue(mockMealsQueryChain);
+    mockMealsQueryChain.where.mockReturnThis();
+    mockMealsQueryChain.get.mockResolvedValueOnce({
+      docs: [{ data: () => meal1 }],
+    });
+    mockSupplementsCollectionWhere.mockReturnValue(mockSupplementsQueryChain);
+    mockSupplementsQueryChain.where.mockReturnThis();
+    mockSupplementsQueryChain.get.mockResolvedValueOnce({
+      docs: [{ data: () => supp1 }],
+    });
+    mockPointsCollectionWhere.mockReturnValue(mockPointsQueryChain);
+    mockPointsQueryChain.where.mockReturnThis();
+    mockPointsQueryChain.get.mockResolvedValueOnce({ docs: [] });
+
+    const res = await request(buildApp())
+      .get('/nutrition/summary?date=2026-03-15')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    // iron: 5 (meal) + 10 (supplement) = 15
+    const ironNutrient = res.body.nutrients.find((n: any) => n.nutrientId === 'iron');
+    expect(ironNutrient.consumed).toBe(15);
+    expect(ironNutrient.percentComplete).toBe(83); // 15/18 * 100 = 83
+
+    // vitaminD: 0 (meal) + 25 (supplement) = 25
+    const vitDNutrient = res.body.nutrients.find((n: any) => n.nutrientId === 'vitaminD');
+    expect(vitDNutrient.consumed).toBe(25);
+    expect(vitDNutrient.percentComplete).toBe(125); // 25/20 * 100 = 125
   });
 });
 
