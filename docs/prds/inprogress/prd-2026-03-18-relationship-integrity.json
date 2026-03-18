@@ -1,0 +1,115 @@
+{
+  "project": "BurnBuddy",
+  "branchName": "ralph/relationship-integrity",
+  "description": "Relationship Integrity — Fix cross-directional race conditions in burn buddy and friend request flows, add atomic writes, cleanup migration script, diagnostics endpoint, and TLA+ spec updates",
+  "dependsOn": [],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Fix Cross-Directional Duplicate Check in Burn Buddy Requests",
+      "description": "As a user, I want the system to prevent duplicate burn buddy requests in both directions so that accepting one request doesn't leave an orphan pending request for the other user.",
+      "acceptanceCriteria": [
+        "When creating a burn buddy request from A→B, the handler also checks for an existing pending request from B→A",
+        "If a reverse pending request exists, the system auto-accepts it instead of creating a new one (since both users want to be burn buddies) — atomically update the reverse request to 'accepted' and create the burnBuddy document",
+        "The existing burn buddy request creation test file is updated to cover cross-directional scenarios (reverse pending exists → auto-accept, reverse pending does not exist → create normally)",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Fix Cross-Directional Duplicate Check in Friend Requests",
+      "description": "As a user, I want the system to prevent duplicate friend requests in both directions so that the same race condition cannot occur for friendships.",
+      "acceptanceCriteria": [
+        "When creating a friend request from A→B, the handler also checks for an existing pending request from B→A",
+        "If a reverse pending request exists, the system auto-accepts it instead of creating a new one (since both users want to be friends) — atomically update the reverse request to 'accepted' and create the friend document",
+        "The existing friend request creation test file is updated to cover cross-directional scenarios (reverse pending exists → auto-accept, reverse pending does not exist → create normally)",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Atomic Writes in Burn Buddy Accept Handler",
+      "description": "As a developer, I need the burn buddy accept handler to use Firestore batched writes so that request status update and burnBuddy document creation happen atomically.",
+      "acceptanceCriteria": [
+        "POST /burn-buddies/requests/:id/accept uses a Firestore batch (or transaction) to atomically: (1) update the request status to 'accepted', (2) create the burnBuddy document, (3) delete any other pending requests between the same pair",
+        "If the batch fails, no partial state is written",
+        "Existing accept tests still pass",
+        "Add a test verifying that reverse pending requests are cleaned up on accept",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Atomic Writes in Friend Request Accept Handler",
+      "description": "As a developer, I need the friend request accept handler to use Firestore batched writes so that request status update and friend document creation happen atomically.",
+      "acceptanceCriteria": [
+        "POST /friends/requests/:id/accept uses a Firestore batch (or transaction) to atomically: (1) update the request status to 'accepted', (2) create the friend document, (3) delete any other pending requests between the same pair",
+        "If the batch fails, no partial state is written",
+        "Existing accept tests still pass",
+        "Add a test verifying that reverse pending requests are cleaned up on accept",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "One-Time Relationship Cleanup Migration Script",
+      "description": "As an operator, I need a script that scans the production Firestore database, detects inconsistent relationship states, and auto-repairs them with logging.",
+      "acceptanceCriteria": [
+        "Script is located at scripts/repair-relationships.ts and can be run via npx tsx scripts/repair-relationships.ts",
+        "Script detects and repairs: (a) orphan pending burnBuddyRequests where a burnBuddy already exists for the pair, (b) orphan pending friendRequests where a friend document already exists for the pair, (c) burnBuddy documents that exist without a corresponding friend document, (d) pending requests where one or both UIDs don't have a user profile",
+        "For each repair action, the script logs what it found and what it did (e.g., 'Deleted orphan pending burnBuddyRequest {id} between {uid1} and {uid2} — burnBuddy already exists')",
+        "Script runs in dry-run mode by default (--dry-run), with --fix flag to actually apply changes",
+        "Script uses Firestore batched writes for repairs (max 500 ops per batch per Firestore limits)",
+        "Add a unit test that validates the detection logic against mock data",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Relationship Integrity Diagnostics Endpoint",
+      "description": "As an operator, I want a diagnostics endpoint that reports the health of relationship data so I can monitor for drift without running a full migration script.",
+      "acceptanceCriteria": [
+        "GET /diagnostics/relationships (behind requireAuth) returns a JSON report with counts of: orphan pending burn buddy requests, orphan pending friend requests, burn buddies without friendships, and total relationships scanned",
+        "Each issue category includes an array of affected document IDs (capped at 50 per category to avoid huge responses)",
+        "Endpoint returns within a reasonable time (handles large datasets by using efficient Firestore queries)",
+        "Add tests for the diagnostics endpoint using the existing mock pattern",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Update TLA+ Spec — Prove the Bug Then Fix It",
+      "description": "As a developer, I want the TLA+ burn buddy spec to first demonstrate that TLC catches the bug with a new invariant, and then update the actions so the model matches the fixed implementation.",
+      "acceptanceCriteria": [
+        "Add invariant NoPendingAfterBuddyEstablished: if a burnBuddy exists for {A,B}, no pending request exists between A and B in either direction",
+        "Update SendBuddyRequest to also guard against reverse pending requests — OR model the auto-accept behavior (if reverse pending exists, accept it instead of creating a new request)",
+        "Update AcceptBuddyRequest to also remove any reverse pending request (from=to, to=from, status=pending) from buddyRequests when accepting",
+        "Update or remove the comment at line 232-234 that says cross-directional pending requests 'can coexist' — this is no longer true",
+        "TLC model check passes with all invariants including NoPendingAfterBuddyEstablished",
+        "Comments reference the corresponding code changes in burn-buddies.ts and friends.ts",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
