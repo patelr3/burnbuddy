@@ -1,0 +1,114 @@
+# Ralph Progress Log — Async Cartoon Conversion & Larger Upload Support
+Started: 2026-03-18
+
+## Codebase Patterns
+- Sharp mock chain in tests needs all chained methods (rotate, resize, jpeg/webp, toBuffer) as vi.fn().mockReturnThis()
+- Blob paths use format `profile-pictures/${uid}/original.jpeg` and `profile-pictures/${uid}/avatar.jpeg`
+- Test file: `users-profile-picture.test.ts` — 23 tests covering upload, format validation, cartoon conversion, passthrough, 409 conflict
+- Build shared package before API typecheck: `cd packages/shared && yarn build`
+- Run API tests with: `cd services/api && npx vitest run <test-name>`
+- Use `FieldValue` from `firebase-admin/firestore` (not `admin.firestore.FieldValue`) — the import works in tests without mocking
+- Delete test file: `users-delete-profile-picture.test.ts` — 5 tests covering delete endpoint and 409 conflict
+- Use `vi.waitFor()` to assert fire-and-forget background task behavior in tests
+- Upload endpoint returns `{ profilePictureStatus: 'processing' }` — no profilePictureUrl in immediate response
+- When adding doc.get() to mocked Firestore, add `mockUsersDocGet` to BOTH the hoisted block AND the destructured const
+
+---
+
+## 2026-03-18T06:26 - US-001
+- Implemented: Update image format to JPEG and increase file size limit to 15 MB
+- Files changed:
+  - `services/api/src/routes/users.ts` — multer limit 5→15 MB, sharp .webp()→.jpeg({quality:90}), blob paths .webp→.jpeg, content types
+  - `services/api/src/routes/users-profile-picture.test.ts` — updated all webp refs to jpeg, 5 MB→15 MB test
+  - `apps/web/src/lib/api.ts` — error message 5→15 MB
+  - `apps/mobile/src/lib/api.ts` — error message 5→15 MB
+- **Learnings for future iterations:**
+  - The sed bulk replace of `image/webp` to `image/jpeg` also changed input file contentTypes in tests (e.g., WebP upload test). Be careful to preserve input format test data when changing output format.
+  - The sharp mock chain must include the new `.jpeg()` method alongside the old `.webp()` mock
+  - Delete endpoint also references blob paths (original.webp, avatar.webp) — don't forget those
+---
+
+## 2026-03-18T06:33 - US-002
+- Implemented: Add cartoon conversion status tracking (profilePictureStatus field)
+- Files changed:
+  - `packages/shared/src/types.ts` — Added `profilePictureStatus?: 'processing' | 'ready' | 'failed' | null` to `UserProfile`
+  - `services/api/src/routes/users.ts` — Upload handler sets 'processing' after original upload, 'ready' after cartoon completion; delete handler clears profilePictureStatus
+  - `services/api/src/routes/users-profile-picture.test.ts` — Updated Firestore assertions: now expects 2 update calls (processing + ready)
+  - `services/api/src/routes/users-delete-profile-picture.test.ts` — Removed `admin.firestore.FieldValue` mock, use real `FieldValue` import; fixed blob paths from .webp to .jpeg; verify profilePictureStatus deletion
+- **Learnings for future iterations:**
+  - `admin.firestore.FieldValue` from the mock doesn't work in profile picture tests — use `FieldValue` from `firebase-admin/firestore` import instead (already imported in users.ts)
+  - The delete test file had stale `.webp` blob paths from US-001 — always check sibling test files when changing formats
+  - When adding a Firestore write step, existing tests that count `mockUsersDocUpdate` calls need updating
+---
+
+## 2026-03-18T06:36 - US-003
+- Implemented: Update Replicate model parameters and add JPEG conversion
+- Files changed:
+  - `services/api/src/services/replicate-cartoon-service.ts` — Updated createPrediction() input params (strength 0.5, guidance_scale 6, negative_prompt '', num_inference_steps 20); added sharp JPEG conversion in downloadOutput()
+  - `services/api/src/services/cartoon-service.test.ts` — Updated parameter assertions, added sharp mock, verified JPEG conversion
+- **Learnings for future iterations:**
+  - The Replicate cartoon service downloads raw output that may be PNG — always convert to JPEG via sharp before returning
+  - Mock sharp with a chain pattern: `vi.fn(() => ({ jpeg: mockJpeg, toBuffer: mockToBuffer }))` where jpeg returns `this`
+  - Clear sharp mocks in beforeEach since the module-level mock persists across tests
+---
+
+## 2026-03-18T06:41 - US-004
+- Implemented: Make cartoon conversion async (fire-and-forget)
+- Files changed:
+  - `services/api/src/routes/users.ts` — POST handler now returns `{ profilePictureStatus: 'processing' }` immediately after uploading original; cartoon conversion runs as fire-and-forget IIFE; background task sets 'ready' on success, 'failed' on error
+  - `services/api/src/services/replicate-cartoon-service.ts` — TIMEOUT_MS increased from 60_000 to 180_000 (3 minutes)
+  - `services/api/src/routes/users-profile-picture.test.ts` — Updated all tests: response now has profilePictureStatus instead of profilePictureUrl; use `vi.waitFor()` to assert background task completion; cartoon failure tests expect 200 + background 'failed' update
+  - `services/api/src/services/cartoon-service.test.ts` — Updated timeout test from 60s to 180s
+- **Learnings for future iterations:**
+  - Use `vi.waitFor()` to assert async background task behavior in tests — it polls until the assertion passes
+  - Fire-and-forget pattern: `(async () => { ... })()` — no await, wrapped in try/catch for error handling
+  - Tests that verify background task Firestore updates need `vi.waitFor()` since the response returns before the background completes
+  - When making a handler async, all tests checking response body need updating (no more profilePictureUrl in response)
+---
+
+## 2026-03-18T06:43 - US-005
+- Implemented: Add profile picture status to GET /users/me response
+- Files changed:
+  - `services/api/src/routes/users.test.ts` — Added 4 new tests covering profilePictureStatus values: 'processing', 'ready', 'failed', and null
+- **Learnings for future iterations:**
+  - GET /users/me already returns `doc.data() as UserProfile` — no route handler changes needed since Firestore documents already include profilePictureStatus (added in US-002)
+  - Tests use spread of TEST_PROFILE with additional fields to test various status combinations
+  - The 'processing' and 'failed' states should not have profilePictureUrl, while 'ready' state includes the avatar URL
+---
+
+## 2026-03-18T06:47 - US-006
+- Implemented: Block upload/delete while cartoon conversion is processing
+- Files changed:
+  - `services/api/src/routes/users.ts` — Added Firestore doc.get() check at start of POST and DELETE profile-picture handlers; returns 409 if profilePictureStatus is 'processing'
+  - `services/api/src/routes/users-profile-picture.test.ts` — Added mockUsersDocGet to hoisted mocks; added 409 test for upload during processing
+  - `services/api/src/routes/users-delete-profile-picture.test.ts` — Added mockUsersDocGet to hoisted mocks; added 409 test for delete during processing
+- **Learnings for future iterations:**
+  - When adding a doc.get() call, both the hoisted mock definition AND the destructured const at the top must include the new mock variable
+  - The mockUsersDocRef needs both `update` and `get` methods in its implementation
+  - Default mockUsersDocGet should return `{ exists: true, data: () => ({}) }` to not block normal operations
+---
+
+## 2026-03-18T06:55 - US-007
+- Implemented: Frontend polling for cartoon completion
+- Files changed:
+  - `apps/web/src/lib/queries.ts` — Added optional `refetchInterval` parameter to `useAccount()` hook
+  - `apps/web/src/app/(main)/account/page.tsx` — Added polling logic with 5s interval, 3-minute timeout; removed optimistic URL preview; show blank avatar during processing; status-aware text messages; disabled upload button during processing
+- **Learnings for future iterations:**
+  - React state used by hooks (like `refetchInterval`) must be declared before the hook call to avoid block-scoped variable errors
+  - Use `useCallback` for `startPolling`/`stopPolling` to keep `useEffect` dependency arrays stable
+  - Auto-start polling on page load when status is 'processing' (handles user navigating away and back)
+  - `useEffect` watching `profilePictureStatus` + `isPollingCartoon` can serve as both auto-start and auto-stop — just be careful about re-render loops
+  - Browser testing requires Firebase Auth credentials — local verification limited without `.env.local`
+---
+
+## 2026-03-18T07:01 - US-008
+- Implemented: Frontend upload/delete button disabling and UX feedback
+- Files changed:
+  - `apps/web/src/app/(main)/account/page.tsx` — Added tooltip on upload/delete buttons when disabled during processing; delete button now shows as disabled (not hidden) during processing; processing overlay spinner on avatar; dedicated failure message "Cartoon conversion failed. Tap to retry."; processing text uses primary color; client-side file size validation (15 MB)
+- **Learnings for future iterations:**
+  - Use `title` attribute for native tooltip on disabled buttons
+  - Show disabled buttons (not hidden) with explanatory tooltip for better UX — users need to know the action exists but is temporarily unavailable
+  - Client-side file size validation prevents unnecessary network requests and gives instant feedback
+  - Use `text-primary` color for processing status messages to distinguish from error/neutral text
+  - When showing failure status, use a dedicated inline message rather than relying only on the `uploadError` state
+---

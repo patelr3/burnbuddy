@@ -10,14 +10,26 @@ vi.mock('../lib/logger', () => ({
   },
 }));
 
+const mockJpegBuffer = Buffer.from('fake-jpeg-output');
+const mockJpeg = vi.fn().mockReturnThis();
+const mockToBuffer = vi.fn().mockResolvedValue(mockJpegBuffer);
+
+vi.mock('sharp', () => ({
+  default: vi.fn(() => ({
+    jpeg: mockJpeg,
+    toBuffer: mockToBuffer,
+  })),
+}));
+
 const TEST_API_TOKEN = 'test-replicate-token';
 const TEST_PREDICTION_ID = 'pred-abc123';
 const TEST_OUTPUT_URL = 'https://replicate.delivery/output/test-image.webp';
 
 // Fake image URL
-const inputUrl = 'https://burnbuddybetasa.blob.core.windows.net/uploads/profile-pictures/user1/original.webp';
+const inputUrl = 'https://burnbuddybetasa.blob.core.windows.net/uploads/profile-pictures/user1/original.jpeg';
 const outputBuffer = Buffer.from('fake-cartoon-output');
 
+import sharpModule from 'sharp';
 import { ReplicateCartoonService } from './replicate-cartoon-service';
 
 describe('ReplicateCartoonService', () => {
@@ -28,6 +40,9 @@ describe('ReplicateCartoonService', () => {
     vi.useFakeTimers();
     fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
+    vi.mocked(sharpModule).mockClear();
+    mockJpeg.mockClear();
+    mockToBuffer.mockClear().mockResolvedValue(mockJpegBuffer);
     service = new ReplicateCartoonService(TEST_API_TOKEN);
   });
 
@@ -96,7 +111,7 @@ describe('ReplicateCartoonService', () => {
       const result = await service.cartoonize(inputUrl);
 
       expect(result).toBeInstanceOf(Buffer);
-      expect(Buffer.from(result).toString()).toBe(outputBuffer.toString());
+      expect(Buffer.from(result).toString()).toBe(mockJpegBuffer.toString());
 
       // Verify create prediction call
       expect(fetchMock).toHaveBeenCalledWith(
@@ -110,15 +125,22 @@ describe('ReplicateCartoonService', () => {
         }),
       );
 
-      // Verify the request body contains the image URL directly
+      // Verify the request body contains the updated Replicate parameters
       const createCall = fetchMock.mock.calls[0];
       const body = JSON.parse(createCall[1].body);
       expect(body.input.image).toBe(inputUrl);
-      expect(body.input.strength).toBe(0.7);
+      expect(body.input.strength).toBe(0.5);
+      expect(body.input.guidance_scale).toBe(6);
+      expect(body.input.negative_prompt).toBe('');
+      expect(body.input.num_inference_steps).toBe(20);
       expect(body.input.num_outputs).toBe(1);
       expect(body.version).toBe(
         '3f91ee385785d4eb3dd6c14d2c80dcfd82d2b607fde4bdd610092c8fee8d81bb',
       );
+
+      // Verify downloaded output is converted to JPEG via sharp
+      expect(sharpModule).toHaveBeenCalledWith(expect.any(Buffer));
+      expect(mockJpeg).toHaveBeenCalledWith({ quality: 90 });
 
       // Verify poll call
       expect(fetchMock).toHaveBeenCalledWith(
@@ -237,7 +259,7 @@ describe('ReplicateCartoonService', () => {
       ).rejects.toThrow('Replicate poll error (500): Internal server error');
     });
 
-    it('throws a timeout error after 60 seconds of polling', async () => {
+    it('throws a timeout error after 180 seconds of polling', async () => {
       // Create prediction
       fetchMock.mockResolvedValueOnce({
         ok: true,
@@ -256,11 +278,11 @@ describe('ReplicateCartoonService', () => {
 
       // Attach rejection handler BEFORE advancing timers to avoid unhandled rejection
       const assertionPromise = expect(cartoonizePromise).rejects.toThrow(
-        'Cartoon conversion timed out after 60 seconds',
+        'Cartoon conversion timed out after 180 seconds',
       );
 
-      // Advance past the 60-second timeout
-      await vi.advanceTimersByTimeAsync(61_000);
+      // Advance past the 180-second timeout
+      await vi.advanceTimersByTimeAsync(181_000);
 
       await assertionPromise;
     });

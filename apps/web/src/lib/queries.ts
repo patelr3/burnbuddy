@@ -234,11 +234,12 @@ export function useBurnSquad(id: string) {
   });
 }
 
-export function useAccount() {
+export function useAccount(options?: { refetchInterval?: number | false }) {
   return useQuery({
     queryKey: queryKeys.account,
     queryFn: () => apiGet<UserProfile>('/users/me'),
     staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchInterval: options?.refetchInterval,
   });
 }
 

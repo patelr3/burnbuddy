@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import { logger } from '../lib/logger';
 import type { CartoonService } from './cartoon-service';
 
@@ -14,7 +15,7 @@ export class PassthroughCartoonService implements CartoonService {
 const REPLICATE_API_BASE = 'https://api.replicate.com';
 const MODEL_VERSION =
   '3f91ee385785d4eb3dd6c14d2c80dcfd82d2b607fde4bdd610092c8fee8d81bb';
-const TIMEOUT_MS = 60_000;
+const TIMEOUT_MS = 180_000;
 const POLL_INTERVAL_MS = 1_000;
 
 interface ReplicatePrediction {
@@ -60,7 +61,10 @@ export class ReplicateCartoonService implements CartoonService {
         version: MODEL_VERSION,
         input: {
           image: imageUrl,
-          strength: 0.7,
+          strength: 0.5,
+          guidance_scale: 6,
+          negative_prompt: '',
+          num_inference_steps: 20,
           num_outputs: 1,
         },
       }),
@@ -131,7 +135,10 @@ export class ReplicateCartoonService implements CartoonService {
     }
 
     const arrayBuffer = await response.arrayBuffer();
-    return Buffer.from(arrayBuffer);
+    const rawBuffer = Buffer.from(arrayBuffer);
+
+    // Replicate may return PNG — convert to JPEG for consistent storage
+    return sharp(rawBuffer).jpeg({ quality: 90 }).toBuffer();
   }
 
   private sleep(ms: number): Promise<void> {

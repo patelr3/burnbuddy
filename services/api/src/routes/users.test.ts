@@ -255,6 +255,61 @@ describe('GET /users/me', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual(TEST_PROFILE);
   });
+
+  it('returns profilePictureStatus "processing" when cartoon conversion is in progress', async () => {
+    const profile = { ...TEST_PROFILE, profilePictureStatus: 'processing' };
+    mockGet.mockResolvedValueOnce({ exists: true, data: () => profile });
+
+    const res = await request(buildApp())
+      .get('/users/me')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.profilePictureStatus).toBe('processing');
+    expect(res.body.profilePictureUrl).toBeUndefined();
+  });
+
+  it('returns profilePictureStatus "ready" with profilePictureUrl when cartoon is complete', async () => {
+    const profile = {
+      ...TEST_PROFILE,
+      profilePictureStatus: 'ready',
+      profilePictureUrl: 'https://storage.example.com/profile-pictures/user-abc-123/avatar.jpeg',
+    };
+    mockGet.mockResolvedValueOnce({ exists: true, data: () => profile });
+
+    const res = await request(buildApp())
+      .get('/users/me')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.profilePictureStatus).toBe('ready');
+    expect(res.body.profilePictureUrl).toBe('https://storage.example.com/profile-pictures/user-abc-123/avatar.jpeg');
+  });
+
+  it('returns profilePictureStatus "failed" when cartoon conversion failed', async () => {
+    const profile = { ...TEST_PROFILE, profilePictureStatus: 'failed' };
+    mockGet.mockResolvedValueOnce({ exists: true, data: () => profile });
+
+    const res = await request(buildApp())
+      .get('/users/me')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.profilePictureStatus).toBe('failed');
+    expect(res.body.profilePictureUrl).toBeUndefined();
+  });
+
+  it('returns profilePictureStatus null when user has no profile picture', async () => {
+    const profile = { ...TEST_PROFILE, profilePictureStatus: null };
+    mockGet.mockResolvedValueOnce({ exists: true, data: () => profile });
+
+    const res = await request(buildApp())
+      .get('/users/me')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    expect(res.body.profilePictureStatus).toBeNull();
+  });
 });
 
 // ── PUT /users/me ──────────────────────────────────────────────────────────────

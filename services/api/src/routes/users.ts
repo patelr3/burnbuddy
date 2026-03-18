@@ -33,7 +33,7 @@ function createCartoonService() {
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  limits: { fileSize: 15 * 1024 * 1024 }, // 15 MB
 });
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
@@ -288,7 +288,7 @@ router.get('/me/points', requireAuth, cacheControl(30), async (req: Request, res
 
 /**
  * POST /users/me/profile-picture
- * Uploads a profile picture, resizes to 256×256, converts to WebP, stores it in
+ * Uploads a profile picture, resizes to 256×256, converts to JPEG, stores it in
  * Azure Blob Storage, and updates the user's Firestore document with the public URL.
  */
 router.post(
@@ -297,7 +297,7 @@ router.post(
   (req: Request, res: Response, next: NextFunction) => {
     upload.single('picture')(req, res, (err: unknown) => {
       if (err && err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
-        res.status(413).json({ error: 'File too large. Maximum size is 5 MB.' });
+        res.status(413).json({ error: 'File too large. Maximum size is 15 MB.' });
         return;
       }
       if (err) { next(err); return; }
@@ -311,6 +311,14 @@ router.post(
     }
 
     const uid = req.user!.uid;
+
+    // Block upload while cartoon conversion is in progress
+    const userDoc = await getDb().collection('users').doc(uid).get();
+    if (userDoc.exists && userDoc.data()?.profilePictureStatus === 'processing') {
+      res.status(409).json({ error: 'A cartoon conversion is already in progress. Please wait for it to finish.' });
+      return;
+    }
+
     const resolvedMimetype = resolveImageMimeType(req.file);
     logger.info(
       { uid, fileSize: req.file.size, mimetype: req.file.mimetype, resolvedMimetype, originalname: req.file.originalname },
@@ -333,7 +341,7 @@ router.post(
       optimizedBuffer = await sharp(req.file.buffer)
         .rotate()
         .resize(256, 256, { fit: 'cover' })
-        .webp()
+        .jpeg({ quality: 90 })
         .toBuffer();
     } catch (err) {
       logger.error({ err, uid, fileSize }, 'Image processing failed');
@@ -344,13 +352,13 @@ router.post(
     const containerClient = getContainerClient('uploads');
 
     // Upload original backup before cartoon conversion
-    const originalBlobPath = `profile-pictures/${uid}/original.webp`;
+    const originalBlobPath = `profile-pictures/${uid}/original.jpeg`;
     const originalBlobClient = containerClient.getBlockBlobClient(originalBlobPath);
 
     try {
       await originalBlobClient.upload(optimizedBuffer, optimizedBuffer.length, {
         blobHTTPHeaders: {
-          blobContentType: 'image/webp',
+          blobContentType: 'image/jpeg',
           blobCacheControl: 'public, max-age=86400',
         },
       });
@@ -360,47 +368,55 @@ router.post(
       return;
     }
 
-    // Convert to cartoon style using the publicly accessible blob URL
-    const originalBlobUrl = getBlobUrl(originalBlobPath);
-    let avatarBuffer: Buffer;
-    try {
-      const cartoonResult = await createCartoonService().cartoonize(originalBlobUrl);
-      if (cartoonResult === null) {
-        // Cartoon conversion skipped (no token) — use original as avatar
-        avatarBuffer = optimizedBuffer;
-      } else {
-        avatarBuffer = cartoonResult;
-      }
-    } catch (err) {
-      logger.error({ err, uid }, 'Cartoon conversion failed');
-      res.status(500).json({ error: 'Failed to create cartoon avatar. Please try again.' });
-      return;
-    }
-
-    // Upload avatar (cartoon version or original fallback)
-    const avatarBlobPath = `profile-pictures/${uid}/avatar.webp`;
-    const avatarBlobClient = containerClient.getBlockBlobClient(avatarBlobPath);
-
-    try {
-      await avatarBlobClient.upload(avatarBuffer, avatarBuffer.length, {
-        blobHTTPHeaders: {
-          blobContentType: 'image/webp',
-          blobCacheControl: 'public, max-age=86400',
-        },
-      });
-    } catch (err) {
-      logger.error({ err, uid }, 'Azure Blob Storage upload of cartoon avatar failed');
-      res.status(503).json({ error: 'Storage service unavailable. Please try again.' });
-      return;
-    }
-
-    const profilePictureUrl = `${getBlobUrl(avatarBlobPath)}?v=${Date.now()}`;
-
+    // Mark profile picture as processing and clear any existing URL
     const db = getDb();
-    await db.collection('users').doc(uid).update({ profilePictureUrl });
+    await db.collection('users').doc(uid).update({
+      profilePictureStatus: 'processing',
+      profilePictureUrl: FieldValue.delete(),
+    });
 
-    logger.info({ uid }, 'Profile picture upload completed');
-    res.json({ profilePictureUrl });
+    // Return immediately — cartoon conversion runs in the background
+    logger.info({ uid }, 'Profile picture uploaded, starting background cartoon conversion');
+    res.json({ profilePictureStatus: 'processing' });
+
+    // Fire-and-forget background cartoon conversion
+    (async () => {
+      try {
+        const originalBlobUrl = getBlobUrl(originalBlobPath);
+        let avatarBuffer: Buffer;
+
+        const cartoonResult = await createCartoonService().cartoonize(originalBlobUrl);
+        if (cartoonResult === null) {
+          // Cartoon conversion skipped (no token) — use original as avatar
+          avatarBuffer = optimizedBuffer;
+        } else {
+          avatarBuffer = cartoonResult;
+        }
+
+        // Upload avatar (cartoon version or original fallback)
+        const avatarBlobPath = `profile-pictures/${uid}/avatar.jpeg`;
+        const avatarBlobClient = containerClient.getBlockBlobClient(avatarBlobPath);
+
+        await avatarBlobClient.upload(avatarBuffer, avatarBuffer.length, {
+          blobHTTPHeaders: {
+            blobContentType: 'image/jpeg',
+            blobCacheControl: 'public, max-age=86400',
+          },
+        });
+
+        const profilePictureUrl = `${getBlobUrl(avatarBlobPath)}?v=${Date.now()}`;
+        await db.collection('users').doc(uid).update({ profilePictureUrl, profilePictureStatus: 'ready' });
+
+        logger.info({ uid }, 'Background cartoon conversion completed');
+      } catch (err) {
+        logger.error({ err, uid }, 'Background cartoon conversion failed');
+        try {
+          await db.collection('users').doc(uid).update({ profilePictureStatus: 'failed' });
+        } catch (updateErr) {
+          logger.error({ err: updateErr, uid }, 'Failed to update profilePictureStatus to failed');
+        }
+      }
+    })();
   },
 );
 
@@ -412,18 +428,26 @@ router.post(
 router.delete('/me/profile-picture', requireAuth, async (req: Request, res: Response): Promise<void> => {
   const uid = req.user!.uid;
 
+  // Block delete while cartoon conversion is in progress
+  const userDoc = await getDb().collection('users').doc(uid).get();
+  if (userDoc.exists && userDoc.data()?.profilePictureStatus === 'processing') {
+    res.status(409).json({ error: 'A cartoon conversion is already in progress. Please wait for it to finish.' });
+    return;
+  }
+
   const container = getContainerClient('uploads');
   await container
-    .getBlockBlobClient(`profile-pictures/${uid}/original.webp`)
+    .getBlockBlobClient(`profile-pictures/${uid}/original.jpeg`)
     .deleteIfExists();
   await container
-    .getBlockBlobClient(`profile-pictures/${uid}/avatar.webp`)
+    .getBlockBlobClient(`profile-pictures/${uid}/avatar.jpeg`)
     .deleteIfExists();
 
-  // Clear the profilePictureUrl field in Firestore
+  // Clear the profilePictureUrl and profilePictureStatus fields in Firestore
   const db = getDb();
   await db.collection('users').doc(uid).update({
-    profilePictureUrl: admin.firestore.FieldValue.delete(),
+    profilePictureUrl: FieldValue.delete(),
+    profilePictureStatus: FieldValue.delete(),
   });
 
   res.status(204).send();

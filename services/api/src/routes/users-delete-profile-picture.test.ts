@@ -7,17 +7,19 @@ import request from 'supertest';
 const {
   mockVerifyIdToken,
   mockUsersDocUpdate,
+  mockUsersDocGet,
   mockUsersDocRef,
   mockDeleteIfExists,
   mockGetBlockBlobClient,
   mockGetContainerClient,
-  mockFieldValueDelete,
 } = vi.hoisted(() => {
   const mockVerifyIdToken = vi.fn();
 
   const mockUsersDocUpdate = vi.fn();
+  const mockUsersDocGet = vi.fn();
   const mockUsersDocRef = vi.fn(() => ({
     update: mockUsersDocUpdate,
+    get: mockUsersDocGet,
   }));
 
   const mockDeleteIfExists = vi.fn();
@@ -28,27 +30,20 @@ const {
     getBlockBlobClient: mockGetBlockBlobClient,
   }));
 
-  const mockFieldValueDelete = vi.fn(() => '__FIELD_DELETE_SENTINEL__');
-
   return {
     mockVerifyIdToken,
     mockUsersDocUpdate,
+    mockUsersDocGet,
     mockUsersDocRef,
     mockDeleteIfExists,
     mockGetBlockBlobClient,
     mockGetContainerClient,
-    mockFieldValueDelete,
   };
 });
 
 vi.mock('../lib/firebase', () => ({
   admin: {
     auth: () => ({ verifyIdToken: mockVerifyIdToken }),
-    firestore: {
-      FieldValue: {
-        delete: mockFieldValueDelete,
-      },
-    },
   },
   initFirebase: vi.fn(),
 }));
@@ -88,6 +83,7 @@ vi.mock('../services/replicate-cartoon-service', () => ({
 }));
 
 import usersRouter from './users';
+import { FieldValue } from 'firebase-admin/firestore';
 
 function buildApp() {
   const app = express();
@@ -108,9 +104,11 @@ beforeEach(() => {
   mockVerifyIdToken.mockResolvedValue({ uid: TEST_UID });
   mockDeleteIfExists.mockResolvedValue(undefined);
   mockUsersDocUpdate.mockResolvedValue(undefined);
+  mockUsersDocGet.mockResolvedValue({ exists: true, data: () => ({}) });
 
   mockUsersDocRef.mockImplementation(() => ({
     update: mockUsersDocUpdate,
+    get: mockUsersDocGet,
   }));
   mockGetBlockBlobClient.mockImplementation(() => ({
     deleteIfExists: mockDeleteIfExists,
@@ -136,17 +134,17 @@ describe('DELETE /users/me/profile-picture', () => {
     expect(res.status).toBe(204);
     expect(res.body).toEqual({});
 
-    // Verify both blobs deleted: original.webp and avatar.webp
-    expect(mockGetBlockBlobClient).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/original.webp`);
-    expect(mockGetBlockBlobClient).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/avatar.webp`);
+    // Verify both blobs deleted: original.jpeg and avatar.jpeg
+    expect(mockGetBlockBlobClient).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/original.jpeg`);
+    expect(mockGetBlockBlobClient).toHaveBeenCalledWith(`profile-pictures/${TEST_UID}/avatar.jpeg`);
     expect(mockDeleteIfExists).toHaveBeenCalledTimes(2);
 
-    // Verify Firestore field was deleted
+    // Verify Firestore fields were deleted
     expect(mockUsersDocRef).toHaveBeenCalledWith(TEST_UID);
     expect(mockUsersDocUpdate).toHaveBeenCalledWith({
-      profilePictureUrl: '__FIELD_DELETE_SENTINEL__',
+      profilePictureUrl: FieldValue.delete(),
+      profilePictureStatus: FieldValue.delete(),
     });
-    expect(mockFieldValueDelete).toHaveBeenCalled();
   });
 
   it('returns 204 even if no picture existed (deleteIfExists is idempotent)', async () => {
@@ -159,10 +157,29 @@ describe('DELETE /users/me/profile-picture', () => {
 
     expect(res.status).toBe(204);
 
-    // Should still update Firestore to clear the field
+    // Should still update Firestore to clear the fields
     expect(mockUsersDocUpdate).toHaveBeenCalledWith({
-      profilePictureUrl: '__FIELD_DELETE_SENTINEL__',
+      profilePictureUrl: FieldValue.delete(),
+      profilePictureStatus: FieldValue.delete(),
     });
+  });
+
+  it('returns 409 when cartoon conversion is already processing', async () => {
+    mockUsersDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ profilePictureStatus: 'processing' }),
+    });
+
+    const res = await request(buildApp())
+      .delete('/users/me/profile-picture')
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/already in progress/i);
+
+    // Should not have attempted blob deletion or Firestore update
+    expect(mockDeleteIfExists).not.toHaveBeenCalled();
+    expect(mockUsersDocUpdate).not.toHaveBeenCalled();
   });
 
   it('propagates storage errors', async () => {
