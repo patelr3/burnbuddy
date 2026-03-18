@@ -1,3 +1,33 @@
 # Ralph Progress Log — Relationship Integrity
 Started: 2026-03-18
+
+## Codebase Patterns
+- Firestore mock uses `vi.hoisted` + `vi.mock` pattern; query chains need `mockReturnThis()` re-applied in `beforeEach` after `resetAllMocks()`
+- `mockBBRequestQueryGet` is shared across all `burnBuddyRequests.where()` queries; use `mockResolvedValueOnce()` in sequence for multiple queries (e.g., A→B then B→A)
+- Batch mocks (`mockBatch`, `mockBatchSet`, `mockBatchUpdate`, `mockBatchCommit`) added to vi.hoisted for atomic write tests
+- Sorted composite key pattern: `[uid1, uid2].sort().join('_')` used for both `friends` and `burnBuddies` collections
+- Build shared package (`cd packages/shared && yarn build`) before API typecheck
+
+---
+
+## 2026-03-18T06:28 - US-001
+- Implemented cross-directional duplicate check in burn buddy request creation
+- When A→B request is created, also checks for pending B→A request
+- If reverse pending exists, auto-accepts it atomically using Firestore batch write
+- Files changed: `services/api/src/routes/burn-buddies.ts`, `services/api/src/routes/burn-buddies.test.ts`
+- **Learnings for future iterations:**
+  - The `where: () => mockBBRequestQueryChain` mock returns the same chain for ALL where queries on a collection; distinguish between sequential calls using `mockResolvedValueOnce()`
+  - When adding batch mocks, must add to 3 places: vi.hoisted definition, destructuring at top, and `beforeEach` re-setup
+  - The G-4 gap test also creates burn buddy requests and needed the reverse query mock added
+---
+
+## 2026-03-18T06:31 - US-002
+- Implemented cross-directional duplicate check in friend request creation
+- When A→B friend request is created, also checks for pending B→A request
+- If reverse pending exists, auto-accepts it atomically using Firestore batch write (updates reverse request to 'accepted' + creates friend document)
+- Files changed: `services/api/src/routes/friends.ts`, `services/api/src/routes/friends.test.ts`
+- **Learnings for future iterations:**
+  - Same `mockFrRequestQueryGet` mock is shared for ALL friendRequests.where() queries; use `mockResolvedValueOnce()` in sequence for A→B then B→A checks
+  - Added `mockBatchSet` and `mockBatchUpdate` to existing batch mock setup in friends.test.ts (was only `delete` + `commit` before, used for cascade deletes)
+  - Existing "creates a new friend request" test and G-4 test both needed a second `mockResolvedValueOnce({ empty: true })` for the new reverse query
 ---

@@ -37,6 +37,8 @@ const {
   mockBBRequestQueryChain,
   // Firestore batch operations
   mockBatchDelete,
+  mockBatchSet,
+  mockBatchUpdate,
   mockBatchCommit,
   mockBatch,
 } = vi.hoisted(() => {
@@ -107,9 +109,13 @@ const {
 
   // Firestore batch operations
   const mockBatchDelete = vi.fn();
+  const mockBatchSet = vi.fn();
+  const mockBatchUpdate = vi.fn();
   const mockBatchCommit = vi.fn();
   const mockBatch = vi.fn(() => ({
     delete: mockBatchDelete,
+    set: mockBatchSet,
+    update: mockBatchUpdate,
     commit: mockBatchCommit,
   }));
 
@@ -137,6 +143,8 @@ const {
     mockBBRequestQueryGet,
     mockBBRequestQueryChain,
     mockBatchDelete,
+    mockBatchSet,
+    mockBatchUpdate,
     mockBatchCommit,
     mockBatch,
   };
@@ -223,6 +231,8 @@ beforeEach(() => {
   mockBBRequestQueryChain.where.mockReturnThis();
   mockBatch.mockImplementation(() => ({
     delete: mockBatchDelete,
+    set: mockBatchSet,
+    update: mockBatchUpdate,
     commit: mockBatchCommit,
   }));
   mockBatchCommit.mockResolvedValue(undefined);
@@ -313,7 +323,8 @@ describe('POST /friends/requests', () => {
   });
 
   it('creates and returns a new friend request with 201', async () => {
-    mockFrRequestQueryGet.mockResolvedValueOnce({ empty: true });
+    mockFrRequestQueryGet.mockResolvedValueOnce({ empty: true }); // A→B: no pending
+    mockFrRequestQueryGet.mockResolvedValueOnce({ empty: true }); // B→A: no pending
     mockFrRequestDocSet.mockResolvedValueOnce(undefined);
 
     const res = await request(buildApp())
@@ -330,6 +341,44 @@ describe('POST /friends/requests', () => {
     expect(res.body.id).toBeDefined();
     expect(res.body.createdAt).toBeDefined();
     expect(mockFrRequestDocSet).toHaveBeenCalledOnce();
+  });
+
+  it('auto-accepts when a reverse pending request exists (B→A)', async () => {
+    const reverseRequestId = 'reverse-fr-001';
+    mockFrRequestQueryGet.mockResolvedValueOnce({ empty: true }); // A→B: no pending
+    mockFrRequestQueryGet.mockResolvedValueOnce({                 // B→A: pending exists
+      empty: false,
+      docs: [{
+        data: () => ({
+          id: reverseRequestId,
+          fromUid: OTHER_UID,
+          toUid: TEST_UID,
+          status: 'pending',
+          createdAt: '2026-01-01T00:00:00.000Z',
+        }),
+      }],
+    });
+
+    const res = await request(buildApp())
+      .post('/friends/requests')
+      .set('Authorization', VALID_TOKEN)
+      .send({ toUid: OTHER_UID });
+
+    expect(res.status).toBe(200);
+    expect(res.body.autoAccepted).toBe(true);
+    expect(res.body.friendRequestId).toBe(reverseRequestId);
+    expect(res.body.friendship).toBeDefined();
+    // Sorted composite key: TEST_UID < OTHER_UID → uid1=TEST_UID, uid2=OTHER_UID
+    const [expectedUid1, expectedUid2] = [TEST_UID, OTHER_UID].sort();
+    expect(res.body.friendship.uid1).toBe(expectedUid1);
+    expect(res.body.friendship.uid2).toBe(expectedUid2);
+    // Verify atomic batch was used
+    expect(mockBatch).toHaveBeenCalledOnce();
+    expect(mockBatchUpdate).toHaveBeenCalledOnce();
+    expect(mockBatchSet).toHaveBeenCalledOnce();
+    expect(mockBatchCommit).toHaveBeenCalledOnce();
+    // Should NOT create a new request
+    expect(mockFrRequestDocSet).not.toHaveBeenCalled();
   });
 });
 
@@ -724,7 +773,8 @@ describe('TLA+ Gap G-4: ProfileRequiredForSocialActions — friend requests', ()
     // Profile exists (default from beforeEach applies — override with explicit mock)
     mockUsersDocGet.mockResolvedValueOnce({ exists: true, data: () => ({ uid: TEST_UID, displayName: 'Test User' }) });
     // No pending request exists
-    mockFrRequestQueryGet.mockResolvedValueOnce({ empty: true });
+    mockFrRequestQueryGet.mockResolvedValueOnce({ empty: true }); // A→B
+    mockFrRequestQueryGet.mockResolvedValueOnce({ empty: true }); // B→A reverse check
     // Request creation succeeds
     mockFrRequestDocSet.mockResolvedValueOnce(undefined);
 
