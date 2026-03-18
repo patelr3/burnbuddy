@@ -158,7 +158,13 @@ router.post(
       return;
     }
 
-    await db.collection('burnBuddyRequests').doc(id).update({ status: 'accepted' });
+    // Find any other pending requests between the same pair (reverse direction)
+    const otherPending = await db
+      .collection('burnBuddyRequests')
+      .where('fromUid', '==', uid)
+      .where('toUid', '==', burnBuddyRequest.fromUid)
+      .where('status', '==', 'pending')
+      .get();
 
     const burnBuddy: BurnBuddy = {
       id: burnBuddyId,
@@ -167,7 +173,14 @@ router.post(
       createdAt: new Date().toISOString(),
     };
 
-    await db.collection('burnBuddies').doc(burnBuddyId).set(burnBuddy);
+    // Atomic batch: update request status, create burnBuddy, delete reverse pending requests
+    const batch = db.batch();
+    batch.update(db.collection('burnBuddyRequests').doc(id), { status: 'accepted' });
+    batch.set(db.collection('burnBuddies').doc(burnBuddyId), burnBuddy);
+    for (const doc of otherPending.docs) {
+      batch.delete(db.collection('burnBuddyRequests').doc(doc.id));
+    }
+    await batch.commit();
 
     res.json({ success: true, burnBuddyRequestId: id, burnBuddy });
   },

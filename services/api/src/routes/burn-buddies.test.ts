@@ -449,15 +449,15 @@ describe('POST /burn-buddies/requests/:id/accept', () => {
     expect(res.status).toBe(409);
   });
 
-  it('accepts the request and creates a BurnBuddy document', async () => {
+  it('accepts the request and creates a BurnBuddy document atomically via batch', async () => {
     mockBBRequestDocGet.mockResolvedValueOnce({
       exists: true,
       data: () => ({ id: REQUEST_ID, fromUid: OTHER_UID, toUid: TEST_UID, status: 'pending', createdAt: '' }),
     });
     // Existing BurnBuddy check — none exists
     mockBBDocGet.mockResolvedValueOnce({ exists: false });
-    mockBBRequestDocUpdate.mockResolvedValueOnce(undefined);
-    mockBBDocSet.mockResolvedValueOnce(undefined);
+    // No reverse pending requests
+    mockBBRequestQueryGet.mockResolvedValueOnce({ empty: true, docs: [] });
 
     const res = await request(buildApp())
       .post(`/burn-buddies/requests/${REQUEST_ID}/accept`)
@@ -466,8 +466,41 @@ describe('POST /burn-buddies/requests/:id/accept', () => {
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ success: true, burnBuddyRequestId: REQUEST_ID });
     expect(res.body.burnBuddy).toMatchObject({ uid1: expect.any(String), uid2: expect.any(String) });
-    expect(mockBBRequestDocUpdate).toHaveBeenCalledWith({ status: 'accepted' });
-    expect(mockBBDocSet).toHaveBeenCalledOnce();
+    // Verify batch was used for atomic writes
+    expect(mockBatch).toHaveBeenCalledOnce();
+    expect(mockBatchUpdate).toHaveBeenCalledWith(expect.anything(), { status: 'accepted' });
+    expect(mockBatchSet).toHaveBeenCalledOnce();
+    expect(mockBatchCommit).toHaveBeenCalledOnce();
+    // Non-batch direct calls should NOT have been used
+    expect(mockBBRequestDocUpdate).not.toHaveBeenCalled();
+    expect(mockBBDocSet).not.toHaveBeenCalled();
+  });
+
+  it('cleans up reverse pending requests on accept', async () => {
+    const REVERSE_REQUEST_ID = 'bbr-reverse-001';
+    mockBBRequestDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ id: REQUEST_ID, fromUid: OTHER_UID, toUid: TEST_UID, status: 'pending', createdAt: '' }),
+    });
+    // Existing BurnBuddy check — none exists
+    mockBBDocGet.mockResolvedValueOnce({ exists: false });
+    // Reverse pending request exists (TEST_UID → OTHER_UID)
+    mockBBRequestQueryGet.mockResolvedValueOnce({
+      empty: false,
+      docs: [{ id: REVERSE_REQUEST_ID, data: () => ({ id: REVERSE_REQUEST_ID, fromUid: TEST_UID, toUid: OTHER_UID, status: 'pending', createdAt: '' }) }],
+    });
+
+    const res = await request(buildApp())
+      .post(`/burn-buddies/requests/${REQUEST_ID}/accept`)
+      .set('Authorization', VALID_TOKEN);
+
+    expect(res.status).toBe(200);
+    // Verify batch includes: update accepted, set burnBuddy, delete reverse request
+    expect(mockBatch).toHaveBeenCalledOnce();
+    expect(mockBatchUpdate).toHaveBeenCalledWith(expect.anything(), { status: 'accepted' });
+    expect(mockBatchSet).toHaveBeenCalledOnce();
+    expect(mockBatchDelete).toHaveBeenCalledOnce();
+    expect(mockBatchCommit).toHaveBeenCalledOnce();
   });
 });
 
@@ -1255,8 +1288,8 @@ describe('TLA+ Gap G-1: AtMostOneBuddyPerPair — sorted composite key on accept
     });
     // Existing BurnBuddy check — none exists
     mockBBDocGet.mockResolvedValueOnce({ exists: false });
-    mockBBRequestDocUpdate.mockResolvedValueOnce(undefined);
-    mockBBDocSet.mockResolvedValueOnce(undefined);
+    // No reverse pending requests
+    mockBBRequestQueryGet.mockResolvedValueOnce({ empty: true, docs: [] });
 
     const res = await request(buildApp())
       .post(`/burn-buddies/requests/${REQUEST_ID}/accept`)
@@ -1266,12 +1299,12 @@ describe('TLA+ Gap G-1: AtMostOneBuddyPerPair — sorted composite key on accept
 
     // Verify the doc ID used IS the sorted composite key
     const sortedCompositeKey = [TEST_UID, OTHER_UID].sort().join('_');
-    // First call to mockBBDocRef is the existence check, second is the set
+    // First call to mockBBDocRef is the existence check, second is inside batch.set
     const docIdUsed = (mockBBDocRef.mock.calls as unknown as string[][])[0]?.[0];
     expect(docIdUsed).toBe(sortedCompositeKey);
 
-    // Verify the BurnBuddy.id field also uses the sorted composite key
-    const setArg = mockBBDocSet.mock.calls[0]?.[0] as { id: string };
+    // Verify the BurnBuddy.id field also uses the sorted composite key (from batch set)
+    const setArg = mockBatchSet.mock.calls[0]?.[1] as { id: string };
     expect(setArg.id).toBe(sortedCompositeKey);
   });
 
