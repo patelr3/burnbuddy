@@ -1,0 +1,145 @@
+{
+  "project": "BurnBuddy",
+  "branchName": "ralph/async-cartoon-conversion",
+  "description": "Async Cartoon Conversion & Larger Upload Support - Make cartoon conversion asynchronous, increase upload limit to 15 MB, use JPEG format, and tune Replicate parameters",
+  "dependsOn": [],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Update image format to JPEG and increase file size limit to 15 MB",
+      "description": "As a user, I want to upload high-resolution photos from my phone (including HEIC from iPhone) without hitting a file size error, and have my profile pictures stored as JPEG.",
+      "acceptanceCriteria": [
+        "Multer file size limit in services/api/src/routes/users.ts increased from 5 MB to 15 MB",
+        "Sharp pipeline changed from .webp() to .jpeg({ quality: 90 }) for the optimized original — converts all input formats (JPEG, PNG, WebP, HEIC, HEIF) to JPEG",
+        "Blob paths changed from .webp to .jpeg (original.jpeg, avatar.jpeg)",
+        "Blob blobContentType headers changed from image/webp to image/jpeg",
+        "The JPEG original blob URL is what gets sent to Replicate — Replicate always receives a .jpeg URL",
+        "Frontend error message in apps/web/src/lib/api.ts updated from 'Maximum size is 5 MB' to 'Maximum size is 15 MB'",
+        "API 413 response message updated to reflect 15 MB limit",
+        "Mobile app upload limit updated if applicable (check apps/mobile/)",
+        "Typecheck passes",
+        "Existing unit tests updated and passing (cd services/api && yarn test -- users-profile-picture)"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Add cartoon conversion status tracking",
+      "description": "As the system, I need to track the status of cartoon conversions so the frontend can poll for completion.",
+      "acceptanceCriteria": [
+        "Add a profilePictureStatus field to the user's Firestore document with values: 'processing' | 'ready' | 'failed' | null (no picture)",
+        "Add the profilePictureStatus field to the UserProfile type in packages/shared/src/types.ts",
+        "When a profile picture upload begins, set profilePictureStatus to 'processing' and clear profilePictureUrl",
+        "When cartoon conversion completes, set profilePictureStatus to 'ready' and set profilePictureUrl to the cartoon avatar URL",
+        "When profile picture is deleted, set profilePictureStatus to null and clear profilePictureUrl",
+        "Typecheck passes",
+        "Build shared package successfully (cd packages/shared && yarn build)"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Update Replicate model parameters",
+      "description": "As the system, I need to use tuned Replicate model parameters for better cartoon quality.",
+      "acceptanceCriteria": [
+        "Update ReplicateCartoonService.createPrediction() in services/api/src/services/replicate-cartoon-service.ts to use input parameters: image, strength: 0.5, guidance_scale: 6, negative_prompt: '', num_inference_steps: 20, num_outputs: 1",
+        "Previous parameters (strength: 0.7, no guidance_scale/negative_prompt/num_inference_steps) are replaced",
+        "Cartoon service downloads the Replicate output and converts to JPEG via sharp before uploading to blob storage (Replicate may return PNG)",
+        "Unit tests updated to verify new parameters are sent (cd services/api && yarn test -- cartoon-service)",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Make cartoon conversion async (fire-and-forget)",
+      "description": "As a user, I want my profile picture upload to complete quickly so I don't have to wait for cartoon conversion.",
+      "acceptanceCriteria": [
+        "Upload endpoint (POST /users/me/profile-picture) returns immediately after uploading the original image to Azure Blob Storage and setting profilePictureStatus to 'processing'",
+        "Cartoon conversion runs as a fire-and-forget background task (not awaited in the request handler)",
+        "Background task: calls Replicate, downloads result, uploads cartoon avatar to blob storage, updates Firestore with profilePictureUrl and profilePictureStatus: 'ready'",
+        "If cartoon conversion fails, log the error and set profilePictureStatus to 'failed' (so the user can retry)",
+        "Replicate timeout increased from 60 seconds to 180 seconds (3 minutes)",
+        "Upload endpoint response includes { profilePictureStatus: 'processing' } (no profilePictureUrl yet)",
+        "Typecheck passes",
+        "Unit tests updated to verify async behavior (cd services/api && yarn test -- users-profile-picture)"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Add profile picture status to GET /users/me response",
+      "description": "As the frontend, I need the GET /users/me endpoint to return profilePictureStatus so I can poll for completion.",
+      "acceptanceCriteria": [
+        "GET /users/me already returns profilePictureUrl and now also returns profilePictureStatus",
+        "Response includes profilePictureStatus with values: 'processing' | 'ready' | 'failed' | null",
+        "Typecheck passes",
+        "Unit tests cover all status values"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Block upload/delete while cartoon conversion is processing",
+      "description": "As the system, I need to prevent the user from uploading a new picture or deleting their picture while cartoon conversion is in progress, to avoid race conditions.",
+      "acceptanceCriteria": [
+        "API: POST /users/me/profile-picture returns 409 Conflict if profilePictureStatus is 'processing'",
+        "API: DELETE /users/me/profile-picture returns 409 Conflict if profilePictureStatus is 'processing'",
+        "Typecheck passes",
+        "Unit tests cover 409 responses for both endpoints (cd services/api && yarn test -- users-profile-picture)"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Frontend polling for cartoon completion",
+      "description": "As a user, I want my cartoon avatar to appear automatically when it's ready, without refreshing the page.",
+      "acceptanceCriteria": [
+        "After a successful upload, the frontend polls GET /users/me every 5 seconds",
+        "Polling stops when profilePictureStatus is 'ready' or 'failed'",
+        "When profilePictureStatus is 'processing', show the default blank avatar (no profile picture)",
+        "When profilePictureStatus becomes 'ready', update the displayed avatar with profilePictureUrl",
+        "When profilePictureStatus is 'failed', show an error message indicating the user can retry",
+        "Polling has a maximum duration (e.g., 3 minutes) after which it stops and shows a 'try again' message",
+        "Upload mutation no longer sets an optimistic profilePictureUrl preview (since the original is not displayed)",
+        "Frontend timeout in apiUploadFile can remain at 60 seconds (upload is fast now without cartoon step)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Frontend upload/delete button disabling and UX feedback",
+      "description": "As a user, I want to see clear status messages during the upload and conversion process, and understand when I cannot upload/delete.",
+      "acceptanceCriteria": [
+        "Upload and delete buttons are disabled when profilePictureStatus is 'processing'",
+        "Show tooltip or message explaining why buttons are disabled (e.g., 'Please wait for cartoon conversion to finish')",
+        "During upload: show 'Uploading...' spinner on the avatar area",
+        "After upload returns (processing): show 'Creating your cartoon avatar...' text near the avatar",
+        "When cartoon is ready: show the cartoon avatar, remove processing text",
+        "When cartoon fails: show 'Cartoon conversion failed. Tap to retry.' message",
+        "File size validation message updated to 'Maximum size is 15 MB'",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
