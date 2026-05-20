@@ -72,6 +72,8 @@ jobs:
             --build-arg NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }} \
             -t ${{ env.ACR_LOGIN_SERVER }}/burnbuddy/web:${{ steps.vars.outputs.TAG }} \
             .
+          # Refresh ACR token in case it expired during the build
+          az acr login --name ${{ env.ACR_NAME }}
           docker push ${{ env.ACR_LOGIN_SERVER }}/burnbuddy/web:${{ steps.vars.outputs.TAG }}
 
       - name: Deploy web to Container App

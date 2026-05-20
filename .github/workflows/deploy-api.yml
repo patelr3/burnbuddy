@@ -58,6 +58,8 @@ jobs:
             -f services/api/Dockerfile \
             -t ${{ env.ACR_LOGIN_SERVER }}/burnbuddy/api:${{ steps.vars.outputs.TAG }} \
             .
+          # Refresh ACR token in case it expired during the build
+          az acr login --name ${{ env.ACR_NAME }}
           docker push ${{ env.ACR_LOGIN_SERVER }}/burnbuddy/api:${{ steps.vars.outputs.TAG }}
 
       - name: Configure container app secrets
