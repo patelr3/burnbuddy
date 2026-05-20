@@ -13,3 +13,13 @@ infra/**/*.json
 *.log
 specs/tla/*/states/
 specs/tla/tla2tools.jar
+
+# Gas Town (added by gt)
+.runtime/
+.claude/
+.logs/
+.beads/
+.copilot/
+.github/hooks/
+__pycache__/
+state.json
