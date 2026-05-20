@@ -1,6 +1,6 @@
 /*
   buddyburn Azure Container Apps infrastructure
-  Deploys to an existing resource group (buddyburn-beta or buddyburn-prod).
+  Deploys to the buddyburn-prod resource group.
   The resource group must exist before running this template.
   Key Vault must already exist — this template references it, not creates it.
 
@@ -22,7 +22,7 @@
 */
 
 @description('Environment name — used as a prefix for all resource names.')
-@allowed(['beta', 'prod'])
+@allowed(['prod'])
 param environment string
 
 @description('Azure region for all resources.')
